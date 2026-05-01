@@ -10,7 +10,7 @@ import sqlite3
 import threading
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import Flask, request, jsonify, render_template, session, g, send_from_directory
+from flask import Flask, request, jsonify, render_template, session, g, send_from_directory, redirect, url_for
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 from werkzeug.security import generate_password_hash, check_password_hash
