@@ -743,7 +743,8 @@
                 const response = await fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ username, password }),
+                    credentials: 'include'
                 });
                 
                 const data = await response.json();
@@ -768,18 +769,16 @@
         });
         
         function logout() {
-            fetch('/api/logout', { method: 'POST' })
+            fetch('/api/logout', { method: 'POST', credentials: 'include' })
                 .then(() => {
-                    document.getElementById('login-screen').style.display = 'flex';
-                    document.getElementById('app-content').style.display = 'none';
-                    showToast('Logged Out', 'You have been logged out successfully', 'info');
+                    window.location.href = '/login';
                 });
         }
         
         // Dashboard functions
         async function loadDashboardStats() {
             try {
-                const response = await fetch('/api/dashboard/stats');
+                const response = await fetch('/api/dashboard/stats', { credentials: 'include' });
                 const data = await response.json();
                 
                 if (data.success) {
@@ -852,7 +851,8 @@
                 const response = await fetch('/api/send', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ platform, recipient_id: recipient, message, display_name: displayName })
+                    body: JSON.stringify({ platform, recipient_id: recipient, message, display_name: displayName }),
+                    credentials: 'include'
                 });
                 
                 const result = await response.json();
@@ -886,7 +886,8 @@
                     const response = await fetch('/api/recipient-count', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ platform, audience_filter: audience, tags })
+                        body: JSON.stringify({ platform, audience_filter: audience, tags }),
+                        credentials: 'include'
                     });
                     
                     const data = await response.json();
@@ -949,7 +950,8 @@
                         tags: tags,
                         message: message,
                         rate_limit: rateLimit
-                    })
+                    }),
+                    credentials: 'include'
                 });
                 
                 const result = await response.json();
@@ -972,7 +974,7 @@
         
         async function loadBroadcasts() {
             try {
-                const response = await fetch('/api/broadcasts');
+                const response = await fetch('/api/broadcasts', { credentials: 'include' });
                 const data = await response.json();
                 
                 if (data.success && data.broadcasts.length > 0) {
@@ -1011,7 +1013,7 @@
             if (search) url += `&search=${encodeURIComponent(search)}`;
             
             try {
-                const response = await fetch(url);
+                const response = await fetch(url, { credentials: 'include' });
                 const data = await response.json();
                 
                 if (data.success && data.contacts.length > 0) {
@@ -1061,7 +1063,7 @@
             if (platform) url += `&platform=${platform}`;
             
             try {
-                const response = await fetch(url);
+                const response = await fetch(url, { credentials: 'include' });
                 const data = await response.json();
                 
                 if (data.success && data.messages.length > 0) {
@@ -1089,7 +1091,7 @@
         // Platform status functions
         async function loadPlatformStatus() {
             try {
-                const response = await fetch('/api/status');
+                const response = await fetch('/api/status', { credentials: 'include' });
                 const status = await response.json();
                 
                 const platformNames = {
@@ -1119,7 +1121,7 @@
         
         async function loadPlatformStatusCards() {
             try {
-                const response = await fetch('/api/status');
+                const response = await fetch('/api/status', { credentials: 'include' });
                 const status = await response.json();
                 
                 const platformIcons = {
