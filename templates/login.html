@@ -57,9 +57,12 @@
                 <label class="form-label">Username</label>
                 <input type="text" id="username" class="form-control" placeholder="Enter username" required>
             </div>
-            <div class="mb-3">
+            <div class="mb-3 position-relative">
                 <label class="form-label">Password</label>
                 <input type="password" id="password" class="form-control" placeholder="Enter password" required>
+                <i class="bi bi-eye-slash position-absolute" 
+                style="right: 12px; top: 38px; cursor: pointer;" 
+                onclick="togglePassword()"></i>
             </div>
             <button type="submit" class="btn btn-primary w-100 py-2">Sign In</button>
         </form>
@@ -93,6 +96,19 @@
                 alertDiv.classList.remove('d-none');
             }
         });
+        function togglePassword() {
+            const password = document.getElementById('password');
+            const icon = event.target;
+            if (password.type === 'password') {
+                password.type = 'text';
+                icon.classList.remove('bi-eye-slash');
+                icon.classList.add('bi-eye');
+            } else {
+                password.type = 'password';
+                icon.classList.remove('bi-eye');
+                icon.classList.add('bi-eye-slash');
+            }
+        }
     </script>
 </body>
 </html>
