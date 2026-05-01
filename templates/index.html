@@ -1,0 +1,199 @@
+<!-- templates/dashboard.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Messaging Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav class="col-md-2 d-none d-md-block bg-dark sidebar" style="min-height: 100vh;">
+                <div class="position-sticky pt-3">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="#" onclick="showTab('send')">
+                                <i class="bi bi-send"></i> Send Message
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="#" onclick="showTab('inbox')">
+                                <i class="bi bi-inbox"></i> Unified Inbox
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="#" onclick="showTab('analytics')">
+                                <i class="bi bi-graph-up"></i> Analytics
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <main class="col-md-10 ms-sm-auto px-md-4">
+                <!-- Send Message Tab -->
+                <div id="send-tab" class="tab-content active">
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h5>Send Cross-Platform Message</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label class="form-label">Select Platform</label>
+                                    <select id="platform-select" class="form-select">
+                                        <option value="whatsapp">WhatsApp</option>
+                                        <option value="facebook">Facebook Messenger</option>
+                                        <option value="twitter">Twitter DM</option>
+                                        <option value="linkedin">LinkedIn</option>
+                                        <option value="instagram">Instagram DM</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Recipient ID / Phone / Username</label>
+                                    <input type="text" id="recipient-id" class="form-control" 
+                                           placeholder="e.g., +1234567890 for WhatsApp">
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <label class="form-label">Message</label>
+                                <textarea id="message-content" class="form-control" rows="4"></textarea>
+                            </div>
+                            <div class="mt-3">
+                                <button class="btn btn-primary" onclick="sendMessage()">
+                                    <i class="bi bi-send"></i> Send
+                                </button>
+                            </div>
+                            <div id="send-result" class="mt-3"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Unified Inbox Tab -->
+                <div id="inbox-tab" class="tab-content" style="display: none;">
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h5>Unified Inbox</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="message-list" style="max-height: 500px; overflow-y: auto;">
+                                <!-- Messages will appear here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        
+        // Listen for incoming messages from webhooks
+        socket.on('new_message', function(message) {
+            displayMessage(message);
+            document.getElementById('message-list').innerHTML += `
+                <div class="alert alert-info">
+                    <strong>${message.platform}:</strong><br>
+                    From: ${message.sender_id}<br>
+                    ${message.content}
+                </div>
+            `;
+        });
+        
+async function sendMessage() {
+    const platform = document.getElementById('platform-select').value;
+    const recipient = document.getElementById('recipient-id').value;
+    const content = document.getElementById('message-content').value;
+    
+    // Validate inputs
+    if (!recipient) {
+        document.getElementById('send-result').innerHTML = `
+            <div class="alert alert-danger">
+                ⚠️ Please enter a recipient ID/phone number
+            </div>
+        `;
+        return;
+    }
+    
+    if (!content) {
+        document.getElementById('send-result').innerHTML = `
+            <div class="alert alert-danger">
+                ⚠️ Please enter a message
+            </div>
+        `;
+        return;
+    }
+    
+    // Show loading state
+    const sendBtn = event.target;
+    const originalText = sendBtn.innerHTML;
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending...';
+    
+    try {
+        const response = await fetch('/api/send', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},  // ← Fixed: quotes around the value
+            body: JSON.stringify({
+                platform: platform,
+                recipient_id: recipient,
+                message: content
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            document.getElementById('send-result').innerHTML = `
+                <div class="alert alert-success">
+                    ✅ Message sent to ${platform} successfully!
+                    ${result.message_id ? `<br>Message ID: ${result.message_id}` : ''}
+                </div>
+            `;
+            // Clear the message input
+            document.getElementById('message-content').value = '';
+        } else {
+            document.getElementById('send-result').innerHTML = `
+                <div class="alert alert-danger">
+                    ❌ Failed to send: ${result.error || 'Unknown error'}
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('send-result').innerHTML = `
+            <div class="alert alert-danger">
+                ❌ Network error: ${error.message}
+            </div>
+        `;
+    } finally {
+        // Reset button
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = originalText;
+        
+        // Auto-hide message after 5 seconds
+        setTimeout(() => {
+            const resultDiv = document.getElementById('send-result');
+            if (resultDiv) {
+                resultDiv.innerHTML = '';
+            }
+        }, 5000);
+    }
+}
+        
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.style.display = 'none';
+            });
+            document.getElementById(`${tabName}-tab`).style.display = 'block';
+        }
+    </script>
+</body>
+</html>
