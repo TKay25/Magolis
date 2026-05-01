@@ -10,7 +10,7 @@ import sqlite3
 import threading
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import Flask, request, jsonify, render_template, session, g
+from flask import Flask, request, jsonify, render_template, session, g, send_from_directory
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -27,11 +27,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize Flask app
-app = Flask(__name__, template_folder='templates')
+
+app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = os.getenv('SECRET_KEY', 'your-super-secret-key-change-this')
 app.permanent_session_lifetime = timedelta(days=7)
-CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+# CORS: Allow credentials and restrict origins for security
+CORS(app, supports_credentials=True, origins=["http://localhost:5000", "http://127.0.0.1:5000"])
+socketio = SocketIO(app, cors_allowed_origins=["http://localhost:5000", "http://127.0.0.1:5000"], async_mode='threading')
+
+# Favicon route to fix 404
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 # Database setup
 DATABASE = 'unified_messaging.db'
@@ -389,9 +396,17 @@ def get_recipients_for_broadcast(platform, audience_filter='all', tags=None):
 
 # ==================== ROUTES ====================
 
+
+# Login page route
+@app.route('/login')
+def login_page():
+    return render_template('login.html')
+
+# Main dashboard page, redirect to login if not authenticated
 @app.route('/')
 def index():
-    """Main dashboard page"""
+    if 'user_id' not in session:
+        return render_template('login.html')
     return render_template('index.html')
 
 @app.route('/api/login', methods=['POST'])
