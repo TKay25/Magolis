@@ -32,8 +32,16 @@ app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = os.getenv('SECRET_KEY', 'your-super-secret-key-change-this')
 app.permanent_session_lifetime = timedelta(days=7)
 # CORS: Allow credentials and restrict origins for security
-CORS(app, supports_credentials=True, origins=["http://localhost:5000", "http://127.0.0.1:5000"])
-socketio = SocketIO(app, cors_allowed_origins=["http://localhost:5000", "http://127.0.0.1:5000"], async_mode='threading')
+CORS(app, supports_credentials=True, origins=[
+    "http://localhost:5000",
+    "http://127.0.0.1:5000",
+    "https://magolis.onrender.com"
+])
+socketio = SocketIO(app, cors_allowed_origins=[
+    "http://localhost:5000",
+    "http://127.0.0.1:5000",
+    "https://magolis.onrender.com"
+], async_mode='threading')
 
 # Favicon route to fix 404
 @app.route('/favicon.ico')

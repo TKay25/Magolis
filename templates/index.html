@@ -733,40 +733,37 @@
         }
         
         // Login functionality
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const username = document.getElementById('login-username').value;
-            const password = document.getElementById('login-password').value;
-            
-            try {
-                const response = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password }),
-                    credentials: 'include'
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    document.getElementById('login-screen').style.display = 'none';
-                    document.getElementById('app-content').style.display = 'block';
-                    document.getElementById('user-name').textContent = data.user.full_name || data.user.username;
-                    
-                    // Load initial data
-                    loadDashboardStats();
-                    loadPlatformStatus();
-                    loadBroadcasts();
-                    
-                    showToast('Welcome', `Hello ${data.user.full_name || data.user.username}!`, 'success');
-                } else {
-                    showToast('Login Failed', data.error || 'Invalid credentials', 'danger');
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const username = document.getElementById('login-username').value;
+                const password = document.getElementById('login-password').value;
+                try {
+                    const response = await fetch('/api/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password }),
+                        credentials: 'include'
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        document.getElementById('login-screen').style.display = 'none';
+                        document.getElementById('app-content').style.display = 'block';
+                        document.getElementById('user-name').textContent = data.user.full_name || data.user.username;
+                        // Load initial data
+                        loadDashboardStats();
+                        loadPlatformStatus();
+                        loadBroadcasts();
+                        showToast('Welcome', `Hello ${data.user.full_name || data.user.username}!`, 'success');
+                    } else {
+                        showToast('Login Failed', data.error || 'Invalid credentials', 'danger');
+                    }
+                } catch (error) {
+                    showToast('Error', 'Network error. Please try again.', 'danger');
                 }
-            } catch (error) {
-                showToast('Error', 'Network error. Please try again.', 'danger');
-            }
-        });
+            });
+        }
         
         function logout() {
             fetch('/api/logout', { method: 'POST', credentials: 'include' })
