@@ -1,6 +1,6 @@
 """
 Unified Social Media Messaging System with Bulk Broadcast
-Complete Flask Backend - Production Ready
+Complete Flask Backend - Production Ready with Facebook Contact Sync
 """
 
 import os
@@ -27,16 +27,17 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize Flask app
-
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = os.getenv('SECRET_KEY', 'your-super-secret-key-change-this')
 app.permanent_session_lifetime = timedelta(days=7)
+
 # CORS: Allow credentials and restrict origins for security
 CORS(app, supports_credentials=True, origins=[
     "http://localhost:5000",
     "http://127.0.0.1:5000",
     "https://magolis.onrender.com"
 ])
+
 socketio = SocketIO(app, cors_allowed_origins=[
     "http://localhost:5000",
     "http://127.0.0.1:5000",
@@ -234,6 +235,62 @@ class FacebookAdapter:
             return {'success': False, 'error': 'Failed to send'}
         except Exception as e:
             return {'success': False, 'error': str(e)}
+    
+    def get_page_id(self):
+        """Get the Page ID associated with the access token"""
+        try:
+            url = "https://graph.facebook.com/v18.0/me/accounts"
+            response = requests.get(url, params={'access_token': self.page_access_token})
+            data = response.json()
+            if data.get('data') and len(data['data']) > 0:
+                return data['data'][0]['id']
+            return None
+        except:
+            return None
+    
+    def get_conversations(self, limit=50):
+        """Fetch conversations from Facebook Page"""
+        page_id = self.get_page_id()
+        if not page_id:
+            return {'success': False, 'error': 'Could not get Page ID'}
+        
+        url = f"https://graph.facebook.com/v18.0/{page_id}/conversations"
+        params = {
+            'access_token': self.page_access_token,
+            'fields': 'participants,updated_time,message_count,messages.limit(1){message,created_time}',
+            'limit': limit
+        }
+        
+        try:
+            response = requests.get(url, params=params)
+            data = response.json()
+            
+            if 'error' in data:
+                return {'success': False, 'error': data['error']['message']}
+            
+            conversations = []
+            for conv in data.get('data', []):
+                participants = conv.get('participants', {}).get('data', [])
+                user_participant = None
+                for p in participants:
+                    if p.get('id') != page_id:
+                        user_participant = p
+                        break
+                
+                if user_participant:
+                    messages_data = conv.get('messages', {}).get('data', [])
+                    last_message = messages_data[0] if messages_data else None
+                    
+                    conversations.append({
+                        'psid': user_participant['id'],
+                        'name': user_participant.get('name', 'Facebook User'),
+                        'last_message': last_message.get('message', '') if last_message else None,
+                        'last_interaction': conv.get('updated_time')
+                    })
+            
+            return {'success': True, 'conversations': conversations}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
 
 
 class TwitterAdapter:
@@ -402,8 +459,118 @@ def get_recipients_for_broadcast(platform, audience_filter='all', tags=None):
     cursor.execute(query, params)
     return cursor.fetchall()
 
-# ==================== ROUTES ====================
+# ==================== FACEBOOK CONTACT SYNC ROUTES ====================
 
+@app.route('/api/facebook/sync-contacts', methods=['POST'])
+@login_required
+def sync_facebook_contacts():
+    """Fetch all conversations from Facebook Page and sync to contacts database"""
+    
+    facebook_adapter = adapters['facebook']
+    if not facebook_adapter.is_configured:
+        return jsonify({'success': False, 'error': 'Facebook not configured'}), 400
+    
+    result = facebook_adapter.get_conversations(limit=100)
+    
+    if not result['success']:
+        return jsonify({'success': False, 'error': result['error']}), 400
+    
+    synced_count = 0
+    new_contacts = []
+    
+    for conv in result['conversations']:
+        psid = conv['psid']
+        user_name = conv['name']
+        last_interaction = conv.get('last_interaction')
+        
+        # Save to database
+        contact_id = save_contact(
+            platform='facebook',
+            platform_user_id=psid,
+            display_name=user_name,
+            opt_in=True
+        )
+        
+        synced_count += 1
+        new_contacts.append({
+            'id': contact_id,
+            'psid': psid,
+            'name': user_name,
+            'last_message': conv.get('last_message')
+        })
+    
+    return jsonify({
+        'success': True,
+        'synced': synced_count,
+        'contacts': new_contacts,
+        'message': f'Successfully synced {synced_count} Facebook contacts'
+    })
+
+
+@app.route('/api/facebook/conversations/<psid>', methods=['GET'])
+@login_required
+def get_facebook_conversation(psid):
+    """Get full message history with a specific Facebook user"""
+    
+    facebook_adapter = adapters['facebook']
+    if not facebook_adapter.is_configured:
+        return jsonify({'success': False, 'error': 'Facebook not configured'}), 400
+    
+    page_id = facebook_adapter.get_page_id()
+    if not page_id:
+        return jsonify({'success': False, 'error': 'Could not get Page ID'}), 400
+    
+    try:
+        # Get conversation ID for this user
+        conv_url = f"https://graph.facebook.com/v18.0/{page_id}/conversations"
+        params = {
+            'access_token': facebook_adapter.page_access_token,
+            'filter': 'participants',
+            'user_id': psid,
+            'fields': 'id'
+        }
+        
+        response = requests.get(conv_url, params=params)
+        data = response.json()
+        
+        if not data.get('data'):
+            return jsonify({'success': True, 'messages': [], 'message': 'No conversation found'})
+        
+        conversation_id = data['data'][0]['id']
+        
+        # Get messages
+        messages_url = f"https://graph.facebook.com/v18.0/{conversation_id}/messages"
+        msg_params = {
+            'access_token': facebook_adapter.page_access_token,
+            'fields': 'message,created_time,from,id',
+            'limit': 100
+        }
+        
+        msg_response = requests.get(messages_url, params=msg_params)
+        messages_data = msg_response.json()
+        
+        # Format messages
+        messages = []
+        for msg in messages_data.get('data', []):
+            messages.append({
+                'id': msg.get('id'),
+                'content': msg.get('message', ''),
+                'timestamp': msg.get('created_time'),
+                'direction': 'incoming' if msg.get('from', {}).get('id') != page_id else 'outgoing',
+                'sender_name': msg.get('from', {}).get('name', 'Unknown')
+            })
+        
+        return jsonify({
+            'success': True,
+            'messages': messages,
+            'count': len(messages)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fetching conversation: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# ==================== ROUTES ====================
 
 # Login page route
 @app.route('/login')
@@ -852,6 +1019,9 @@ if __name__ == '__main__':
     print("\nDefault Admin Login:")
     print("  Username: admin")
     print("  Password: admin123")
+    print("\nFacebook Sync Available:")
+    print("  • POST /api/facebook/sync-contacts - Sync Facebook contacts")
+    print("  • GET /api/facebook/conversations/<psid> - Get conversation history")
     print("\n" + "=" * 60)
     
     socketio.run(app, host='0.0.0.0', port=port, debug=debug)
