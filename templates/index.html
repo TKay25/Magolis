@@ -363,37 +363,8 @@
             
             <!-- Main Content -->
             <div class="col-md-9 col-lg-10 ms-auto" style="min-height: 100vh;">
-                <!-- Login Screen -->
-                <div id="login-screen" class="d-flex align-items-center justify-content-center" style="min-height: 100vh;">
-                    <div class="card-modern" style="max-width: 450px; width: 90%; margin: 20px;">
-                        <div class="card-header-modern text-center">
-                            <i class="bi bi-chat-dots-fill fs-1"></i>
-                            <h3 class="mt-2 mb-0">Welcome Back</h3>
-                            <small>Sign in to access Unified Messenger</small>
-                        </div>
-                        <div class="card-body p-4">
-                            <form id="login-form">
-                                <div class="mb-3">
-                                    <label class="form-label">Username</label>
-                                    <input type="text" id="login-username" class="form-control" placeholder="Enter username" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Password</label>
-                                    <input type="password" id="login-password" class="form-control" placeholder="Enter password" required>
-                                </div>
-                                <button type="submit" class="btn btn-primary w-100 py-2">
-                                    <i class="bi bi-box-arrow-in-right me-2"></i> Sign In
-                                </button>
-                            </form>
-                            <div class="text-center mt-3">
-                                <small class="text-muted">Demo: admin / admin123</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- App Content (hidden until login) -->
-                <div id="app-content" style="display: none;">
+                <!-- App Content -->
+                <div id="app-content">
                     <div class="p-3 p-md-4">
                         <!-- Dashboard Tab -->
                         <div id="dashboard-tab" class="tab-content active">
@@ -1207,19 +1178,10 @@
         
         // Load initial data when app loads
         document.addEventListener('DOMContentLoaded', () => {
-            // Check existing session
-            fetch('/api/check-auth')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.authenticated) {
-                        document.getElementById('login-screen').style.display = 'none';
-                        document.getElementById('app-content').style.display = 'block';
-                        document.getElementById('user-name').textContent = data.user.full_name || data.user.username;
-                        loadDashboardStats();
-                        loadPlatformStatus();
-                        loadBroadcasts();
-                    }
-                });
+            // Load initial dashboard data
+            loadDashboardStats();
+            loadPlatformStatus();
+            loadBroadcasts();
         });
     </script>
 </body>

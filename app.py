@@ -406,7 +406,7 @@ def login_page():
 @app.route('/')
 def index():
     if 'user_id' not in session:
-        return render_template('login.html')
+        return redirect('/login')
     return render_template('index.html')
 
 @app.route('/api/login', methods=['POST'])
