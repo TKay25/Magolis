@@ -1,199 +1,1231 @@
-<!-- templates/dashboard.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Unified Messaging Dashboard</title>
+    <title>Unified Messaging System | Multi-Platform Broadcast Hub</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-dark: #3a0ca3;
+            --secondary: #7209b7;
+            --success: #06d6a0;
+            --danger: #ef233c;
+            --warning: #f8961e;
+            --info: #4cc9f0;
+            --dark: #1a1a2e;
+            --light: #f8f9fa;
+            --whatsapp: #25D366;
+            --facebook: #1877F2;
+            --twitter: #1DA1F2;
+            --instagram: #E4405F;
+            --linkedin: #0A66C2;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        /* Sidebar Styles */
+        .sidebar {
+            min-height: 100vh;
+            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+            transition: all 0.3s;
+            box-shadow: 2px 0 20px rgba(0,0,0,0.1);
+        }
+        
+        .sidebar .nav-link {
+            color: rgba(255,255,255,0.8);
+            padding: 12px 24px;
+            margin: 4px 16px;
+            border-radius: 12px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .sidebar .nav-link:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateX(5px);
+            color: white;
+        }
+        
+        .sidebar .nav-link.active {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            box-shadow: 0 4px 15px rgba(67,97,238,0.3);
+        }
+        
+        .sidebar .nav-link i {
+            margin-right: 12px;
+            font-size: 1.2rem;
+        }
+        
+        /* Card Styles */
+        .card-modern {
+            background: white;
+            border-radius: 20px;
+            border: none;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+        
+        .card-header-modern {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 16px 24px;
+            border: none;
+            font-weight: 600;
+        }
+        
+        /* Stat Cards */
+        .stat-card {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+        }
+        
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+            font-size: 28px;
+        }
+        
+        .stat-number {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            color: #6c757d;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        /* Platform Badges */
+        .platform-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 600;
+            gap: 6px;
+        }
+        
+        .platform-whatsapp { background: #25D36615; color: #25D366; border: 1px solid #25D366; }
+        .platform-facebook { background: #1877F215; color: #1877F2; border: 1px solid #1877F2; }
+        .platform-twitter { background: #1DA1F215; color: #1DA1F2; border: 1px solid #1DA1F2; }
+        .platform-instagram { background: #E4405F15; color: #E4405F; border: 1px solid #E4405F; }
+        .platform-linkedin { background: #0A66C215; color: #0A66C2; border: 1px solid #0A66C2; }
+        
+        /* Status Badges */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-configured { background: #d4edda; color: #155724; }
+        .status-not-configured { background: #f8d7da; color: #721c24; }
+        .status-completed { background: #d4edda; color: #155724; }
+        .status-processing { background: #fff3cd; color: #856404; }
+        
+        /* Message Bubbles */
+        .message-item {
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            background: #f8f9fa;
+            border-left: 4px solid var(--primary);
+        }
+        
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .animate-fade-in {
+            animation: fadeInUp 0.5s ease-out;
+        }
+        
+        /* Toast Notifications */
+        .toast-notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1100;
+            animation: slideInRight 0.3s ease-out;
+        }
+        
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: -280px;
+                z-index: 1000;
+                transition: left 0.3s;
+            }
+            
+            .sidebar.show {
+                left: 0;
+            }
+            
+            .stat-number {
+                font-size: 20px;
+            }
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 10px;
+        }
+        
+        /* Loading Spinner */
+        .spinner-small {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Table Styles */
+        .table-custom {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .table-custom th {
+            background: var(--dark);
+            color: white;
+            font-weight: 600;
+            border: none;
+        }
+        
+        /* Form Controls */
+        .form-control, .form-select {
+            border-radius: 10px;
+            border: 1px solid #e0e0e0;
+            padding: 10px 14px;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 0.2rem rgba(67,97,238,0.25);
+        }
+        
+        /* Buttons */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border: none;
+            border-radius: 10px;
+            padding: 10px 24px;
+            font-weight: 600;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(67,97,238,0.3);
+        }
+        
+        /* Progress Bar */
+        .progress {
+            height: 8px;
+            border-radius: 10px;
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            border-radius: 10px;
+        }
+    </style>
 </head>
 <body>
-    <div class="container-fluid">
-        <div class="row">
+    <div class="container-fluid p-0">
+        <div class="row g-0">
+            <!-- Mobile Menu Toggle -->
+            <button class="btn btn-primary d-md-none position-fixed m-3" style="z-index: 1001; background: var(--primary);" onclick="toggleSidebar()">
+                <i class="bi bi-list"></i>
+            </button>
+            
             <!-- Sidebar -->
-            <nav class="col-md-2 d-none d-md-block bg-dark sidebar" style="min-height: 100vh;">
-                <div class="position-sticky pt-3">
+            <div class="col-md-3 col-lg-2 sidebar" id="sidebar">
+                <div class="p-4 text-center border-bottom border-secondary">
+                    <i class="bi bi-chat-dots-fill" style="font-size: 2.5rem; color: var(--primary);"></i>
+                    <h5 class="text-white mt-2 mb-0">Unified Messenger</h5>
+                    <small class="text-muted">Multi-Platform Hub</small>
+                </div>
+                
+                <div class="py-4">
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link text-white" href="#" onclick="showTab('send')">
+                            <a class="nav-link active" href="#" onclick="showTab('dashboard'); return false;">
+                                <i class="bi bi-speedometer2"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="showTab('send'); return false;">
                                 <i class="bi bi-send"></i> Send Message
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-white" href="#" onclick="showTab('inbox')">
-                                <i class="bi bi-inbox"></i> Unified Inbox
+                            <a class="nav-link" href="#" onclick="showTab('broadcast'); return false;">
+                                <i class="bi bi-megaphone"></i> Bulk Broadcast
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-white" href="#" onclick="showTab('analytics')">
-                                <i class="bi bi-graph-up"></i> Analytics
+                            <a class="nav-link" href="#" onclick="showTab('contacts'); return false;">
+                                <i class="bi bi-people"></i> Contacts
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="showTab('history'); return false;">
+                                <i class="bi bi-clock-history"></i> History
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="showTab('status'); return false;">
+                                <i class="bi bi-check-circle"></i> Platform Status
+                            </a>
+                        </li>
+                        <li class="nav-item mt-4">
+                            <a class="nav-link text-danger" href="#" onclick="logout(); return false;">
+                                <i class="bi bi-box-arrow-right"></i> Logout
                             </a>
                         </li>
                     </ul>
                 </div>
-            </nav>
-
+            </div>
+            
             <!-- Main Content -->
-            <main class="col-md-10 ms-sm-auto px-md-4">
-                <!-- Send Message Tab -->
-                <div id="send-tab" class="tab-content active">
-                    <div class="card mt-4">
-                        <div class="card-header">
-                            <h5>Send Cross-Platform Message</h5>
+            <div class="col-md-9 col-lg-10 ms-auto" style="min-height: 100vh;">
+                <!-- Login Screen -->
+                <div id="login-screen" class="d-flex align-items-center justify-content-center" style="min-height: 100vh;">
+                    <div class="card-modern" style="max-width: 450px; width: 90%; margin: 20px;">
+                        <div class="card-header-modern text-center">
+                            <i class="bi bi-chat-dots-fill fs-1"></i>
+                            <h3 class="mt-2 mb-0">Welcome Back</h3>
+                            <small>Sign in to access Unified Messenger</small>
                         </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <label class="form-label">Select Platform</label>
-                                    <select id="platform-select" class="form-select">
-                                        <option value="whatsapp">WhatsApp</option>
-                                        <option value="facebook">Facebook Messenger</option>
-                                        <option value="twitter">Twitter DM</option>
-                                        <option value="linkedin">LinkedIn</option>
-                                        <option value="instagram">Instagram DM</option>
-                                    </select>
+                        <div class="card-body p-4">
+                            <form id="login-form">
+                                <div class="mb-3">
+                                    <label class="form-label">Username</label>
+                                    <input type="text" id="login-username" class="form-control" placeholder="Enter username" required>
                                 </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Recipient ID / Phone / Username</label>
-                                    <input type="text" id="recipient-id" class="form-control" 
-                                           placeholder="e.g., +1234567890 for WhatsApp">
+                                <div class="mb-3">
+                                    <label class="form-label">Password</label>
+                                    <input type="password" id="login-password" class="form-control" placeholder="Enter password" required>
                                 </div>
-                            </div>
-                            <div class="mt-3">
-                                <label class="form-label">Message</label>
-                                <textarea id="message-content" class="form-control" rows="4"></textarea>
-                            </div>
-                            <div class="mt-3">
-                                <button class="btn btn-primary" onclick="sendMessage()">
-                                    <i class="bi bi-send"></i> Send
+                                <button type="submit" class="btn btn-primary w-100 py-2">
+                                    <i class="bi bi-box-arrow-in-right me-2"></i> Sign In
                                 </button>
-                            </div>
-                            <div id="send-result" class="mt-3"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Unified Inbox Tab -->
-                <div id="inbox-tab" class="tab-content" style="display: none;">
-                    <div class="card mt-4">
-                        <div class="card-header">
-                            <h5>Unified Inbox</h5>
-                        </div>
-                        <div class="card-body">
-                            <div id="message-list" style="max-height: 500px; overflow-y: auto;">
-                                <!-- Messages will appear here -->
+                            </form>
+                            <div class="text-center mt-3">
+                                <small class="text-muted">Demo: admin / admin123</small>
                             </div>
                         </div>
                     </div>
                 </div>
-            </main>
+                
+                <!-- App Content (hidden until login) -->
+                <div id="app-content" style="display: none;">
+                    <div class="p-3 p-md-4">
+                        <!-- Dashboard Tab -->
+                        <div id="dashboard-tab" class="tab-content active">
+                            <div class="animate-fade-in">
+                                <div class="d-flex justify-content-between align-items-center mb-4">
+                                    <h2 class="fw-bold text-white">Dashboard</h2>
+                                    <div class="text-white">
+                                        <i class="bi bi-person-circle me-1"></i>
+                                        <span id="user-name">User</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Stats Row -->
+                                <div class="row g-3 mb-4" id="dashboard-stats">
+                                    <div class="col-md-3 col-6">
+                                        <div class="stat-card">
+                                            <div class="stat-icon bg-primary bg-opacity-10">
+                                                <i class="bi bi-people text-primary"></i>
+                                            </div>
+                                            <div class="stat-number" id="total-contacts">0</div>
+                                            <div class="stat-label">Total Contacts</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 col-6">
+                                        <div class="stat-card">
+                                            <div class="stat-icon bg-success bg-opacity-10">
+                                                <i class="bi bi-check-circle text-success"></i>
+                                            </div>
+                                            <div class="stat-number" id="opted-in-contacts">0</div>
+                                            <div class="stat-label">Opted In</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 col-6">
+                                        <div class="stat-card">
+                                            <div class="stat-icon bg-warning bg-opacity-10">
+                                                <i class="bi bi-envelope-paper text-warning"></i>
+                                            </div>
+                                            <div class="stat-number" id="sent-messages">0</div>
+                                            <div class="stat-label">Messages Sent</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 col-6">
+                                        <div class="stat-card">
+                                            <div class="stat-icon bg-info bg-opacity-10">
+                                                <i class="bi bi-megaphone text-info"></i>
+                                            </div>
+                                            <div class="stat-number" id="total-broadcasts">0</div>
+                                            <div class="stat-label">Broadcasts</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Charts Row -->
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-6">
+                                        <div class="card-modern">
+                                            <div class="card-header-modern">
+                                                <i class="bi bi-pie-chart me-2"></i> Contacts by Platform
+                                            </div>
+                                            <div class="card-body p-3">
+                                                <canvas id="contactsChart" height="200"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card-modern">
+                                            <div class="card-header-modern">
+                                                <i class="bi bi-graph-up me-2"></i> Platform Status
+                                            </div>
+                                            <div class="card-body p-3">
+                                                <div id="platform-status-list">
+                                                    <div class="text-center p-3">Loading...</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Send Message Tab -->
+                        <div id="send-tab" class="tab-content" style="display: none;">
+                            <div class="animate-fade-in">
+                                <h2 class="fw-bold text-white mb-4">Send Message</h2>
+                                
+                                <div class="row">
+                                    <div class="col-lg-7">
+                                        <div class="card-modern">
+                                            <div class="card-header-modern">
+                                                <i class="bi bi-send me-2"></i> Compose Message
+                                            </div>
+                                            <div class="card-body p-4">
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-semibold">Platform</label>
+                                                    <select id="send-platform" class="form-select">
+                                                        <option value="whatsapp">📱 WhatsApp</option>
+                                                        <option value="facebook">💬 Facebook Messenger</option>
+                                                        <option value="twitter">🐦 Twitter/X DM</option>
+                                                        <option value="instagram">📸 Instagram DM</option>
+                                                        <option value="linkedin">🔗 LinkedIn</option>
+                                                    </select>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-semibold">Recipient</label>
+                                                    <input type="text" id="send-recipient" class="form-control" 
+                                                           placeholder="WhatsApp: +1234567890 | Twitter: @username">
+                                                    <small class="text-muted">Enter phone number, username, or user ID</small>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-semibold">Message</label>
+                                                    <textarea id="send-message" class="form-control" rows="4" 
+                                                              placeholder="Type your message here..."></textarea>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-semibold">Display Name (Optional)</label>
+                                                    <input type="text" id="send-display-name" class="form-control" 
+                                                           placeholder="Name to save for this contact">
+                                                </div>
+                                                <button class="btn btn-primary px-4" onclick="sendSingleMessage()">
+                                                    <i class="bi bi-send me-2"></i> Send Message
+                                                </button>
+                                                <div id="send-result" class="mt-3"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-5">
+                                        <div class="card-modern">
+                                            <div class="card-header-modern">
+                                                <i class="bi bi-info-circle me-2"></i> Quick Tips
+                                            </div>
+                                            <div class="card-body p-4">
+                                                <div class="mb-3">
+                                                    <h6><i class="bi bi-whatsapp text-success me-2"></i> WhatsApp</h6>
+                                                    <small class="text-muted">Use international format: +1234567890</small>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <h6><i class="bi bi-twitter-x me-2"></i> Twitter/X</h6>
+                                                    <small class="text-muted">Use @username (e.g., @example) - system finds user ID automatically</small>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <h6><i class="bi bi-facebook me-2"></i> Facebook</h6>
+                                                    <small class="text-muted">Use the recipient's Facebook user ID or page ID</small>
+                                                </div>
+                                                <hr>
+                                                <div class="alert alert-info small mb-0">
+                                                    <i class="bi bi-shield-check me-2"></i>
+                                                    All new contacts are automatically saved with opt-in consent for future broadcasts.
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Bulk Broadcast Tab -->
+                        <div id="broadcast-tab" class="tab-content" style="display: none;">
+                            <div class="animate-fade-in">
+                                <h2 class="fw-bold text-white mb-4">Bulk Broadcast</h2>
+                                
+                                <div class="row">
+                                    <div class="col-lg-7">
+                                        <div class="card-modern">
+                                            <div class="card-header-modern">
+                                                <i class="bi bi-megaphone me-2"></i> Create Broadcast Campaign
+                                            </div>
+                                            <div class="card-body p-4">
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-semibold">Campaign Name</label>
+                                                    <input type="text" id="broadcast-name" class="form-control" 
+                                                           placeholder="e.g., Summer Sale Announcement">
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-semibold">Platform</label>
+                                                    <select id="broadcast-platform" class="form-select" onchange="updateRecipientCount()">
+                                                        <option value="whatsapp">📱 WhatsApp</option>
+                                                        <option value="facebook">💬 Facebook Messenger</option>
+                                                        <option value="twitter">🐦 Twitter/X DM</option>
+                                                        <option value="instagram">📸 Instagram DM</option>
+                                                    </select>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-semibold">Audience Filter</label>
+                                                    <select id="broadcast-audience" class="form-select" onchange="toggleTagFilter(); updateRecipientCount();">
+                                                        <option value="all">All Opted-in Contacts</option>
+                                                        <option value="active">Active (Last 30 days)</option>
+                                                        <option value="tagged">Tagged Contacts</option>
+                                                    </select>
+                                                </div>
+                                                <div class="mb-3" id="tag-filter-container" style="display: none;">
+                                                    <label class="form-label fw-semibold">Tags (comma-separated)</label>
+                                                    <input type="text" id="broadcast-tags" class="form-control" 
+                                                           placeholder="vip, active, interested" oninput="updateRecipientCount()">
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-semibold">Message</label>
+                                                    <textarea id="broadcast-message" class="form-control" rows="5" 
+                                                              placeholder="Type your broadcast message here..."></textarea>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-semibold">Rate Limit (seconds between messages)</label>
+                                                    <input type="number" id="broadcast-rate" class="form-control" value="1" min="0.5" step="0.5">
+                                                    <small class="text-muted">Slower rates help avoid platform rate limits</small>
+                                                </div>
+                                                <button class="btn btn-primary px-4" onclick="startBroadcast()">
+                                                    <i class="bi bi-megaphone me-2"></i> Start Broadcast
+                                                </button>
+                                                <div id="broadcast-result" class="mt-3"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-5">
+                                        <div class="card-modern">
+                                            <div class="card-header-modern">
+                                                <i class="bi bi-people me-2"></i> Recipient Preview
+                                            </div>
+                                            <div class="card-body p-3 text-center" id="recipient-preview">
+                                                <div class="py-4">
+                                                    <i class="bi bi-people fs-1 text-muted"></i>
+                                                    <h3 id="recipient-count" class="mt-2 mb-0">0</h3>
+                                                    <p class="text-muted">recipients will receive this broadcast</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="card-modern mt-3">
+                                            <div class="card-header-modern">
+                                                <i class="bi bi-history me-2"></i> Recent Broadcasts
+                                            </div>
+                                            <div class="card-body p-0" style="max-height: 300px; overflow-y: auto;">
+                                                <div id="recent-broadcasts-list">
+                                                    <div class="text-center p-3 text-muted">Loading broadcasts...</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Contacts Tab -->
+                        <div id="contacts-tab" class="tab-content" style="display: none;">
+                            <div class="animate-fade-in">
+                                <h2 class="fw-bold text-white mb-4">Contacts Management</h2>
+                                
+                                <div class="card-modern">
+                                    <div class="card-header-modern d-flex justify-content-between align-items-center">
+                                        <span><i class="bi bi-people me-2"></i> All Contacts</span>
+                                        <div class="d-flex gap-2">
+                                            <select id="contact-platform-filter" class="form-select form-select-sm" style="width: auto;" onchange="loadContacts()">
+                                                <option value="">All Platforms</option>
+                                                <option value="whatsapp">WhatsApp</option>
+                                                <option value="facebook">Facebook</option>
+                                                <option value="twitter">Twitter</option>
+                                                <option value="instagram">Instagram</option>
+                                            </select>
+                                            <input type="text" id="contact-search" class="form-control form-control-sm" placeholder="Search..." style="width: 200px;" onkeyup="loadContacts()">
+                                            <button class="btn btn-sm btn-light" onclick="loadContacts()">
+                                                <i class="bi bi-search"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div id="contacts-list" class="p-3">
+                                            <div class="text-center p-4">Loading contacts...</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- History Tab -->
+                        <div id="history-tab" class="tab-content" style="display: none;">
+                            <div class="animate-fade-in">
+                                <h2 class="fw-bold text-white mb-4">Message History</h2>
+                                
+                                <div class="card-modern">
+                                    <div class="card-header-modern d-flex justify-content-between align-items-center">
+                                        <span><i class="bi bi-clock-history me-2"></i> Sent Messages</span>
+                                        <select id="history-platform-filter" class="form-select form-select-sm" style="width: auto;" onchange="loadMessageHistory()">
+                                            <option value="">All Platforms</option>
+                                            <option value="whatsapp">WhatsApp</option>
+                                            <option value="facebook">Facebook</option>
+                                            <option value="twitter">Twitter</option>
+                                            <option value="instagram">Instagram</option>
+                                        </select>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div id="history-list" class="p-3">
+                                            <div class="text-center p-4">Loading history...</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Platform Status Tab -->
+                        <div id="status-tab" class="tab-content" style="display: none;">
+                            <div class="animate-fade-in">
+                                <h2 class="fw-bold text-white mb-4">Platform Status</h2>
+                                
+                                <div class="row g-3" id="platform-status-cards">
+                                    <!-- Dynamically populated -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
+        // Socket.IO connection
         const socket = io();
         
-        // Listen for incoming messages from webhooks
-        socket.on('new_message', function(message) {
-            displayMessage(message);
-            document.getElementById('message-list').innerHTML += `
-                <div class="alert alert-info">
-                    <strong>${message.platform}:</strong><br>
-                    From: ${message.sender_id}<br>
-                    ${message.content}
-                </div>
-            `;
+        socket.on('connect', function() {
+            console.log('Connected to server');
         });
         
-async function sendMessage() {
-    const platform = document.getElementById('platform-select').value;
-    const recipient = document.getElementById('recipient-id').value;
-    const content = document.getElementById('message-content').value;
-    
-    // Validate inputs
-    if (!recipient) {
-        document.getElementById('send-result').innerHTML = `
-            <div class="alert alert-danger">
-                ⚠️ Please enter a recipient ID/phone number
-            </div>
-        `;
-        return;
-    }
-    
-    if (!content) {
-        document.getElementById('send-result').innerHTML = `
-            <div class="alert alert-danger">
-                ⚠️ Please enter a message
-            </div>
-        `;
-        return;
-    }
-    
-    // Show loading state
-    const sendBtn = event.target;
-    const originalText = sendBtn.innerHTML;
-    sendBtn.disabled = true;
-    sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending...';
-    
-    try {
-        const response = await fetch('/api/send', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},  // ← Fixed: quotes around the value
-            body: JSON.stringify({
-                platform: platform,
-                recipient_id: recipient,
-                message: content
-            })
+        socket.on('message_sent', function(data) {
+            showToast('Message Sent', `Message sent via ${data.platform}`, 'success');
         });
         
-        const result = await response.json();
+        socket.on('broadcast_completed', function(data) {
+            showToast('Broadcast Complete', `Sent to ${data.sent}/${data.total} recipients`, 'success');
+            loadBroadcasts();
+        });
         
-        if (response.ok) {
-            document.getElementById('send-result').innerHTML = `
-                <div class="alert alert-success">
-                    ✅ Message sent to ${platform} successfully!
-                    ${result.message_id ? `<br>Message ID: ${result.message_id}` : ''}
-                </div>
-            `;
-            // Clear the message input
-            document.getElementById('message-content').value = '';
-        } else {
-            document.getElementById('send-result').innerHTML = `
-                <div class="alert alert-danger">
-                    ❌ Failed to send: ${result.error || 'Unknown error'}
-                </div>
-            `;
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        document.getElementById('send-result').innerHTML = `
-            <div class="alert alert-danger">
-                ❌ Network error: ${error.message}
-            </div>
-        `;
-    } finally {
-        // Reset button
-        sendBtn.disabled = false;
-        sendBtn.innerHTML = originalText;
+        // Global variables
+        let contactsChart = null;
         
-        // Auto-hide message after 5 seconds
-        setTimeout(() => {
-            const resultDiv = document.getElementById('send-result');
-            if (resultDiv) {
-                resultDiv.innerHTML = '';
-            }
-        }, 5000);
-    }
-}
-        
+        // Tab management
         function showTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.style.display = 'none';
             });
             document.getElementById(`${tabName}-tab`).style.display = 'block';
+            
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            event.target.closest('.nav-link').classList.add('active');
+            
+            // Load data when switching tabs
+            if (tabName === 'dashboard') {
+                loadDashboardStats();
+                loadPlatformStatus();
+            }
+            if (tabName === 'contacts') loadContacts();
+            if (tabName === 'history') loadMessageHistory();
+            if (tabName === 'broadcast') {
+                loadBroadcasts();
+                updateRecipientCount();
+            }
+            if (tabName === 'status') loadPlatformStatusCards();
+            
+            // Close sidebar on mobile
+            if (window.innerWidth < 768) {
+                document.getElementById('sidebar').classList.remove('show');
+            }
         }
+        
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('show');
+        }
+        
+        // Login functionality
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('login-screen').style.display = 'none';
+                    document.getElementById('app-content').style.display = 'block';
+                    document.getElementById('user-name').textContent = data.user.full_name || data.user.username;
+                    
+                    // Load initial data
+                    loadDashboardStats();
+                    loadPlatformStatus();
+                    loadBroadcasts();
+                    
+                    showToast('Welcome', `Hello ${data.user.full_name || data.user.username}!`, 'success');
+                } else {
+                    showToast('Login Failed', data.error || 'Invalid credentials', 'danger');
+                }
+            } catch (error) {
+                showToast('Error', 'Network error. Please try again.', 'danger');
+            }
+        });
+        
+        function logout() {
+            fetch('/api/logout', { method: 'POST' })
+                .then(() => {
+                    document.getElementById('login-screen').style.display = 'flex';
+                    document.getElementById('app-content').style.display = 'none';
+                    showToast('Logged Out', 'You have been logged out successfully', 'info');
+                });
+        }
+        
+        // Dashboard functions
+        async function loadDashboardStats() {
+            try {
+                const response = await fetch('/api/dashboard/stats');
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('total-contacts').textContent = data.stats.total_contacts;
+                    document.getElementById('opted-in-contacts').textContent = data.stats.opted_in_contacts;
+                    document.getElementById('sent-messages').textContent = data.stats.sent_messages;
+                    document.getElementById('total-broadcasts').textContent = data.stats.total_broadcasts;
+                    
+                    // Update chart
+                    updateContactsChart(data.stats.contacts_by_platform);
+                }
+            } catch (error) {
+                console.error('Error loading dashboard stats:', error);
+            }
+        }
+        
+        function updateContactsChart(platformData) {
+            const ctx = document.getElementById('contactsChart').getContext('2d');
+            
+            const platforms = platformData.map(p => p.platform);
+            const counts = platformData.map(p => p.count);
+            
+            if (contactsChart) {
+                contactsChart.destroy();
+            }
+            
+            contactsChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: platforms,
+                    datasets: [{
+                        data: counts,
+                        backgroundColor: ['#25D366', '#1877F2', '#1DA1F2', '#E4405F', '#0A66C2'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+        
+        // Send message function
+        async function sendSingleMessage() {
+            const platform = document.getElementById('send-platform').value;
+            const recipient = document.getElementById('send-recipient').value.trim();
+            const message = document.getElementById('send-message').value.trim();
+            const displayName = document.getElementById('send-display-name').value.trim();
+            
+            if (!recipient) {
+                showToast('Error', 'Please enter a recipient', 'danger');
+                return;
+            }
+            
+            if (!message) {
+                showToast('Error', 'Please enter a message', 'danger');
+                return;
+            }
+            
+            const btn = event.target;
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-small"></span>Sending...';
+            
+            try {
+                const response = await fetch('/api/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ platform, recipient_id: recipient, message, display_name: displayName })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('Success', `Message sent via ${platform}!`, 'success');
+                    document.getElementById('send-message').value = '';
+                    document.getElementById('send-result').innerHTML = `
+                        <div class="alert alert-success">✅ Message sent successfully!</div>
+                    `;
+                    setTimeout(() => document.getElementById('send-result').innerHTML = '', 3000);
+                } else {
+                    showToast('Error', result.error || 'Failed to send message', 'danger');
+                }
+            } catch (error) {
+                showToast('Error', 'Network error. Please try again.', 'danger');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+        
+        // Broadcast functions
+        async function updateRecipientCount() {
+            const platform = document.getElementById('broadcast-platform').value;
+            const audience = document.getElementById('broadcast-audience').value;
+            const tags = document.getElementById('broadcast-tags').value;
+            
+            if (audience === 'all' || audience === 'active' || (audience === 'tagged' && tags)) {
+                try {
+                    const response = await fetch('/api/recipient-count', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ platform, audience_filter: audience, tags })
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success) {
+                        document.getElementById('recipient-count').textContent = data.count;
+                    }
+                } catch (error) {
+                    console.error('Error getting recipient count:', error);
+                }
+            }
+        }
+        
+        function toggleTagFilter() {
+            const audience = document.getElementById('broadcast-audience').value;
+            const tagContainer = document.getElementById('tag-filter-container');
+            tagContainer.style.display = audience === 'tagged' ? 'block' : 'none';
+        }
+        
+        async function startBroadcast() {
+            const campaignName = document.getElementById('broadcast-name').value.trim();
+            const platform = document.getElementById('broadcast-platform').value;
+            const audience = document.getElementById('broadcast-audience').value;
+            const tags = document.getElementById('broadcast-tags').value;
+            const message = document.getElementById('broadcast-message').value.trim();
+            const rateLimit = parseFloat(document.getElementById('broadcast-rate').value);
+            
+            if (!campaignName) {
+                showToast('Error', 'Please enter a campaign name', 'danger');
+                return;
+            }
+            
+            if (!message) {
+                showToast('Error', 'Please enter a broadcast message', 'danger');
+                return;
+            }
+            
+            const recipientCount = parseInt(document.getElementById('recipient-count').textContent);
+            if (recipientCount === 0) {
+                showToast('Error', 'No recipients found for this broadcast', 'danger');
+                return;
+            }
+            
+            if (!confirm(`Send broadcast to ${recipientCount} recipients via ${platform}? This may take several minutes.`)) {
+                return;
+            }
+            
+            const btn = event.target;
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-small"></span>Starting Broadcast...';
+            
+            try {
+                const response = await fetch('/api/broadcast', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        campaign_name: campaignName,
+                        platform: platform,
+                        audience_filter: audience,
+                        tags: tags,
+                        message: message,
+                        rate_limit: rateLimit
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('Broadcast Started', result.message, 'success');
+                    document.getElementById('broadcast-name').value = '';
+                    document.getElementById('broadcast-message').value = '';
+                    loadBroadcasts();
+                } else {
+                    showToast('Error', result.error || 'Failed to start broadcast', 'danger');
+                }
+            } catch (error) {
+                showToast('Error', 'Network error. Please try again.', 'danger');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+        
+        async function loadBroadcasts() {
+            try {
+                const response = await fetch('/api/broadcasts');
+                const data = await response.json();
+                
+                if (data.success && data.broadcasts.length > 0) {
+                    const html = data.broadcasts.map(b => `
+                        <div class="message-item">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <strong>${b.name}</strong>
+                                <span class="status-badge ${b.status === 'completed' ? 'status-completed' : 'status-processing'}">
+                                    ${b.status}
+                                </span>
+                            </div>
+                            <small class="text-muted">Platform: ${b.platform}</small><br>
+                            <small>Sent: ${b.sent_count}/${b.total_recipients}</small>
+                            <div class="progress mt-2">
+                                <div class="progress-bar" style="width: ${b.total_recipients > 0 ? (b.sent_count / b.total_recipients * 100) : 0}%"></div>
+                            </div>
+                            <small class="text-muted">${new Date(b.created_at).toLocaleString()}</small>
+                        </div>
+                    `).join('');
+                    document.getElementById('recent-broadcasts-list').innerHTML = html;
+                } else {
+                    document.getElementById('recent-broadcasts-list').innerHTML = '<div class="text-center p-3 text-muted">No broadcasts yet</div>';
+                }
+            } catch (error) {
+                console.error('Error loading broadcasts:', error);
+            }
+        }
+        
+        // Contacts functions
+        async function loadContacts() {
+            const platform = document.getElementById('contact-platform-filter').value;
+            const search = document.getElementById('contact-search').value;
+            
+            let url = '/api/contacts?opt_in_only=true';
+            if (platform) url += `&platform=${platform}`;
+            if (search) url += `&search=${encodeURIComponent(search)}`;
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success && data.contacts.length > 0) {
+                    const html = `
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Platform</th>
+                                    <th>Display Name</th>
+                                    <th>User ID / Phone</th>
+                                    <th>Last Interaction</th>
+                                    <th>Opted In</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.contacts.map(c => `
+                                    <tr>
+                                        <td><span class="platform-badge platform-${c.platform}">${c.platform}</span></td>
+                                        <td>${c.display_name || 'N/A'}</td>
+                                        <td><small>${c.platform_user_id}</small></td>
+                                        <td><small>${c.last_interaction ? new Date(c.last_interaction).toLocaleDateString() : 'Never'}</small></td>
+                                        <td><i class="bi bi-check-circle text-success"></i></td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" onclick="editContact(${c.id})">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                    document.getElementById('contacts-list').innerHTML = html;
+                } else {
+                    document.getElementById('contacts-list').innerHTML = '<div class="text-center p-4 text-muted">No contacts found</div>';
+                }
+            } catch (error) {
+                console.error('Error loading contacts:', error);
+            }
+        }
+        
+        // History functions
+        async function loadMessageHistory() {
+            const platform = document.getElementById('history-platform-filter').value;
+            let url = '/api/messages?limit=100';
+            if (platform) url += `&platform=${platform}`;
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success && data.messages.length > 0) {
+                    const html = data.messages.map(m => `
+                        <div class="message-item">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="platform-badge platform-${m.platform}">${m.platform}</span>
+                                <small class="text-muted">${new Date(m.sent_at).toLocaleString()}</small>
+                            </div>
+                            <div><strong>To:</strong> ${m.display_name || m.platform_user_id}</div>
+                            <div class="mt-1"><strong>Message:</strong></div>
+                            <div class="p-2 bg-light rounded mt-1">${m.message}</div>
+                            <div class="mt-2"><span class="badge bg-${m.direction === 'outgoing' ? 'primary' : 'secondary'}">${m.direction}</span></div>
+                        </div>
+                    `).join('');
+                    document.getElementById('history-list').innerHTML = html;
+                } else {
+                    document.getElementById('history-list').innerHTML = '<div class="text-center p-4 text-muted">No messages found</div>';
+                }
+            } catch (error) {
+                console.error('Error loading history:', error);
+            }
+        }
+        
+        // Platform status functions
+        async function loadPlatformStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const status = await response.json();
+                
+                const platformNames = {
+                    whatsapp: 'WhatsApp', facebook: 'Facebook Messenger', twitter: 'Twitter/X',
+                    instagram: 'Instagram', linkedin: 'LinkedIn'
+                };
+                
+                let html = '';
+                for (const [key, data] of Object.entries(status)) {
+                    html += `
+                        <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
+                            <div>
+                                <i class="bi bi-${key} me-2"></i>
+                                <strong>${platformNames[key] || key}</strong>
+                            </div>
+                            <span class="status-badge ${data.configured ? 'status-configured' : 'status-not-configured'}">
+                                ${data.configured ? '✓ Connected' : '✗ Not Configured'}
+                            </span>
+                        </div>
+                    `;
+                }
+                document.getElementById('platform-status-list').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading platform status:', error);
+            }
+        }
+        
+        async function loadPlatformStatusCards() {
+            try {
+                const response = await fetch('/api/status');
+                const status = await response.json();
+                
+                const platformIcons = {
+                    whatsapp: 'bi-whatsapp', facebook: 'bi-facebook', twitter: 'bi-twitter-x',
+                    instagram: 'bi-instagram', linkedin: 'bi-linkedin'
+                };
+                
+                let html = '';
+                for (const [key, data] of Object.entries(status)) {
+                    html += `
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card-modern">
+                                <div class="card-body p-4">
+                                    <div class="d-flex justify-content-between align-items-start mb-3">
+                                        <div>
+                                            <i class="${platformIcons[key]} fs-1" style="color: var(--${key})"></i>
+                                            <h5 class="mt-2 mb-0">${key.charAt(0).toUpperCase() + key.slice(1)}</h5>
+                                        </div>
+                                        <span class="status-badge ${data.configured ? 'status-configured' : 'status-not-configured'}">
+                                            ${data.configured ? 'Connected' : 'Not Configured'}
+                                        </span>
+                                    </div>
+                                    <p class="small text-muted mb-0">
+                                        ${data.configured ? 'Ready to send and receive messages' : 'Configure API credentials in .env file'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                document.getElementById('platform-status-cards').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading platform status:', error);
+            }
+        }
+        
+        // Toast notification
+        function showToast(title, message, type = 'info') {
+            const toastDiv = document.createElement('div');
+            toastDiv.className = `toast-notification alert alert-${type} shadow-lg`;
+            toastDiv.style.cssText = 'min-width: 250px; cursor: pointer;';
+            toastDiv.innerHTML = `
+                <strong>${title}</strong><br>
+                <small>${message}</small>
+            `;
+            toastDiv.onclick = () => toastDiv.remove();
+            document.body.appendChild(toastDiv);
+            setTimeout(() => toastDiv.remove(), 5000);
+        }
+        
+        // Edit contact function
+        function editContact(contactId) {
+            // Implement edit functionality as needed
+            showToast('Coming Soon', 'Contact editing will be available in next update', 'info');
+        }
+        
+        // Load initial data when app loads
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check existing session
+            fetch('/api/check-auth')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.authenticated) {
+                        document.getElementById('login-screen').style.display = 'none';
+                        document.getElementById('app-content').style.display = 'block';
+                        document.getElementById('user-name').textContent = data.user.full_name || data.user.username;
+                        loadDashboardStats();
+                        loadPlatformStatus();
+                        loadBroadcasts();
+                    }
+                });
+        });
     </script>
 </body>
 </html>
