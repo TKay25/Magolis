@@ -8,3 +8,4 @@ tweepy
 gunicorn
 gunicorn
 eventlet
+werkzeug
