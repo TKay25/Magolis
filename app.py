@@ -1,6 +1,6 @@
 """
 Unified Social Media Messaging System with Bulk Broadcast
-Complete Flask Backend - Production Ready with Facebook Contact Sync
+Complete Flask Backend - Production Ready with PostgreSQL
 """
 import eventlet
 eventlet.monkey_patch()
@@ -8,7 +8,6 @@ eventlet.monkey_patch()
 import os
 import json
 import time
-import sqlite3
 import threading
 from datetime import datetime, timedelta
 from functools import wraps
@@ -20,6 +19,10 @@ from dotenv import load_dotenv
 import requests
 import tweepy
 import logging
+from contextlib import contextmanager
+import psycopg2
+from psycopg2 import pool
+from psycopg2.extras import RealDictCursor
 
 # Load environment variables
 load_dotenv()
@@ -46,7 +49,340 @@ socketio = SocketIO(app, cors_allowed_origins=[
     "https://magolis.onrender.com"
 ], async_mode='threading')
 
-# ==================== WEBHOOK ROUTE - MUST BE FIRST ====================
+# ==================== DATABASE SETUP (POSTGRESQL) ====================
+
+DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://lmsdatabase_8ag3_user:6WD9lOnHkiU7utlUUjT88m4XgEYQMTLb@dpg-ctp9h0aj1k6c739h9di0-a.oregon-postgres.render.com/lmsdatabase_8ag3')
+
+def parse_db_url(url):
+    """Parse PostgreSQL connection URL"""
+    if url.startswith('postgresql://'):
+        url = url[13:]
+    
+    credentials, rest = url.split('@')
+    username, password = credentials.split(':')
+    host_port, dbname = rest.split('/')
+    host, port = host_port.split(':')
+    
+    return {
+        'dbname': dbname,
+        'user': username,
+        'password': password,
+        'host': host,
+        'port': port
+    }
+
+# Parse connection parameters
+db_params = parse_db_url(DATABASE_URL)
+
+# Create connection pool for background threads
+db_pool = pool.SimpleConnectionPool(
+    1, 10,
+    dbname=db_params['dbname'],
+    user=db_params['user'],
+    password=db_params['password'],
+    host=db_params['host'],
+    port=db_params['port']
+)
+
+@contextmanager
+def get_db_connection():
+    """Get a database connection from the pool"""
+    conn = db_pool.getconn()
+    try:
+        yield conn
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        db_pool.putconn(conn)
+
+@contextmanager
+def get_db_cursor(commit=True):
+    """Get a database cursor"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        try:
+            yield cursor
+            if commit:
+                conn.commit()
+        finally:
+            cursor.close()
+
+def init_db():
+    """Initialize database tables"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            # Users table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    username TEXT UNIQUE NOT NULL,
+                    password TEXT NOT NULL,
+                    email TEXT,
+                    full_name TEXT,
+                    role TEXT DEFAULT 'user',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # Contacts table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS contacts (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER,
+                    platform TEXT NOT NULL,
+                    platform_user_id TEXT NOT NULL,
+                    display_name TEXT,
+                    phone_number TEXT,
+                    email TEXT,
+                    opt_in BOOLEAN DEFAULT FALSE,
+                    opt_in_date TIMESTAMP,
+                    last_interaction TIMESTAMP,
+                    tags TEXT,
+                    notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(platform, platform_user_id)
+                )
+            ''')
+            
+            # Messages table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS messages (
+                    id SERIAL PRIMARY KEY,
+                    contact_id INTEGER REFERENCES contacts(id) ON DELETE CASCADE,
+                    platform TEXT NOT NULL,
+                    direction TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    status TEXT DEFAULT 'pending',
+                    message_id TEXT,
+                    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    delivered_at TIMESTAMP,
+                    read_at TIMESTAMP
+                )
+            ''')
+            
+            # Broadcasts table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS broadcasts (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER,
+                    name TEXT NOT NULL,
+                    platform TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    audience_filter TEXT,
+                    total_recipients INTEGER DEFAULT 0,
+                    sent_count INTEGER DEFAULT 0,
+                    failed_count INTEGER DEFAULT 0,
+                    status TEXT DEFAULT 'draft',
+                    scheduled_for TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    completed_at TIMESTAMP
+                )
+            ''')
+            
+            # Broadcast recipients table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS broadcast_recipients (
+                    id SERIAL PRIMARY KEY,
+                    broadcast_id INTEGER REFERENCES broadcasts(id) ON DELETE CASCADE,
+                    contact_id INTEGER REFERENCES contacts(id) ON DELETE CASCADE,
+                    status TEXT DEFAULT 'pending',
+                    error_message TEXT,
+                    sent_at TIMESTAMP
+                )
+            ''')
+            
+            # Insert default admin user
+            cursor.execute("SELECT id FROM users WHERE username = 'admin'")
+            if not cursor.fetchone():
+                cursor.execute('''
+                    INSERT INTO users (username, password, email, full_name, role)
+                    VALUES (%s, %s, %s, %s, %s)
+                ''', ('admin', generate_password_hash('admin123'), 'admin@example.com', 'Administrator', 'admin'))
+            
+            conn.commit()
+            logger.info("Database initialized successfully")
+
+# Initialize database
+init_db()
+
+# ==================== HELPER FUNCTIONS FOR DATABASE OPERATIONS ====================
+
+def save_contact(platform, platform_user_id, display_name=None, phone_number=None, opt_in=True):
+    """Save or update contact - can be called from any thread"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO contacts (platform, platform_user_id, display_name, phone_number, opt_in, opt_in_date, last_interaction, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (platform, platform_user_id) 
+                DO UPDATE SET 
+                    display_name = COALESCE(EXCLUDED.display_name, contacts.display_name),
+                    phone_number = COALESCE(EXCLUDED.phone_number, contacts.phone_number),
+                    last_interaction = EXCLUDED.last_interaction,
+                    updated_at = EXCLUDED.updated_at
+                RETURNING id
+            """, (
+                platform, str(platform_user_id), display_name, phone_number, 
+                opt_in, datetime.now() if opt_in else None, datetime.now(), 
+                datetime.now(), datetime.now()
+            ))
+            result = cursor.fetchone()
+            return result[0]
+
+def save_message(contact_id, platform, direction, message, status='sent'):
+    """Save a message - can be called from any thread"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO messages (contact_id, platform, direction, message, status, sent_at)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (contact_id, platform, direction, message, status, datetime.now()))
+
+def get_recipients_for_broadcast(platform, audience_filter='all', tags=None):
+    """Get recipients for broadcast - can be called from any thread"""
+    with get_db_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+            query = "SELECT id, platform_user_id, display_name FROM contacts WHERE platform = %s AND opt_in = TRUE"
+            params = [platform]
+            
+            if audience_filter == 'active':
+                query += " AND last_interaction > NOW() - INTERVAL '30 days'"
+            
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+
+def create_broadcast_record(user_id, name, platform, message, audience_filter, total_recipients):
+    """Create a broadcast record - returns broadcast_id"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO broadcasts (user_id, name, platform, message, audience_filter, total_recipients, status)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            ''', (user_id, name, platform, message, audience_filter, total_recipients, 'processing'))
+            return cursor.fetchone()[0]
+
+def update_broadcast_stats(broadcast_id, sent_count, failed_count):
+    """Update broadcast stats - can be called from any thread"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE broadcasts 
+                SET sent_count = %s, failed_count = %s
+                WHERE id = %s
+            ''', (sent_count, failed_count, broadcast_id))
+
+def complete_broadcast(broadcast_id):
+    """Mark broadcast as completed - can be called from any thread"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE broadcasts 
+                SET status = 'completed', completed_at = %s
+                WHERE id = %s
+            ''', (datetime.now(), broadcast_id))
+
+def add_broadcast_recipient(broadcast_id, contact_id, status, error_message=None):
+    """Add broadcast recipient record - can be called from any thread"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO broadcast_recipients (broadcast_id, contact_id, status, error_message, sent_at)
+                VALUES (%s, %s, %s, %s, %s)
+            ''', (broadcast_id, contact_id, status, error_message, datetime.now()))
+
+def get_all_contacts(platform=None, opt_in_only=False, search=None):
+    """Get contacts for display"""
+    with get_db_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+            query = "SELECT * FROM contacts WHERE 1=1"
+            params = []
+            
+            if platform:
+                query += " AND platform = %s"
+                params.append(platform)
+            
+            if opt_in_only:
+                query += " AND opt_in = TRUE"
+            
+            if search:
+                query += " AND (display_name ILIKE %s OR platform_user_id ILIKE %s OR phone_number ILIKE %s)"
+                search_param = f"%{search}%"
+                params.extend([search_param, search_param, search_param])
+            
+            query += " ORDER BY last_interaction DESC NULLS LAST LIMIT 100"
+            
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+
+def get_messages(limit=50, platform=None):
+    """Get message history"""
+    with get_db_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+            query = '''
+                SELECT m.*, c.display_name, c.platform_user_id
+                FROM messages m
+                JOIN contacts c ON m.contact_id = c.id
+                WHERE 1=1
+            '''
+            params = []
+            
+            if platform:
+                query += " AND m.platform = %s"
+                params.append(platform)
+            
+            query += " ORDER BY m.sent_at DESC LIMIT %s"
+            params.append(limit)
+            
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+
+def get_broadcasts():
+    """Get broadcast history"""
+    with get_db_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+            cursor.execute('''
+                SELECT * FROM broadcasts 
+                ORDER BY created_at DESC 
+                LIMIT 20
+            ''')
+            return [dict(row) for row in cursor.fetchall()]
+
+def get_dashboard_stats():
+    """Get dashboard statistics"""
+    with get_db_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+            cursor.execute('SELECT COUNT(*) as total, SUM(CASE WHEN opt_in = TRUE THEN 1 ELSE 0 END) as opted_in FROM contacts')
+            contact_stats = cursor.fetchone()
+            
+            cursor.execute('SELECT platform, COUNT(*) as count FROM contacts GROUP BY platform')
+            contacts_by_platform = cursor.fetchall()
+            
+            cursor.execute('SELECT COUNT(*) as total, SUM(CASE WHEN direction = \'outgoing\' THEN 1 ELSE 0 END) as sent FROM messages')
+            message_stats = cursor.fetchone()
+            
+            cursor.execute('SELECT COUNT(*) as total FROM broadcasts')
+            broadcast_stats = cursor.fetchone()
+            
+            cursor.execute('''
+                SELECT COUNT(*) as active FROM contacts 
+                WHERE last_interaction > NOW() - INTERVAL '30 days'
+            ''')
+            active_stats = cursor.fetchone()
+            
+            return {
+                'total_contacts': contact_stats['total'] if contact_stats else 0,
+                'opted_in_contacts': contact_stats['opted_in'] if contact_stats else 0,
+                'active_contacts_30d': active_stats['active'] if active_stats else 0,
+                'sent_messages': message_stats['sent'] if message_stats else 0,
+                'total_broadcasts': broadcast_stats['total'] if broadcast_stats else 0,
+                'contacts_by_platform': [dict(row) for row in contacts_by_platform]
+            }
+
+# ==================== WEBHOOK ROUTE ====================
 
 @app.route('/webhook/facebook', methods=['GET', 'POST'])
 def facebook_webhook():
@@ -54,7 +390,6 @@ def facebook_webhook():
     
     logger.info(f"📨 Webhook hit: Method={request.method}")
     
-    # GET request = Webhook verification (Facebook's initial setup)
     if request.method == 'GET':
         mode = request.args.get('hub.mode')
         token = request.args.get('hub.verify_token')
@@ -62,10 +397,8 @@ def facebook_webhook():
         
         logger.info(f"🔑 Verification request - Mode: {mode}, Token: {token}, Challenge: {challenge}")
         
-        # Get your verify token from environment
         expected_token = os.getenv('FACEBOOK_VERIFY_TOKEN', 'fibonaccialucard123')
         
-        # Check if mode and token are valid
         if mode and token and mode == 'subscribe' and token == expected_token:
             logger.info("✅ Webhook verified successfully!")
             return challenge, 200
@@ -73,12 +406,10 @@ def facebook_webhook():
         logger.error(f"❌ Verification failed. Expected: {expected_token}, Got: {token}")
         return 'Verification failed', 403
     
-    # POST request = Incoming message from a user
     try:
         payload = request.json
         logger.info(f"📨 Facebook webhook POST received")
         
-        # Process the incoming message
         if payload:
             entries = payload.get('entry', [])
             for entry in entries:
@@ -91,7 +422,6 @@ def facebook_webhook():
                         content = message.get('text', '')
                         logger.info(f"💬 Message from {sender_id}: {content}")
                         
-                        # Save contact and message to database
                         contact_id = save_contact(
                             platform='facebook',
                             platform_user_id=sender_id,
@@ -102,7 +432,6 @@ def facebook_webhook():
                         if content:
                             save_message(contact_id, 'facebook', 'incoming', content)
                         
-                        # Notify via WebSocket
                         socketio.emit('new_message', {
                             'platform': 'facebook',
                             'sender_id': sender_id,
@@ -114,128 +443,6 @@ def facebook_webhook():
     except Exception as e:
         logger.error(f"Webhook error: {e}")
         return jsonify({'status': 'error'}), 500
-
-
-# ==================== FAVICON ====================
-
-@app.route('/favicon.ico')
-def favicon():
-    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico', mimetype='image/vnd.microsoft.icon')
-
-
-# ==================== DATABASE SETUP ====================
-
-DATABASE = 'unified_messaging.db'
-
-def get_db():
-    db = getattr(g, '_database', None)
-    if db is None:
-        db = g._database = sqlite3.connect(DATABASE)
-        db.row_factory = sqlite3.Row
-    return db
-
-@app.teardown_appcontext
-def close_connection(exception):
-    db = getattr(g, '_database', None)
-    if db is not None:
-        db.close()
-
-def init_db():
-    """Initialize database tables"""
-    with app.app_context():
-        db = get_db()
-        cursor = db.cursor()
-        
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL,
-                email TEXT,
-                full_name TEXT,
-                role TEXT DEFAULT 'user',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS contacts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                platform TEXT NOT NULL,
-                platform_user_id TEXT NOT NULL,
-                display_name TEXT,
-                phone_number TEXT,
-                email TEXT,
-                opt_in BOOLEAN DEFAULT 0,
-                opt_in_date TIMESTAMP,
-                last_interaction TIMESTAMP,
-                tags TEXT,
-                notes TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(platform, platform_user_id)
-            )
-        ''')
-        
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS messages (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                contact_id INTEGER,
-                platform TEXT NOT NULL,
-                direction TEXT NOT NULL,
-                message TEXT NOT NULL,
-                status TEXT DEFAULT 'pending',
-                message_id TEXT,
-                sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                delivered_at TIMESTAMP,
-                read_at TIMESTAMP,
-                FOREIGN KEY (contact_id) REFERENCES contacts(id)
-            )
-        ''')
-        
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS broadcasts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                name TEXT NOT NULL,
-                platform TEXT NOT NULL,
-                message TEXT NOT NULL,
-                audience_filter TEXT,
-                total_recipients INTEGER DEFAULT 0,
-                sent_count INTEGER DEFAULT 0,
-                failed_count INTEGER DEFAULT 0,
-                status TEXT DEFAULT 'draft',
-                scheduled_for TIMESTAMP,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                completed_at TIMESTAMP
-            )
-        ''')
-        
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS broadcast_recipients (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                broadcast_id INTEGER,
-                contact_id INTEGER,
-                status TEXT DEFAULT 'pending',
-                error_message TEXT,
-                sent_at TIMESTAMP,
-                FOREIGN KEY (broadcast_id) REFERENCES broadcasts(id),
-                FOREIGN KEY (contact_id) REFERENCES contacts(id)
-            )
-        ''')
-        
-        cursor.execute("SELECT id FROM users WHERE username = 'admin'")
-        if not cursor.fetchone():
-            cursor.execute('''
-                INSERT INTO users (username, password, email, full_name, role)
-                VALUES (?, ?, ?, ?, ?)
-            ''', ('admin', generate_password_hash('admin123'), 'admin@example.com', 'Administrator', 'admin'))
-        
-        db.commit()
-        logger.info("Database initialized successfully")
-
-init_db()
 
 
 # ==================== PLATFORM ADAPTERS ====================
@@ -273,10 +480,11 @@ class WhatsAppAdapter:
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
+
 class FacebookAdapter:
     def __init__(self):
         self.page_access_token = os.getenv('FACEBOOK_PAGE_TOKEN')
-        self.page_id = os.getenv('FACEBOOK_PAGE_ID')  # Add this line
+        self.page_id = os.getenv('FACEBOOK_PAGE_ID')
         self.is_configured = bool(self.page_access_token and self.page_id)
     
     def send_message(self, recipient_id, content):
@@ -304,11 +512,9 @@ class FacebookAdapter:
             return {'success': False, 'error': str(e)}
     
     def get_page_id(self):
-        """Get the Page ID - now hardcoded from env"""
         return self.page_id
     
     def get_conversations(self, limit=50):
-        """Fetch conversations from Facebook Page"""
         page_id = self.get_page_id()
         if not page_id:
             return {'success': False, 'error': 'Could not get Page ID'}
@@ -447,8 +653,7 @@ adapters = {
     'linkedin': LinkedInAdapter()
 }
 
-
-# ==================== HELPER FUNCTIONS ====================
+# ==================== AUTH ROUTES ====================
 
 def login_required(f):
     @wraps(f)
@@ -458,93 +663,79 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+@app.route('/login')
+def login_page():
+    return render_template('login.html')
 
-def save_contact(platform, platform_user_id, display_name=None, phone_number=None, opt_in=True):
-    db = get_db()
-    cursor = db.cursor()
-    
-    cursor.execute(
-        "SELECT id FROM contacts WHERE platform = ? AND platform_user_id = ?",
-        (platform, str(platform_user_id))
-    )
-    existing = cursor.fetchone()
-    
-    now = datetime.now().isoformat()
-    
-    if existing:
-        cursor.execute('''
-            UPDATE contacts 
-            SET display_name = COALESCE(?, display_name),
-                phone_number = COALESCE(?, phone_number),
-                last_interaction = ?,
-                updated_at = ?
-            WHERE id = ?
-        ''', (display_name, phone_number, now, now, existing['id']))
-        contact_id = existing['id']
-    else:
-        cursor.execute('''
-            INSERT INTO contacts (platform, platform_user_id, display_name, phone_number, opt_in, opt_in_date, last_interaction)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (platform, str(platform_user_id), display_name, phone_number, opt_in, now if opt_in else None, now))
-        contact_id = cursor.lastrowid
-    
-    db.commit()
-    return contact_id
+@app.route('/')
+def index():
+    if 'user_id' not in session:
+        return redirect('/login')
+    return render_template('index.html')
 
-
-def save_message(contact_id, platform, direction, message, status='sent'):
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute('''
-        INSERT INTO messages (contact_id, platform, direction, message, status)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (contact_id, platform, direction, message, status))
-    db.commit()
-
-
-def get_recipients_for_broadcast(platform, audience_filter='all', tags=None):
-    db = get_db()
-    cursor = db.cursor()
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
     
-    query = "SELECT * FROM contacts WHERE platform = ? AND opt_in = 1"
-    params = [platform]
+    with get_db_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+            cursor.execute("SELECT id, username, password, full_name, role FROM users WHERE username = %s", (username,))
+            user = cursor.fetchone()
     
-    if audience_filter == 'active':
-        query += " AND last_interaction > datetime('now', '-30 days')"
-    elif audience_filter == 'tagged' and tags:
-        like_clauses = []
-        for tag in tags.split(','):
-            like_clauses.append("tags LIKE ?")
-            params.append(f"%{tag.strip()}%")
-        query += " AND (" + " OR ".join(like_clauses) + ")"
+    if user and check_password_hash(user['password'], password):
+        session.permanent = True
+        session['user_id'] = user['id']
+        session['username'] = user['username']
+        session['full_name'] = user['full_name']
+        session['role'] = user['role']
+        
+        return jsonify({
+            'success': True,
+            'user': {
+                'id': user['id'],
+                'username': user['username'],
+                'full_name': user['full_name'],
+                'role': user['role']
+            }
+        })
     
-    cursor.execute(query, params)
-    return cursor.fetchall()
+    return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
 
+@app.route('/api/logout', methods=['POST'])
+def api_logout():
+    session.clear()
+    return jsonify({'success': True})
+
+@app.route('/api/check-auth', methods=['GET'])
+def check_auth():
+    if 'user_id' in session:
+        return jsonify({
+            'authenticated': True,
+            'user': {
+                'id': session['user_id'],
+                'username': session.get('username'),
+                'full_name': session.get('full_name'),
+                'role': session.get('role', 'user')
+            }
+        })
+    return jsonify({'authenticated': False}), 401
 
 # ==================== FACEBOOK CONTACT SYNC ROUTES ====================
 
 @app.route('/api/facebook/sync-contacts', methods=['POST'])
 @login_required
 def sync_facebook_contacts():
-    """Fetch all conversations from Facebook Page and sync to contacts database"""
-    
     try:
         facebook_adapter = adapters['facebook']
         
-        # Check if Facebook is configured
         if not facebook_adapter.is_configured:
-            logger.error("Facebook not configured - missing PAGE_TOKEN")
+            logger.error("Facebook not configured - missing PAGE_TOKEN or PAGE_ID")
             return jsonify({
                 'success': False, 
-                'error': 'Facebook not configured. Please add FACEBOOK_PAGE_TOKEN to environment variables.'
+                'error': 'Facebook not configured. Please add FACEBOOK_PAGE_TOKEN and FACEBOOK_PAGE_ID to environment variables.'
             }), 400
-        
-        # Log the token status (first/last few chars for debugging)
-        token = facebook_adapter.page_access_token
-        logger.info(f"Facebook token present: {bool(token)}")
-        if token:
-            logger.info(f"Token starts with: {token[:20]}... ends with: ...{token[-10:]}")
         
         result = facebook_adapter.get_conversations(limit=100)
         
@@ -586,7 +777,6 @@ def sync_facebook_contacts():
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
-
 
 @app.route('/api/facebook/conversations/<psid>', methods=['GET'])
 @login_required
@@ -646,73 +836,6 @@ def get_facebook_conversation(psid):
         logger.error(f"Error fetching conversation: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-
-# ==================== AUTH ROUTES ====================
-
-@app.route('/login')
-def login_page():
-    return render_template('login.html')
-
-
-@app.route('/')
-def index():
-    if 'user_id' not in session:
-        return redirect('/login')
-    return render_template('index.html')
-
-
-@app.route('/api/login', methods=['POST'])
-def api_login():
-    data = request.json
-    username = data.get('username')
-    password = data.get('password')
-    
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute("SELECT id, username, password, full_name, role FROM users WHERE username = ?", (username,))
-    user = cursor.fetchone()
-    
-    if user and check_password_hash(user['password'], password):
-        session.permanent = True
-        session['user_id'] = user['id']
-        session['username'] = user['username']
-        session['full_name'] = user['full_name']
-        session['role'] = user['role']
-        
-        return jsonify({
-            'success': True,
-            'user': {
-                'id': user['id'],
-                'username': user['username'],
-                'full_name': user['full_name'],
-                'role': user['role']
-            }
-        })
-    
-    return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
-
-
-@app.route('/api/logout', methods=['POST'])
-def api_logout():
-    session.clear()
-    return jsonify({'success': True})
-
-
-@app.route('/api/check-auth', methods=['GET'])
-def check_auth():
-    if 'user_id' in session:
-        return jsonify({
-            'authenticated': True,
-            'user': {
-                'id': session['user_id'],
-                'username': session.get('username'),
-                'full_name': session.get('full_name'),
-                'role': session.get('role', 'user')
-            }
-        })
-    return jsonify({'authenticated': False}), 401
-
-
 # ==================== MESSAGING ROUTES ====================
 
 @app.route('/api/send', methods=['POST'])
@@ -751,7 +874,6 @@ def send_message():
     
     return jsonify(result)
 
-
 @app.route('/api/broadcast', methods=['POST'])
 @login_required
 def broadcast_message():
@@ -778,14 +900,10 @@ def broadcast_message():
     if not recipients:
         return jsonify({'success': False, 'error': 'No recipients found matching criteria'}), 404
     
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute('''
-        INSERT INTO broadcasts (user_id, name, platform, message, audience_filter, total_recipients, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', (session['user_id'], campaign_name, platform, message, audience_filter, len(recipients), 'processing'))
-    broadcast_id = cursor.lastrowid
-    db.commit()
+    broadcast_id = create_broadcast_record(
+        session['user_id'], campaign_name, platform, message, 
+        audience_filter, len(recipients)
+    )
     
     def process_broadcast():
         sent_count = 0
@@ -794,10 +912,12 @@ def broadcast_message():
         for i, recipient in enumerate(recipients):
             result = adapter.send_message(recipient['platform_user_id'], message)
             
-            cursor.execute('''
-                INSERT INTO broadcast_recipients (broadcast_id, contact_id, status, error_message, sent_at)
-                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-            ''', (broadcast_id, recipient['id'], 'sent' if result.get('success') else 'failed', result.get('error')))
+            add_broadcast_recipient(
+                broadcast_id, 
+                recipient['id'], 
+                'sent' if result.get('success') else 'failed', 
+                result.get('error')
+            )
             
             if result.get('success'):
                 sent_count += 1
@@ -805,18 +925,12 @@ def broadcast_message():
             else:
                 failed_count += 1
             
-            cursor.execute('''
-                UPDATE broadcasts SET sent_count = ?, failed_count = ? WHERE id = ?
-            ''', (sent_count, failed_count, broadcast_id))
-            db.commit()
+            update_broadcast_stats(broadcast_id, sent_count, failed_count)
             
             if i < len(recipients) - 1:
                 time.sleep(rate_limit)
         
-        cursor.execute('''
-            UPDATE broadcasts SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE id = ?
-        ''', (broadcast_id,))
-        db.commit()
+        complete_broadcast(broadcast_id)
         
         socketio.emit('broadcast_completed', {
             'broadcast_id': broadcast_id,
@@ -836,7 +950,6 @@ def broadcast_message():
         'message': f'Broadcast started. Sending to {len(recipients)} recipients.'
     })
 
-
 # ==================== CONTACT ROUTES ====================
 
 @app.route('/api/contacts', methods=['GET'])
@@ -846,76 +959,52 @@ def get_contacts():
     opt_in_only = request.args.get('opt_in_only', 'false').lower() == 'true'
     search = request.args.get('search', '')
     
-    db = get_db()
-    cursor = db.cursor()
-    
-    query = "SELECT * FROM contacts WHERE 1=1"
-    params = []
-    
-    if platform:
-        query += " AND platform = ?"
-        params.append(platform)
-    
-    if opt_in_only:
-        query += " AND opt_in = 1"
-    
-    if search:
-        query += " AND (display_name LIKE ? OR platform_user_id LIKE ? OR phone_number LIKE ?)"
-        search_param = f"%{search}%"
-        params.extend([search_param, search_param, search_param])
-    
-    query += " ORDER BY last_interaction DESC NULLS LAST LIMIT 100"
-    
-    cursor.execute(query, params)
-    contacts = cursor.fetchall()
+    contacts = get_all_contacts(platform, opt_in_only, search)
     
     return jsonify({
         'success': True,
-        'contacts': [dict(contact) for contact in contacts],
+        'contacts': contacts,
         'count': len(contacts)
     })
-
 
 @app.route('/api/contacts/<int:contact_id>', methods=['PUT'])
 @login_required
 def update_contact(contact_id):
     data = request.json
     
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute('''
-        UPDATE contacts 
-        SET display_name = COALESCE(?, display_name),
-            phone_number = COALESCE(?, phone_number),
-            email = COALESCE(?, email),
-            tags = COALESCE(?, tags),
-            notes = COALESCE(?, notes),
-            opt_in = COALESCE(?, opt_in),
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-    ''', (
-        data.get('display_name'),
-        data.get('phone_number'),
-        data.get('email'),
-        data.get('tags'),
-        data.get('notes'),
-        data.get('opt_in'),
-        contact_id
-    ))
-    db.commit()
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE contacts 
+                SET display_name = COALESCE(%s, display_name),
+                    phone_number = COALESCE(%s, phone_number),
+                    email = COALESCE(%s, email),
+                    tags = COALESCE(%s, tags),
+                    notes = COALESCE(%s, notes),
+                    opt_in = COALESCE(%s, opt_in),
+                    updated_at = %s
+                WHERE id = %s
+            ''', (
+                data.get('display_name'),
+                data.get('phone_number'),
+                data.get('email'),
+                data.get('tags'),
+                data.get('notes'),
+                data.get('opt_in'),
+                datetime.now(),
+                contact_id
+            ))
     
     return jsonify({'success': True, 'message': 'Contact updated'})
-
 
 @app.route('/api/contacts/<int:contact_id>', methods=['DELETE'])
 @login_required
 def delete_contact(contact_id):
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute("DELETE FROM contacts WHERE id = ?", (contact_id,))
-    db.commit()
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("DELETE FROM contacts WHERE id = %s", (contact_id,))
+    
     return jsonify({'success': True, 'message': 'Contact deleted'})
-
 
 @app.route('/api/contacts/bulk-opt-in', methods=['POST'])
 @login_required
@@ -926,101 +1015,69 @@ def bulk_opt_in():
     if not contact_ids:
         return jsonify({'success': False, 'error': 'No contacts selected'}), 400
     
-    db = get_db()
-    cursor = db.cursor()
-    placeholders = ','.join('?' * len(contact_ids))
-    cursor.execute(f'''
-        UPDATE contacts 
-        SET opt_in = 1, opt_in_date = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-        WHERE id IN ({placeholders})
-    ''', contact_ids)
-    db.commit()
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            placeholders = ','.join(['%s'] * len(contact_ids))
+            cursor.execute(f'''
+                UPDATE contacts 
+                SET opt_in = TRUE, opt_in_date = %s, updated_at = %s
+                WHERE id IN ({placeholders})
+            ''', [datetime.now(), datetime.now()] + contact_ids)
     
-    return jsonify({'success': True, 'updated': cursor.rowcount})
-
+    return jsonify({'success': True, 'updated': len(contact_ids)})
 
 # ==================== MESSAGE HISTORY ====================
 
 @app.route('/api/messages', methods=['GET'])
 @login_required
-def get_messages():
+def get_messages_api():
     limit = request.args.get('limit', 50, type=int)
     platform = request.args.get('platform')
     
-    db = get_db()
-    cursor = db.cursor()
-    
-    query = '''
-        SELECT m.*, c.display_name, c.platform_user_id
-        FROM messages m
-        JOIN contacts c ON m.contact_id = c.id
-        WHERE 1=1
-    '''
-    params = []
-    
-    if platform:
-        query += " AND m.platform = ?"
-        params.append(platform)
-    
-    query += " ORDER BY m.sent_at DESC LIMIT ?"
-    params.append(limit)
-    
-    cursor.execute(query, params)
-    messages = cursor.fetchall()
+    messages = get_messages(limit, platform)
     
     return jsonify({
         'success': True,
-        'messages': [dict(m) for m in messages],
+        'messages': messages,
         'count': len(messages)
     })
-
 
 # ==================== BROADCAST ROUTES ====================
 
 @app.route('/api/broadcasts', methods=['GET'])
 @login_required
-def get_broadcasts():
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute('''
-        SELECT * FROM broadcasts 
-        ORDER BY created_at DESC 
-        LIMIT 20
-    ''')
-    broadcasts = cursor.fetchall()
+def get_broadcasts_api():
+    broadcasts = get_broadcasts()
     
     return jsonify({
         'success': True,
-        'broadcasts': [dict(b) for b in broadcasts]
+        'broadcasts': broadcasts
     })
-
 
 @app.route('/api/broadcasts/<int:broadcast_id>', methods=['GET'])
 @login_required
 def get_broadcast_details(broadcast_id):
-    db = get_db()
-    cursor = db.cursor()
-    
-    cursor.execute("SELECT * FROM broadcasts WHERE id = ?", (broadcast_id,))
-    broadcast = cursor.fetchone()
-    
-    if not broadcast:
-        return jsonify({'success': False, 'error': 'Broadcast not found'}), 404
-    
-    cursor.execute('''
-        SELECT br.*, c.display_name, c.platform_user_id
-        FROM broadcast_recipients br
-        JOIN contacts c ON br.contact_id = c.id
-        WHERE br.broadcast_id = ?
-    ''', (broadcast_id,))
-    recipients = cursor.fetchall()
+    with get_db_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+            cursor.execute("SELECT * FROM broadcasts WHERE id = %s", (broadcast_id,))
+            broadcast = cursor.fetchone()
+            
+            if not broadcast:
+                return jsonify({'success': False, 'error': 'Broadcast not found'}), 404
+            
+            cursor.execute('''
+                SELECT br.*, c.display_name, c.platform_user_id
+                FROM broadcast_recipients br
+                JOIN contacts c ON br.contact_id = c.id
+                WHERE br.broadcast_id = %s
+            ''', (broadcast_id,))
+            recipients = cursor.fetchall()
     
     return jsonify({
         'success': True,
         'broadcast': dict(broadcast),
         'recipients': [dict(r) for r in recipients]
     })
-
 
 # ==================== STATUS ROUTES ====================
 
@@ -1035,43 +1092,11 @@ def get_platform_status():
         }
     return jsonify(status)
 
-
 @app.route('/api/dashboard/stats', methods=['GET'])
 @login_required
-def get_dashboard_stats():
-    db = get_db()
-    cursor = db.cursor()
-    
-    cursor.execute('SELECT COUNT(*) as total, SUM(CASE WHEN opt_in = 1 THEN 1 ELSE 0 END) as opted_in FROM contacts')
-    contact_stats = cursor.fetchone()
-    
-    cursor.execute('SELECT platform, COUNT(*) as count FROM contacts GROUP BY platform')
-    contacts_by_platform = cursor.fetchall()
-    
-    cursor.execute('SELECT COUNT(*) as total, SUM(CASE WHEN direction = "outgoing" THEN 1 ELSE 0 END) as sent FROM messages')
-    message_stats = cursor.fetchone()
-    
-    cursor.execute('SELECT COUNT(*) as total FROM broadcasts')
-    broadcast_stats = cursor.fetchone()
-    
-    cursor.execute('''
-        SELECT COUNT(*) as active FROM contacts 
-        WHERE last_interaction > datetime("now", "-30 days")
-    ''')
-    active_stats = cursor.fetchone()
-    
-    return jsonify({
-        'success': True,
-        'stats': {
-            'total_contacts': contact_stats['total'] if contact_stats else 0,
-            'opted_in_contacts': contact_stats['opted_in'] if contact_stats else 0,
-            'active_contacts_30d': active_stats['active'] if active_stats else 0,
-            'sent_messages': message_stats['sent'] if message_stats else 0,
-            'total_broadcasts': broadcast_stats['total'] if broadcast_stats else 0,
-            'contacts_by_platform': [dict(c) for c in contacts_by_platform]
-        }
-    })
-
+def get_dashboard_stats_api():
+    stats = get_dashboard_stats()
+    return jsonify({'success': True, 'stats': stats})
 
 @app.route('/api/recipient-count', methods=['POST'])
 @login_required
@@ -1083,7 +1108,6 @@ def get_recipient_count():
     
     recipients = get_recipients_for_broadcast(platform, audience_filter, tags)
     return jsonify({'success': True, 'count': len(recipients)})
-
 
 # ==================== HEALTH CHECK ====================
 
@@ -1097,13 +1121,11 @@ def health_check():
         'timestamp': datetime.now().isoformat()
     })
 
-
 # ==================== SOCKET.IO EVENTS ====================
 
 @socketio.on('connect')
 def handle_connect():
     emit('connected', {'message': 'Connected to server'})
-
 
 # ==================== RUN THE APP ====================
 
@@ -1124,8 +1146,6 @@ if __name__ == '__main__':
     print("\nDefault Admin Login:")
     print("  Username: admin")
     print("  Password: admin123")
-    print("\nTest Webhook Verification:")
-    print(f"  curl 'http://localhost:{port}/webhook/facebook?hub.mode=subscribe&hub.verify_token=fibonaccialucard123&hub.challenge=123456789'")
     print("\n" + "=" * 60)
     
     socketio.run(app, host='0.0.0.0', port=port, debug=debug)
