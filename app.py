@@ -273,11 +273,11 @@ class WhatsAppAdapter:
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
-
 class FacebookAdapter:
     def __init__(self):
         self.page_access_token = os.getenv('FACEBOOK_PAGE_TOKEN')
-        self.is_configured = bool(self.page_access_token)
+        self.page_id = os.getenv('FACEBOOK_PAGE_ID')  # Add this line
+        self.is_configured = bool(self.page_access_token and self.page_id)
     
     def send_message(self, recipient_id, content):
         if not self.is_configured:
@@ -304,17 +304,11 @@ class FacebookAdapter:
             return {'success': False, 'error': str(e)}
     
     def get_page_id(self):
-        try:
-            url = "https://graph.facebook.com/v18.0/me/accounts"
-            response = requests.get(url, params={'access_token': self.page_access_token})
-            data = response.json()
-            if data.get('data') and len(data['data']) > 0:
-                return data['data'][0]['id']
-            return None
-        except:
-            return None
+        """Get the Page ID - now hardcoded from env"""
+        return self.page_id
     
     def get_conversations(self, limit=50):
+        """Fetch conversations from Facebook Page"""
         page_id = self.get_page_id()
         if not page_id:
             return {'success': False, 'error': 'Could not get Page ID'}
