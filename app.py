@@ -1039,7 +1039,7 @@ def bulk_opt_in():
 
 # ==================== MESSAGE HISTORY ====================
 
-def get_long_lived_user_token(short_lived_token):
+"""def get_long_lived_user_token(short_lived_token):
     # IMPORTANT: Never hardcode secrets in production code. Use environment variables.
     app_id = "122310148634227900"
     app_secret = "aea161e21e6008e9175f26e8f20cd732"
@@ -1063,7 +1063,7 @@ def get_long_lived_user_token(short_lived_token):
 
 # Example usage with your short-lived token
 short_token = "EAAVWG0GVTr4BReJwcZA06R5DYDZCUZCVegr6yC5fPQZCzHIjUBEWHYm4OFlX3FLUi4tH7CroBEWw3ql08HOfO1CBHFa4heP00iZA9outvG0AhIoJifjETtWicG7Sr7XAynhlnLHvvjce7RVuqdfU0ZCVimRoFJOn84unrqAUonS16M6EeuYKBOHZAjIglRjWBtvvp37eEzNj8cYi5LjY5fGBSas9ksTcwEu7beXRcp3U1csIQMNu1VCZAB9uaZAsd0jNMe8Xb0Mn3r1WZBC4QZD"
-long_lived_token = get_long_lived_user_token(short_token)
+long_lived_token = get_long_lived_user_token(short_token)"""
 
 @app.route('/api/messages', methods=['GET'])
 @login_required
