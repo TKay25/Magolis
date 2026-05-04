@@ -615,44 +615,80 @@ class TwitterAdapter:
 # Instagram sync endpoint
 @app.route('/api/instagram/sync-contacts', methods=['POST'])
 def sync_instagram_contacts():
-    instagram_adapter = adapters['instagram']
-    if not instagram_adapter.is_configured:
-        return jsonify({'success': False, 'error': 'Instagram not configured'}), 400
-    
-    result = instagram_adapter.get_conversations(limit=100)
-    
-    if not result['success']:
-        return jsonify({'success': False, 'error': result['error']}), 400
-    
-    synced_count = 0
-    new_contacts = []
-    
-    for conv in result['conversations']:
-        psid = conv['psid']
-        user_name = conv['name']
+    """Fetch all Instagram DM conversations and sync to contacts database"""
+    try:
+        instagram_adapter = adapters['instagram']
         
-        contact_id = save_contact(
-            platform='instagram',
-            platform_user_id=psid,
-            display_name=user_name,
-            opt_in=True
-        )
+        # Detailed configuration check
+        if not instagram_adapter.is_configured:
+            missing = []
+            if not os.getenv('INSTAGRAM_BUSINESS_ID'):
+                missing.append("INSTAGRAM_BUSINESS_ID")
+            if not os.getenv('FACEBOOK_PAGE_TOKEN'):
+                missing.append("FACEBOOK_PAGE_TOKEN")
+            
+            error_msg = f"Instagram not configured. Missing: {', '.join(missing)}"
+            logger.error(error_msg)
+            return jsonify({
+                'success': False, 
+                'error': error_msg,
+                'missing': missing
+            }), 400
         
-        synced_count += 1
-        new_contacts.append({
-            'id': contact_id,
-            'psid': psid,
-            'name': user_name,
-            'last_message': conv.get('last_message')
+        # Log what we have (safely)
+        logger.info(f"Instagram Business ID: {instagram_adapter.business_id}")
+        logger.info(f"Page Token present: {bool(instagram_adapter.access_token)}")
+        
+        result = instagram_adapter.get_conversations(limit=100)
+        
+        # Return the actual error from Instagram API
+        if not result['success']:
+            logger.error(f"Instagram API error: {result['error']}")
+            return jsonify({
+                'success': False, 
+                'error': result['error'],
+                'details': result.get('details', {})
+            }), 400
+        
+        synced_count = 0
+        new_contacts = []
+        
+        for conv in result['conversations']:
+            psid = conv['psid']
+            user_name = conv['name']
+            
+            contact_id = save_contact(
+                platform='instagram',
+                platform_user_id=psid,
+                display_name=user_name,
+                opt_in=True
+            )
+            
+            synced_count += 1
+            new_contacts.append({
+                'id': contact_id,
+                'psid': psid,
+                'name': user_name,
+                'last_message': conv.get('last_message')
+            })
+        
+        return jsonify({
+            'success': True,
+            'synced': synced_count,
+            'contacts': new_contacts,
+            'message': f'Successfully synced {synced_count} Instagram contacts'
         })
+        
+    except Exception as e:
+        logger.error(f"Instagram sync error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False, 
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
     
-    return jsonify({
-        'success': True,
-        'synced': synced_count,
-        'contacts': new_contacts,
-        'message': f'Successfully synced {synced_count} Instagram contacts'
-    })
-
 # Instagram conversation endpoint
 @app.route('/api/instagram/conversations/<psid>', methods=['GET'])
 def get_instagram_conversation(psid):
@@ -728,42 +764,25 @@ def instagram_webhook():
 
 class InstagramAdapter:
     def __init__(self):
-        # Instagram uses the same Page Access Token as Facebook
         self.access_token = os.getenv('FACEBOOK_PAGE_TOKEN')
         self.business_id = os.getenv('INSTAGRAM_BUSINESS_ID')
         self.is_configured = bool(self.access_token and self.business_id)
-    
-    def send_message(self, recipient_id, content):
-        """Send Instagram DM using Graph API"""
-        if not self.is_configured:
-            return {'success': False, 'error': 'Instagram not configured'}
         
-        url = f"https://graph.facebook.com/v18.0/{self.business_id}/messages"
-        payload = {
-            "recipient": {"id": recipient_id},
-            "message": {"text": content},
-            "messaging_type": "RESPONSE"
-        }
-        
-        headers = {
-            "Authorization": f"Bearer {self.access_token}",
-            "Content-Type": "application/json"
-        }
-        
-        try:
-            response = requests.post(url, json=payload, headers=headers, timeout=30)
-            data = response.json()
-            
-            if response.status_code == 200:
-                return {'success': True, 'platform': 'instagram'}
-            return {'success': False, 'error': data.get('error', {}).get('message', 'Failed to send')}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        # Log configuration status
+        if self.is_configured:
+            logger.info(f"Instagram Adapter: Configured with Business ID: {self.business_id}")
+        else:
+            logger.warning(f"Instagram Adapter: Not configured. Token: {bool(self.access_token)}, Business ID: {bool(self.business_id)}")
     
     def get_conversations(self, limit=50):
         """Fetch Instagram DM conversations"""
         if not self.is_configured:
-            return {'success': False, 'error': 'Instagram not configured'}
+            missing = []
+            if not self.access_token:
+                missing.append("FACEBOOK_PAGE_TOKEN")
+            if not self.business_id:
+                missing.append("INSTAGRAM_BUSINESS_ID")
+            return {'success': False, 'error': f'Missing: {", ".join(missing)}'}
         
         url = f"https://graph.facebook.com/v18.0/{self.business_id}/conversations"
         params = {
@@ -772,9 +791,25 @@ class InstagramAdapter:
             'limit': limit
         }
         
+        logger.info(f"Instagram API Request URL: {url}")
+        
         try:
             response = requests.get(url, params=params)
             data = response.json()
+            
+            # Log the full response for debugging
+            logger.info(f"Instagram API Response Status: {response.status_code}")
+            logger.info(f"Instagram API Response: {json.dumps(data, indent=2)}")
+            
+            if response.status_code != 200:
+                error_msg = data.get('error', {}).get('message', 'Unknown error')
+                error_code = data.get('error', {}).get('code', 0)
+                error_subcode = data.get('error', {}).get('error_subcode', 0)
+                return {
+                    'success': False, 
+                    'error': f"[{error_code}:{error_subcode}] {error_msg}",
+                    'details': data.get('error', {})
+                }
             
             if 'error' in data:
                 return {'success': False, 'error': data['error']['message']}
@@ -782,7 +817,6 @@ class InstagramAdapter:
             conversations = []
             for conv in data.get('data', []):
                 participants = conv.get('participants', {}).get('data', [])
-                # Filter out the page itself to get the user
                 user_participant = None
                 for p in participants:
                     if p.get('id') != self.business_id:
@@ -802,8 +836,8 @@ class InstagramAdapter:
             
             return {'success': True, 'conversations': conversations}
         except Exception as e:
+            logger.error(f"Instagram API exception: {str(e)}")
             return {'success': False, 'error': str(e)}
-
 
 class LinkedInAdapter:
     def __init__(self):
