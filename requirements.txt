@@ -9,3 +9,6 @@ gunicorn
 gunicorn
 eventlet
 werkzeug
+psycopg2-binary
+SQLAlchemy
+Flask-SQLAlchemy
