@@ -2,6 +2,8 @@
 Unified Social Media Messaging System with Bulk Broadcast
 Complete Flask Backend - Production Ready with Facebook Contact Sync
 """
+import eventlet
+eventlet.monkey_patch()
 
 import os
 import json
