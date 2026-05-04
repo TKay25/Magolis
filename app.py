@@ -1062,7 +1062,7 @@ def get_long_lived_user_token(short_lived_token):
         return None
 
 # Example usage with your short-lived token
-short_token = "YOUR_SHORT_LIVED_USER_ACCESS_TOKEN"
+short_token = "EAAVWG0GVTr4BReJwcZA06R5DYDZCUZCVegr6yC5fPQZCzHIjUBEWHYm4OFlX3FLUi4tH7CroBEWw3ql08HOfO1CBHFa4heP00iZA9outvG0AhIoJifjETtWicG7Sr7XAynhlnLHvvjce7RVuqdfU0ZCVimRoFJOn84unrqAUonS16M6EeuYKBOHZAjIglRjWBtvvp37eEzNj8cYi5LjY5fGBSas9ksTcwEu7beXRcp3U1csIQMNu1VCZAB9uaZAsd0jNMe8Xb0Mn3r1WZBC4QZD"
 long_lived_token = get_long_lived_user_token(short_token)
 
 @app.route('/api/messages', methods=['GET'])
