@@ -612,6 +612,62 @@ class TwitterAdapter:
         except:
             return None
 
+# Instagram sync endpoint
+@app.route('/api/instagram/sync-contacts', methods=['POST'])
+def sync_instagram_contacts():
+    instagram_adapter = adapters['instagram']
+    if not instagram_adapter.is_configured:
+        return jsonify({'success': False, 'error': 'Instagram not configured'}), 400
+    
+    result = instagram_adapter.get_conversations(limit=100)
+    
+    if not result['success']:
+        return jsonify({'success': False, 'error': result['error']}), 400
+    
+    synced_count = 0
+    new_contacts = []
+    
+    for conv in result['conversations']:
+        psid = conv['psid']
+        user_name = conv['name']
+        
+        contact_id = save_contact(
+            platform='instagram',
+            platform_user_id=psid,
+            display_name=user_name,
+            opt_in=True
+        )
+        
+        synced_count += 1
+        new_contacts.append({
+            'id': contact_id,
+            'psid': psid,
+            'name': user_name,
+            'last_message': conv.get('last_message')
+        })
+    
+    return jsonify({
+        'success': True,
+        'synced': synced_count,
+        'contacts': new_contacts,
+        'message': f'Successfully synced {synced_count} Instagram contacts'
+    })
+
+# Instagram conversation endpoint
+@app.route('/api/instagram/conversations/<psid>', methods=['GET'])
+def get_instagram_conversation(psid):
+    instagram_adapter = adapters['instagram']
+    if not instagram_adapter.is_configured:
+        return jsonify({'success': False, 'error': 'Instagram not configured'}), 400
+    
+    messages = instagram_adapter.get_conversation_history(psid, limit=100)
+    
+    return jsonify({
+        'success': True,
+        'messages': messages,
+        'count': len(messages)
+    })
+
 @app.route('/webhook/instagram', methods=['GET', 'POST'])
 def instagram_webhook():
     if request.method == 'GET':
