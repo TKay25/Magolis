@@ -1039,6 +1039,32 @@ def bulk_opt_in():
 
 # ==================== MESSAGE HISTORY ====================
 
+def get_long_lived_user_token(short_lived_token):
+    # IMPORTANT: Never hardcode secrets in production code. Use environment variables.
+    app_id = "122310148634227900"
+    app_secret = "aea161e21e6008e9175f26e8f20cd732"
+
+    url = (f"https://graph.facebook.com/v20.0/oauth/access_token"
+           f"?grant_type=fb_exchange_token"
+           f"&client_id={app_id}"
+           f"&client_secret={app_secret}"
+           f"&fb_exchange_token={short_lived_token}")
+
+    response = requests.get(url)
+    data = response.json()
+
+    if 'access_token' in data:
+        print(f"Long-lived token: {data['access_token']}")
+        print(f"Expires in: {data['expires_in']} seconds (~{int(data['expires_in']/86400)} days)")
+        return data['access_token']
+    else:
+        print(f"Error: {data}")
+        return None
+
+# Example usage with your short-lived token
+short_token = "YOUR_SHORT_LIVED_USER_ACCESS_TOKEN"
+long_lived_token = get_long_lived_user_token(short_token)
+
 @app.route('/api/messages', methods=['GET'])
 @login_required
 def get_messages_api():
