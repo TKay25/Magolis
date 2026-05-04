@@ -31,7 +31,7 @@ app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = os.getenv('SECRET_KEY', 'your-super-secret-key-change-this')
 app.permanent_session_lifetime = timedelta(days=7)
 
-# CORS: Allow credentials and restrict origins for security
+# CORS
 CORS(app, supports_credentials=True, origins=[
     "http://localhost:5000",
     "http://127.0.0.1:5000",
@@ -44,54 +44,88 @@ socketio = SocketIO(app, cors_allowed_origins=[
     "https://magolis.onrender.com"
 ], async_mode='threading')
 
-# Favicon route to fix 404
-@app.route('/favicon.ico')
-def favicon():
-    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico', mimetype='image/vnd.microsoft.icon')
-
-# Database setup
-DATABASE = 'unified_messaging.db'
+# ==================== WEBHOOK ROUTE - MUST BE FIRST ====================
 
 @app.route('/webhook/facebook', methods=['GET', 'POST'])
 def facebook_webhook():
-    # Log all incoming requests for debugging
-    logger.info(f"Webhook received: Method={request.method}")
-    logger.info(f"Args: {request.args}")
+    """Facebook webhook endpoint - handles verification and incoming messages"""
     
-    # GET request = Webhook verification
+    logger.info(f"📨 Webhook hit: Method={request.method}")
+    
+    # GET request = Webhook verification (Facebook's initial setup)
     if request.method == 'GET':
-        # Get parameters from Facebook
         mode = request.args.get('hub.mode')
         token = request.args.get('hub.verify_token')
         challenge = request.args.get('hub.challenge')
         
-        logger.info(f"Verification request - Mode: {mode}, Token: {token}, Challenge: {challenge}")
+        logger.info(f"🔑 Verification request - Mode: {mode}, Token: {token}, Challenge: {challenge}")
         
         # Get your verify token from environment
         expected_token = os.getenv('FACEBOOK_VERIFY_TOKEN', 'fibonaccialucard123')
         
         # Check if mode and token are valid
         if mode and token and mode == 'subscribe' and token == expected_token:
-            logger.info("Webhook verified successfully!")
-            # Respond with the challenge token
+            logger.info("✅ Webhook verified successfully!")
             return challenge, 200
         
-        # If not valid, return error
-        logger.error(f"Verification failed. Expected token: {expected_token}, Got: {token}")
+        logger.error(f"❌ Verification failed. Expected: {expected_token}, Got: {token}")
         return 'Verification failed', 403
     
-    # POST request = Incoming message (handled already in your code)
+    # POST request = Incoming message from a user
     try:
         payload = request.json
-        logger.info(f"Facebook webhook POST received")
-        # ... rest of your POST handling code ...
+        logger.info(f"📨 Facebook webhook POST received")
+        
+        # Process the incoming message
+        if payload:
+            entries = payload.get('entry', [])
+            for entry in entries:
+                messaging_events = entry.get('messaging', [])
+                for event in messaging_events:
+                    sender_id = event.get('sender', {}).get('id')
+                    message = event.get('message', {})
+                    
+                    if message and sender_id:
+                        content = message.get('text', '')
+                        logger.info(f"💬 Message from {sender_id}: {content}")
+                        
+                        # Save contact and message to database
+                        contact_id = save_contact(
+                            platform='facebook',
+                            platform_user_id=sender_id,
+                            display_name=event.get('sender', {}).get('name', 'Facebook User'),
+                            opt_in=True
+                        )
+                        
+                        if content:
+                            save_message(contact_id, 'facebook', 'incoming', content)
+                        
+                        # Notify via WebSocket
+                        socketio.emit('new_message', {
+                            'platform': 'facebook',
+                            'sender_id': sender_id,
+                            'content': content,
+                            'timestamp': datetime.now().isoformat()
+                        })
+                        
         return jsonify({'status': 'ok'}), 200
     except Exception as e:
         logger.error(f"Webhook error: {e}")
         return jsonify({'status': 'error'}), 500
 
+
+# ==================== FAVICON ====================
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico', mimetype='image/vnd.microsoft.icon')
+
+
+# ==================== DATABASE SETUP ====================
+
+DATABASE = 'unified_messaging.db'
+
 def get_db():
-    """Get database connection"""
     db = getattr(g, '_database', None)
     if db is None:
         db = g._database = sqlite3.connect(DATABASE)
@@ -100,7 +134,6 @@ def get_db():
 
 @app.teardown_appcontext
 def close_connection(exception):
-    """Close database connection"""
     db = getattr(g, '_database', None)
     if db is not None:
         db.close()
@@ -111,7 +144,6 @@ def init_db():
         db = get_db()
         cursor = db.cursor()
         
-        # Users table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -124,7 +156,6 @@ def init_db():
             )
         ''')
         
-        # Contacts table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS contacts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -145,7 +176,6 @@ def init_db():
             )
         ''')
         
-        # Messages table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -162,7 +192,6 @@ def init_db():
             )
         ''')
         
-        # Broadcast campaigns table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS broadcasts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -181,7 +210,6 @@ def init_db():
             )
         ''')
         
-        # Broadcast recipients tracking
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS broadcast_recipients (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -195,7 +223,6 @@ def init_db():
             )
         ''')
         
-        # Insert default admin user
         cursor.execute("SELECT id FROM users WHERE username = 'admin'")
         if not cursor.fetchone():
             cursor.execute('''
@@ -206,8 +233,8 @@ def init_db():
         db.commit()
         logger.info("Database initialized successfully")
 
-# Initialize database
 init_db()
+
 
 # ==================== PLATFORM ADAPTERS ====================
 
@@ -275,7 +302,6 @@ class FacebookAdapter:
             return {'success': False, 'error': str(e)}
     
     def get_page_id(self):
-        """Get the Page ID associated with the access token"""
         try:
             url = "https://graph.facebook.com/v18.0/me/accounts"
             response = requests.get(url, params={'access_token': self.page_access_token})
@@ -287,7 +313,6 @@ class FacebookAdapter:
             return None
     
     def get_conversations(self, limit=50):
-        """Fetch conversations from Facebook Page"""
         page_id = self.get_page_id()
         if not page_id:
             return {'success': False, 'error': 'Could not get Page ID'}
@@ -414,7 +439,6 @@ class LinkedInAdapter:
     def send_message(self, recipient_id, content):
         if not self.is_configured:
             return {'success': False, 'error': 'LinkedIn not configured'}
-        # LinkedIn API placeholder
         return {'success': False, 'error': 'LinkedIn API coming soon'}
 
 
@@ -427,6 +451,7 @@ adapters = {
     'linkedin': LinkedInAdapter()
 }
 
+
 # ==================== HELPER FUNCTIONS ====================
 
 def login_required(f):
@@ -436,6 +461,7 @@ def login_required(f):
             return jsonify({'success': False, 'error': 'Authentication required'}), 401
         return f(*args, **kwargs)
     return decorated_function
+
 
 def save_contact(platform, platform_user_id, display_name=None, phone_number=None, opt_in=True):
     db = get_db()
@@ -469,6 +495,7 @@ def save_contact(platform, platform_user_id, display_name=None, phone_number=Non
     db.commit()
     return contact_id
 
+
 def save_message(contact_id, platform, direction, message, status='sent'):
     db = get_db()
     cursor = db.cursor()
@@ -477,6 +504,7 @@ def save_message(contact_id, platform, direction, message, status='sent'):
         VALUES (?, ?, ?, ?, ?)
     ''', (contact_id, platform, direction, message, status))
     db.commit()
+
 
 def get_recipients_for_broadcast(platform, audience_filter='all', tags=None):
     db = get_db()
@@ -497,15 +525,12 @@ def get_recipients_for_broadcast(platform, audience_filter='all', tags=None):
     cursor.execute(query, params)
     return cursor.fetchall()
 
+
 # ==================== FACEBOOK CONTACT SYNC ROUTES ====================
-
-
 
 @app.route('/api/facebook/sync-contacts', methods=['POST'])
 @login_required
 def sync_facebook_contacts():
-    """Fetch all conversations from Facebook Page and sync to contacts database"""
-    
     facebook_adapter = adapters['facebook']
     if not facebook_adapter.is_configured:
         return jsonify({'success': False, 'error': 'Facebook not configured'}), 400
@@ -521,9 +546,7 @@ def sync_facebook_contacts():
     for conv in result['conversations']:
         psid = conv['psid']
         user_name = conv['name']
-        last_interaction = conv.get('last_interaction')
         
-        # Save to database
         contact_id = save_contact(
             platform='facebook',
             platform_user_id=psid,
@@ -550,8 +573,6 @@ def sync_facebook_contacts():
 @app.route('/api/facebook/conversations/<psid>', methods=['GET'])
 @login_required
 def get_facebook_conversation(psid):
-    """Get full message history with a specific Facebook user"""
-    
     facebook_adapter = adapters['facebook']
     if not facebook_adapter.is_configured:
         return jsonify({'success': False, 'error': 'Facebook not configured'}), 400
@@ -561,7 +582,6 @@ def get_facebook_conversation(psid):
         return jsonify({'success': False, 'error': 'Could not get Page ID'}), 400
     
     try:
-        # Get conversation ID for this user
         conv_url = f"https://graph.facebook.com/v18.0/{page_id}/conversations"
         params = {
             'access_token': facebook_adapter.page_access_token,
@@ -578,7 +598,6 @@ def get_facebook_conversation(psid):
         
         conversation_id = data['data'][0]['id']
         
-        # Get messages
         messages_url = f"https://graph.facebook.com/v18.0/{conversation_id}/messages"
         msg_params = {
             'access_token': facebook_adapter.page_access_token,
@@ -589,7 +608,6 @@ def get_facebook_conversation(psid):
         msg_response = requests.get(messages_url, params=msg_params)
         messages_data = msg_response.json()
         
-        # Format messages
         messages = []
         for msg in messages_data.get('data', []):
             messages.append({
@@ -610,19 +628,20 @@ def get_facebook_conversation(psid):
         logger.error(f"Error fetching conversation: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# ==================== ROUTES ====================
 
-# Login page route
+# ==================== AUTH ROUTES ====================
+
 @app.route('/login')
 def login_page():
     return render_template('login.html')
 
-# Main dashboard page, redirect to login if not authenticated
+
 @app.route('/')
 def index():
     if 'user_id' not in session:
         return redirect('/login')
     return render_template('index.html')
+
 
 @app.route('/api/login', methods=['POST'])
 def api_login():
@@ -654,10 +673,12 @@ def api_login():
     
     return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
 
+
 @app.route('/api/logout', methods=['POST'])
 def api_logout():
     session.clear()
     return jsonify({'success': True})
+
 
 @app.route('/api/check-auth', methods=['GET'])
 def check_auth():
@@ -672,6 +693,9 @@ def check_auth():
             }
         })
     return jsonify({'authenticated': False}), 401
+
+
+# ==================== MESSAGING ROUTES ====================
 
 @app.route('/api/send', methods=['POST'])
 @login_required
@@ -688,7 +712,6 @@ def send_message():
     if platform not in adapters:
         return jsonify({'success': False, 'error': f'Invalid platform: {platform}'}), 400
     
-    # Handle Twitter username to ID conversion
     if platform == 'twitter' and not recipient.isdigit():
         user_id = adapters['twitter'].get_user_id(recipient)
         if not user_id:
@@ -701,7 +724,6 @@ def send_message():
         contact_id = save_contact(platform, recipient, display_name, recipient if platform == 'whatsapp' else None, True)
         save_message(contact_id, platform, 'outgoing', content)
         
-        # Notify via WebSocket
         socketio.emit('message_sent', {
             'platform': platform,
             'recipient': recipient,
@@ -710,6 +732,7 @@ def send_message():
         })
     
     return jsonify(result)
+
 
 @app.route('/api/broadcast', methods=['POST'])
 @login_required
@@ -732,13 +755,11 @@ def broadcast_message():
     if not adapter.is_configured:
         return jsonify({'success': False, 'error': f'{platform} is not configured'}), 400
     
-    # Get recipients
     recipients = get_recipients_for_broadcast(platform, audience_filter, tags)
     
     if not recipients:
         return jsonify({'success': False, 'error': 'No recipients found matching criteria'}), 404
     
-    # Create broadcast record
     db = get_db()
     cursor = db.cursor()
     cursor.execute('''
@@ -748,7 +769,6 @@ def broadcast_message():
     broadcast_id = cursor.lastrowid
     db.commit()
     
-    # Process broadcast in background
     def process_broadcast():
         sent_count = 0
         failed_count = 0
@@ -798,6 +818,9 @@ def broadcast_message():
         'message': f'Broadcast started. Sending to {len(recipients)} recipients.'
     })
 
+
+# ==================== CONTACT ROUTES ====================
+
 @app.route('/api/contacts', methods=['GET'])
 @login_required
 def get_contacts():
@@ -834,6 +857,7 @@ def get_contacts():
         'count': len(contacts)
     })
 
+
 @app.route('/api/contacts/<int:contact_id>', methods=['PUT'])
 @login_required
 def update_contact(contact_id):
@@ -864,6 +888,7 @@ def update_contact(contact_id):
     
     return jsonify({'success': True, 'message': 'Contact updated'})
 
+
 @app.route('/api/contacts/<int:contact_id>', methods=['DELETE'])
 @login_required
 def delete_contact(contact_id):
@@ -872,6 +897,7 @@ def delete_contact(contact_id):
     cursor.execute("DELETE FROM contacts WHERE id = ?", (contact_id,))
     db.commit()
     return jsonify({'success': True, 'message': 'Contact deleted'})
+
 
 @app.route('/api/contacts/bulk-opt-in', methods=['POST'])
 @login_required
@@ -893,6 +919,9 @@ def bulk_opt_in():
     db.commit()
     
     return jsonify({'success': True, 'updated': cursor.rowcount})
+
+
+# ==================== MESSAGE HISTORY ====================
 
 @app.route('/api/messages', methods=['GET'])
 @login_required
@@ -927,6 +956,9 @@ def get_messages():
         'count': len(messages)
     })
 
+
+# ==================== BROADCAST ROUTES ====================
+
 @app.route('/api/broadcasts', methods=['GET'])
 @login_required
 def get_broadcasts():
@@ -943,6 +975,7 @@ def get_broadcasts():
         'success': True,
         'broadcasts': [dict(b) for b in broadcasts]
     })
+
 
 @app.route('/api/broadcasts/<int:broadcast_id>', methods=['GET'])
 @login_required
@@ -970,6 +1003,9 @@ def get_broadcast_details(broadcast_id):
         'recipients': [dict(r) for r in recipients]
     })
 
+
+# ==================== STATUS ROUTES ====================
+
 @app.route('/api/status', methods=['GET'])
 def get_platform_status():
     status = {}
@@ -980,6 +1016,7 @@ def get_platform_status():
             'name': name.capitalize()
         }
     return jsonify(status)
+
 
 @app.route('/api/dashboard/stats', methods=['GET'])
 @login_required
@@ -1017,6 +1054,7 @@ def get_dashboard_stats():
         }
     })
 
+
 @app.route('/api/recipient-count', methods=['POST'])
 @login_required
 def get_recipient_count():
@@ -1028,6 +1066,9 @@ def get_recipient_count():
     recipients = get_recipients_for_broadcast(platform, audience_filter, tags)
     return jsonify({'success': True, 'count': len(recipients)})
 
+
+# ==================== HEALTH CHECK ====================
+
 @app.route('/health', methods=['GET'])
 def health_check():
     configured_count = sum(1 for a in adapters.values() if a.is_configured)
@@ -1038,10 +1079,15 @@ def health_check():
         'timestamp': datetime.now().isoformat()
     })
 
-# Socket.IO events
+
+# ==================== SOCKET.IO EVENTS ====================
+
 @socketio.on('connect')
 def handle_connect():
     emit('connected', {'message': 'Connected to server'})
+
+
+# ==================== RUN THE APP ====================
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
@@ -1051,6 +1097,7 @@ if __name__ == '__main__':
     print("UNIFIED SOCIAL MEDIA MESSAGING SYSTEM")
     print("=" * 60)
     print(f"\nServer running on port: {port}")
+    print(f"Debug mode: {debug}")
     print("\nConfigured Platforms:")
     for name, adapter in adapters.items():
         status = "✓ CONFIGURED" if adapter.is_configured else "✗ NOT CONFIGURED"
@@ -1059,9 +1106,8 @@ if __name__ == '__main__':
     print("\nDefault Admin Login:")
     print("  Username: admin")
     print("  Password: admin123")
-    print("\nFacebook Sync Available:")
-    print("  • POST /api/facebook/sync-contacts - Sync Facebook contacts")
-    print("  • GET /api/facebook/conversations/<psid> - Get conversation history")
+    print("\nTest Webhook Verification:")
+    print(f"  curl 'http://localhost:{port}/webhook/facebook?hub.mode=subscribe&hub.verify_token=fibonaccialucard123&hub.challenge=123456789'")
     print("\n" + "=" * 60)
     
     socketio.run(app, host='0.0.0.0', port=port, debug=debug)
