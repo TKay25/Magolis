@@ -612,14 +612,73 @@ class TwitterAdapter:
         except:
             return None
 
+@app.route('/webhook/instagram', methods=['GET', 'POST'])
+def instagram_webhook():
+    if request.method == 'GET':
+        # Verification
+        mode = request.args.get('hub.mode')
+        token = request.args.get('hub.verify_token')
+        challenge = request.args.get('hub.challenge')
+        
+        expected_token = os.getenv('FACEBOOK_VERIFY_TOKEN', 'fibonaccialucard123')
+        
+        if mode and token and mode == 'subscribe' and token == expected_token:
+            return challenge, 200
+        return 'Verification failed', 403
+    
+    try:
+        payload = request.json
+        logger.info(f"📨 Instagram webhook received")
+        
+        # Process comments and messages
+        entries = payload.get('entry', [])
+        for entry in entries:
+            # Handle message events
+            messaging = entry.get('messaging', [])
+            for event in messaging:
+                sender_id = event.get('sender', {}).get('id')
+                message = event.get('message', {})
+                
+                if message and sender_id:
+                    content = message.get('text', '')
+                    contact_id = save_contact(
+                        platform='instagram',
+                        platform_user_id=sender_id,
+                        display_name='Instagram User',
+                        opt_in=True
+                    )
+                    if content:
+                        save_message(contact_id, 'instagram', 'incoming', content)
+                    
+                    socketio.emit('new_message', {
+                        'platform': 'instagram',
+                        'sender_id': sender_id,
+                        'content': content,
+                        'timestamp': datetime.now().isoformat()
+                    })
+            
+            # Handle comment events (for comment-to-DM automation)
+            changes = entry.get('changes', [])
+            for change in changes:
+                if change.get('field') == 'comments':
+                    comment_data = change.get('value', {})
+                    # Save comment and optionally auto-reply
+                    # This is where you'd implement ManyChat-style automation[citation:2][citation:7]
+        
+        return jsonify({'status': 'ok'}), 200
+    except Exception as e:
+        logger.error(f"Webhook error: {e}")
+        return jsonify({'status': 'error'}), 500
 
 class InstagramAdapter:
     def __init__(self):
-        self.access_token = os.getenv('INSTAGRAM_ACCESS_TOKEN')
+        # Instagram uses the same Page Access Token as Facebook
+        self.access_token = os.getenv('FACEBOOK_PAGE_TOKEN')
         self.business_id = os.getenv('INSTAGRAM_BUSINESS_ID')
         self.is_configured = bool(self.access_token and self.business_id)
     
     def send_message(self, recipient_id, content):
+        """Send Instagram DM using Graph API"""
         if not self.is_configured:
             return {'success': False, 'error': 'Instagram not configured'}
         
@@ -637,9 +696,55 @@ class InstagramAdapter:
         
         try:
             response = requests.post(url, json=payload, headers=headers, timeout=30)
+            data = response.json()
+            
             if response.status_code == 200:
                 return {'success': True, 'platform': 'instagram'}
-            return {'success': False, 'error': 'Failed to send'}
+            return {'success': False, 'error': data.get('error', {}).get('message', 'Failed to send')}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    def get_conversations(self, limit=50):
+        """Fetch Instagram DM conversations"""
+        if not self.is_configured:
+            return {'success': False, 'error': 'Instagram not configured'}
+        
+        url = f"https://graph.facebook.com/v18.0/{self.business_id}/conversations"
+        params = {
+            'access_token': self.access_token,
+            'fields': 'participants,updated_time,messages.limit(1){message,created_time}',
+            'limit': limit
+        }
+        
+        try:
+            response = requests.get(url, params=params)
+            data = response.json()
+            
+            if 'error' in data:
+                return {'success': False, 'error': data['error']['message']}
+            
+            conversations = []
+            for conv in data.get('data', []):
+                participants = conv.get('participants', {}).get('data', [])
+                # Filter out the page itself to get the user
+                user_participant = None
+                for p in participants:
+                    if p.get('id') != self.business_id:
+                        user_participant = p
+                        break
+                
+                if user_participant:
+                    messages_data = conv.get('messages', {}).get('data', [])
+                    last_message = messages_data[0] if messages_data else None
+                    
+                    conversations.append({
+                        'psid': user_participant['id'],
+                        'name': user_participant.get('name', 'Instagram User'),
+                        'last_message': last_message.get('message', '') if last_message else None,
+                        'last_interaction': conv.get('updated_time')
+                    })
+            
+            return {'success': True, 'conversations': conversations}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
