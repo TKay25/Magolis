@@ -54,14 +54,25 @@ socketio = SocketIO(app, cors_allowed_origins=[
 DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://lmsdatabase_8ag3_user:6WD9lOnHkiU7utlUUjT88m4XgEYQMTLb@dpg-ctp9h0aj1k6c739h9di0-a.oregon-postgres.render.com/lmsdatabase_8ag3')
 
 def parse_db_url(url):
-    """Parse PostgreSQL connection URL"""
+    """Parse PostgreSQL connection URL - handles missing port"""
     if url.startswith('postgresql://'):
         url = url[13:]
     
+    # Split into credentials and rest
     credentials, rest = url.split('@')
     username, password = credentials.split(':')
-    host_port, dbname = rest.split('/')
-    host, port = host_port.split(':')
+    
+    # Parse host_port and dbname - handle missing port
+    host_port_db = rest.split('/')
+    host_port = host_port_db[0]
+    dbname = host_port_db[1] if len(host_port_db) > 1 else 'postgres'
+    
+    # Check if port is specified
+    if ':' in host_port:
+        host, port = host_port.split(':')
+    else:
+        host = host_port
+        port = '5432'  # Default PostgreSQL port
     
     return {
         'dbname': dbname,
