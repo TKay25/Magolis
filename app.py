@@ -533,43 +533,65 @@ def get_recipients_for_broadcast(platform, audience_filter='all', tags=None):
 @app.route('/api/facebook/sync-contacts', methods=['POST'])
 @login_required
 def sync_facebook_contacts():
-    facebook_adapter = adapters['facebook']
-    if not facebook_adapter.is_configured:
-        return jsonify({'success': False, 'error': 'Facebook not configured'}), 400
+    """Fetch all conversations from Facebook Page and sync to contacts database"""
     
-    result = facebook_adapter.get_conversations(limit=100)
-    
-    if not result['success']:
-        return jsonify({'success': False, 'error': result['error']}), 400
-    
-    synced_count = 0
-    new_contacts = []
-    
-    for conv in result['conversations']:
-        psid = conv['psid']
-        user_name = conv['name']
+    try:
+        facebook_adapter = adapters['facebook']
         
-        contact_id = save_contact(
-            platform='facebook',
-            platform_user_id=psid,
-            display_name=user_name,
-            opt_in=True
-        )
+        # Check if Facebook is configured
+        if not facebook_adapter.is_configured:
+            logger.error("Facebook not configured - missing PAGE_TOKEN")
+            return jsonify({
+                'success': False, 
+                'error': 'Facebook not configured. Please add FACEBOOK_PAGE_TOKEN to environment variables.'
+            }), 400
         
-        synced_count += 1
-        new_contacts.append({
-            'id': contact_id,
-            'psid': psid,
-            'name': user_name,
-            'last_message': conv.get('last_message')
+        # Log the token status (first/last few chars for debugging)
+        token = facebook_adapter.page_access_token
+        logger.info(f"Facebook token present: {bool(token)}")
+        if token:
+            logger.info(f"Token starts with: {token[:20]}... ends with: ...{token[-10:]}")
+        
+        result = facebook_adapter.get_conversations(limit=100)
+        
+        if not result['success']:
+            logger.error(f"Facebook API error: {result['error']}")
+            return jsonify({'success': False, 'error': result['error']}), 400
+        
+        synced_count = 0
+        new_contacts = []
+        
+        for conv in result['conversations']:
+            psid = conv['psid']
+            user_name = conv['name']
+            
+            contact_id = save_contact(
+                platform='facebook',
+                platform_user_id=psid,
+                display_name=user_name,
+                opt_in=True
+            )
+            
+            synced_count += 1
+            new_contacts.append({
+                'id': contact_id,
+                'psid': psid,
+                'name': user_name,
+                'last_message': conv.get('last_message')
+            })
+        
+        return jsonify({
+            'success': True,
+            'synced': synced_count,
+            'contacts': new_contacts,
+            'message': f'Successfully synced {synced_count} Facebook contacts'
         })
-    
-    return jsonify({
-        'success': True,
-        'synced': synced_count,
-        'contacts': new_contacts,
-        'message': f'Successfully synced {synced_count} Facebook contacts'
-    })
+        
+    except Exception as e:
+        logger.error(f"Sync error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/facebook/conversations/<psid>', methods=['GET'])
