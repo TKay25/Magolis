@@ -11,6 +11,8 @@ import json
 import time
 import threading
 import warnings
+import csv
+import io
 
 # Suppress deprecation warnings
 warnings.filterwarnings("ignore", category=SyntaxWarning)
@@ -90,7 +92,7 @@ def get_db_cursor(commit=True):
     cursor = None
     try:
         conn = get_db_connection()
-        cursor = conn.cursor()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
         yield cursor
         if commit:
             conn.commit()
@@ -291,7 +293,18 @@ def add_broadcast_recipient(broadcast_id, contact_id, status, error_message=None
 def get_all_contacts(platform=None, opt_in_only=False, search=None):
     """Get contacts for display"""
     with get_db_cursor(commit=False) as cursor:
-        cursor.execute("SELECT * FROM contacts ORDER BY last_interaction DESC NULLS LAST LIMIT 100")
+        query = "SELECT * FROM contacts WHERE 1=1"
+        params = []
+        if platform:
+            query += " AND platform = %s"
+            params.append(platform)
+        if opt_in_only:
+            query += " AND opt_in = TRUE"
+        if search:
+            query += " AND (display_name ILIKE %s OR platform_user_id ILIKE %s)"
+            params.extend([f"%{search}%", f"%{search}%"])
+        query += " ORDER BY last_interaction DESC NULLS LAST LIMIT 200"
+        cursor.execute(query, tuple(params))
         return [dict(row) for row in cursor.fetchall()]
 
 def get_messages(limit=50, platform=None):
@@ -1050,6 +1063,61 @@ def broadcast_message():
 
 # ==================== CONTACT ROUTES ====================
 
+@app.route('/api/contacts', methods=['POST'])
+@login_required
+def add_contact():
+    data = request.json
+    platform = data.get('platform')
+    platform_user_id = data.get('platform_user_id', '').strip()
+    display_name = data.get('display_name', '').strip()
+    phone_number = data.get('phone_number', '').strip() or None
+    opt_in = data.get('opt_in', True)
+
+    if not platform or not platform_user_id:
+        return jsonify({'success': False, 'error': 'Platform and Platform User ID are required'}), 400
+
+    contact_id = save_contact(platform, platform_user_id, display_name or None, phone_number, opt_in)
+    return jsonify({'success': True, 'contact_id': contact_id, 'message': 'Contact added successfully'})
+
+
+@app.route('/api/contacts/import-csv', methods=['POST'])
+@login_required
+def import_contacts_csv():
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'error': 'No file uploaded'}), 400
+
+    file = request.files['file']
+    if not file.filename.endswith('.csv'):
+        return jsonify({'success': False, 'error': 'File must be a .csv'}), 400
+
+    stream = io.StringIO(file.stream.read().decode('utf-8-sig'), newline=None)
+    reader = csv.DictReader(stream)
+
+    required_fields = {'platform', 'platform_user_id'}
+    if not required_fields.issubset({f.strip().lower() for f in (reader.fieldnames or [])}):
+        return jsonify({'success': False, 'error': 'CSV must have columns: platform, platform_user_id (optional: display_name, phone_number, opt_in)'}), 400
+
+    added = 0
+    errors = []
+    for i, row in enumerate(reader, start=2):
+        row = {k.strip().lower(): v.strip() for k, v in row.items()}
+        platform = row.get('platform', '').lower()
+        platform_user_id = row.get('platform_user_id', '')
+        if not platform or not platform_user_id:
+            errors.append(f'Row {i}: missing platform or platform_user_id')
+            continue
+        display_name = row.get('display_name') or None
+        phone_number = row.get('phone_number') or None
+        opt_in = row.get('opt_in', 'true').lower() not in ('false', '0', 'no')
+        try:
+            save_contact(platform, platform_user_id, display_name, phone_number, opt_in)
+            added += 1
+        except Exception as e:
+            errors.append(f'Row {i}: {str(e)}')
+
+    return jsonify({'success': True, 'added': added, 'errors': errors})
+
+
 @app.route('/api/contacts', methods=['GET'])
 @login_required
 def get_contacts():
@@ -1194,6 +1262,27 @@ def health_check():
         'total_platforms': len(adapters),
         'timestamp': datetime.now().isoformat()
     })
+
+@app.route('/api/db-test', methods=['GET'])
+@login_required
+def db_test():
+    try:
+        with get_db_cursor(commit=False) as cursor:
+            cursor.execute("SELECT COUNT(*) as contacts FROM contacts")
+            contacts = cursor.fetchone()
+            cursor.execute("SELECT COUNT(*) as broadcasts FROM broadcasts")
+            broadcasts = cursor.fetchone()
+            cursor.execute("SELECT COUNT(*) as messages FROM messages")
+            messages = cursor.fetchone()
+        return jsonify({
+            'success': True,
+            'db_connected': True,
+            'contacts': contacts['contacts'],
+            'broadcasts': broadcasts['broadcasts'],
+            'messages': messages['messages']
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'db_connected': False, 'error': str(e)}), 500
 
 # ==================== WEBHOOK ROUTES ====================
 
