@@ -1270,7 +1270,83 @@ def cancel_broadcast(broadcast_id):
     return jsonify({'success': True, 'message': 'Broadcast cancelled'})
 
 
-# ==================== STATUS ROUTES ====================
+@app.route('/api/broadcasts/<int:broadcast_id>/rerun', methods=['POST'])
+@login_required
+def rerun_broadcast(broadcast_id):
+    """Rerun a previous broadcast with the same settings"""
+    with get_db_cursor(commit=False) as cursor:
+        cursor.execute("SELECT * FROM broadcasts WHERE id = %s", (broadcast_id,))
+        original = cursor.fetchone()
+
+    if not original:
+        return jsonify({'success': False, 'error': 'Broadcast not found'}), 404
+
+    platform = original['platform']
+    message = original['message']
+    audience_filter = original['audience_filter'] or 'all'
+    campaign_name = f"{original['name']} (Rerun)"
+    rate_limit = 1
+
+    if platform not in adapters:
+        return jsonify({'success': False, 'error': f'Invalid platform: {platform}'}), 400
+
+    adapter = adapters[platform]
+    if not adapter.is_configured:
+        return jsonify({'success': False, 'error': f'{platform} is not configured'}), 400
+
+    recipients = get_recipients_for_broadcast(platform, audience_filter)
+    if not recipients:
+        return jsonify({'success': False, 'error': 'No recipients found for this platform/audience'}), 404
+
+    new_broadcast_id = create_broadcast_record(
+        session['user_id'], campaign_name, platform, message,
+        audience_filter, len(recipients)
+    )
+
+    def process_broadcast():
+        sent_count = 0
+        failed_count = 0
+        try:
+            for i, recipient in enumerate(recipients):
+                try:
+                    result = adapter.send_message(recipient['platform_user_id'], message)
+                except Exception as e:
+                    result = {'success': False, 'error': str(e)}
+                add_broadcast_recipient(
+                    new_broadcast_id, recipient['id'],
+                    'sent' if result.get('success') else 'failed',
+                    result.get('error')
+                )
+                if result.get('success'):
+                    sent_count += 1
+                    save_message(recipient['id'], platform, 'outgoing', message)
+                else:
+                    failed_count += 1
+                update_broadcast_stats(new_broadcast_id, sent_count, failed_count)
+                if i < len(recipients) - 1:
+                    time.sleep(rate_limit)
+        except Exception as e:
+            logger.error(f"Rerun broadcast {new_broadcast_id} thread crashed: {e}")
+        finally:
+            complete_broadcast(new_broadcast_id)
+            socketio.emit('broadcast_completed', {
+                'broadcast_id': new_broadcast_id,
+                'sent': sent_count,
+                'failed': failed_count,
+                'total': len(recipients)
+            })
+
+    thread = threading.Thread(target=process_broadcast)
+    thread.daemon = True
+    thread.start()
+
+    return jsonify({
+        'success': True,
+        'broadcast_id': new_broadcast_id,
+        'total_recipients': len(recipients),
+        'message': f'Rerun started. Sending to {len(recipients)} recipients.'
+    })
+
 
 @app.route('/api/status', methods=['GET'])
 def get_platform_status():
