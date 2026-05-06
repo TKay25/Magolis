@@ -581,10 +581,16 @@ class InstagramAdapter:
         self.access_token = os.getenv('FACEBOOK_PAGE_TOKEN')
         self.page_id = os.getenv('FACEBOOK_PAGE_ID')
         self.instagram_business_id = None
-        self.is_configured = bool(self.access_token and self.page_id)
-        
-        # Cache Instagram Business ID on init
-        if self.is_configured:
+        self.init_error = None
+
+        if not self.access_token:
+            self.is_configured = False
+            self.init_error = 'FACEBOOK_PAGE_TOKEN env var is not set'
+        elif not self.page_id:
+            self.is_configured = False
+            self.init_error = 'FACEBOOK_PAGE_ID env var is not set'
+        else:
+            self.is_configured = True
             self._cache_business_id()
     
     def _cache_business_id(self):
@@ -597,6 +603,13 @@ class InstagramAdapter:
             }
             response = requests.get(url, params=params)
             data = response.json()
+
+            if 'error' in data:
+                msg = data['error'].get('message', 'Unknown API error')
+                logger.error(f"Instagram init API error: {msg}")
+                self.is_configured = False
+                self.init_error = f'Facebook API error: {msg}'
+                return
             
             if 'instagram_business_account' in data:
                 self.instagram_business_id = data['instagram_business_account']['id']
@@ -604,13 +617,15 @@ class InstagramAdapter:
             else:
                 logger.warning("No Instagram Business Account linked to Facebook Page")
                 self.is_configured = False
+                self.init_error = 'No Instagram Business Account is linked to this Facebook Page. Go to Facebook Page Settings > Instagram to connect your account.'
         except Exception as e:
             logger.error(f"Failed to get Instagram Business ID: {e}")
             self.is_configured = False
+            self.init_error = f'Network error fetching Instagram Business ID: {e}'
     
     def get_conversations(self, limit=50):
         if not self.is_configured or not self.instagram_business_id:
-            return {'success': False, 'error': 'Instagram not configured - no Business Account'}
+            return {'success': False, 'error': self.init_error or 'Instagram not configured - no Business Account'}
         
         url = f"https://graph.facebook.com/v18.0/{self.instagram_business_id}/conversations"
         params = {
@@ -897,6 +912,24 @@ def get_facebook_conversation(psid):
     except Exception as e:
         logger.error(f"Error fetching conversation: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/instagram/diagnose', methods=['GET'])
+@login_required
+def instagram_diagnose():
+    """Diagnose Instagram configuration issues"""
+    adapter = adapters['instagram']
+    page_token = os.getenv('FACEBOOK_PAGE_TOKEN')
+    page_id = os.getenv('FACEBOOK_PAGE_ID')
+    return jsonify({
+        'FACEBOOK_PAGE_TOKEN_set': bool(page_token),
+        'FACEBOOK_PAGE_ID_set': bool(page_id),
+        'FACEBOOK_PAGE_ID': page_id,
+        'is_configured': adapter.is_configured,
+        'instagram_business_id': adapter.instagram_business_id,
+        'init_error': getattr(adapter, 'init_error', None)
+    })
+
 
 @app.route('/api/instagram/sync-contacts', methods=['POST'])
 @login_required
