@@ -594,34 +594,74 @@ class InstagramAdapter:
             self._cache_business_id()
     
     def _cache_business_id(self):
-        """Get and cache Instagram Business Account ID"""
+        """Get and cache Instagram Business Account ID - tries multiple methods"""
+        # Method 1: instagram_business_account field (requires instagram_basic permission)
         try:
             url = f"https://graph.facebook.com/v18.0/{self.page_id}"
-            params = {
-                'access_token': self.access_token,
-                'fields': 'instagram_business_account'
-            }
+            params = {'access_token': self.access_token, 'fields': 'instagram_business_account'}
+            response = requests.get(url, params=params)
+            data = response.json()
+
+            if 'error' in data:
+                error_code = data['error'].get('code')
+                msg = data['error'].get('message', 'Unknown API error')
+                logger.warning(f"Instagram method 1 failed (code {error_code}): {msg} — trying method 2")
+                # Fall through to method 2
+            elif 'instagram_business_account' in data:
+                self.instagram_business_id = data['instagram_business_account']['id']
+                logger.info(f"Instagram Business ID loaded (method 1): {self.instagram_business_id}")
+                return
+            else:
+                logger.warning("instagram_business_account field missing — trying method 2")
+        except Exception as e:
+            logger.warning(f"Instagram method 1 exception: {e} — trying method 2")
+
+        # Method 2: connected_instagram_account field
+        try:
+            url = f"https://graph.facebook.com/v18.0/{self.page_id}"
+            params = {'access_token': self.access_token, 'fields': 'connected_instagram_account'}
             response = requests.get(url, params=params)
             data = response.json()
 
             if 'error' in data:
                 msg = data['error'].get('message', 'Unknown API error')
-                logger.error(f"Instagram init API error: {msg}")
-                self.is_configured = False
-                self.init_error = f'Facebook API error: {msg}'
+                logger.error(f"Instagram method 2 failed: {msg}")
+            elif 'connected_instagram_account' in data:
+                self.instagram_business_id = data['connected_instagram_account']['id']
+                logger.info(f"Instagram Business ID loaded (method 2): {self.instagram_business_id}")
                 return
-            
-            if 'instagram_business_account' in data:
-                self.instagram_business_id = data['instagram_business_account']['id']
-                logger.info(f"Instagram Business ID loaded: {self.instagram_business_id}")
             else:
-                logger.warning("No Instagram Business Account linked to Facebook Page")
-                self.is_configured = False
-                self.init_error = 'No Instagram Business Account is linked to this Facebook Page. Go to Facebook Page Settings > Instagram to connect your account.'
+                logger.warning("connected_instagram_account field missing — trying method 3")
         except Exception as e:
-            logger.error(f"Failed to get Instagram Business ID: {e}")
-            self.is_configured = False
-            self.init_error = f'Network error fetching Instagram Business ID: {e}'
+            logger.warning(f"Instagram method 2 exception: {e} — trying method 3")
+
+        # Method 3: /me endpoint with User Access Token
+        try:
+            url = "https://graph.facebook.com/v18.0/me/accounts"
+            params = {'access_token': self.access_token, 'fields': 'instagram_business_account,connected_instagram_account,id,name'}
+            response = requests.get(url, params=params)
+            data = response.json()
+
+            if 'error' not in data:
+                for page in data.get('data', []):
+                    if page.get('id') == self.page_id:
+                        ig = page.get('instagram_business_account') or page.get('connected_instagram_account')
+                        if ig:
+                            self.instagram_business_id = ig['id']
+                            logger.info(f"Instagram Business ID loaded (method 3): {self.instagram_business_id}")
+                            return
+        except Exception as e:
+            logger.warning(f"Instagram method 3 exception: {e}")
+
+        # All methods failed
+        self.is_configured = False
+        self.init_error = (
+            'Could not find Instagram Business Account. Likely causes:\n'
+            '1. Your token is missing the "instagram_basic" permission — regenerate it in Meta Developer Console with instagram_basic + instagram_manage_messages scopes.\n'
+            '2. Your Instagram account is a Personal account — convert it to a Business or Creator account in Instagram Settings.\n'
+            '3. Your Instagram account is not linked to the Facebook Page — go to Facebook Page Settings > Linked Accounts > Instagram.'
+        )
+        logger.error(f"Instagram Business ID could not be loaded. {self.init_error}")
     
     def get_conversations(self, limit=50):
         if not self.is_configured or not self.instagram_business_id:
