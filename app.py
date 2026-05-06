@@ -420,34 +420,101 @@ class WhatsAppAdapter:
     def __init__(self):
         self.access_token = os.getenv('WHATSAPP_ACCESS_TOKEN')
         self.phone_number_id = os.getenv('WHATSAPP_PHONE_ID')
+        self.verify_token = os.getenv('WHATSAPP_VERIFY_TOKEN', 'magolis_whatsapp_verify')
         self.is_configured = bool(self.access_token and self.phone_number_id)
-    
+        self.init_error = None
+        if not self.access_token:
+            self.init_error = 'WHATSAPP_ACCESS_TOKEN env var is not set'
+        elif not self.phone_number_id:
+            self.init_error = 'WHATSAPP_PHONE_ID env var is not set'
+
+    def _headers(self):
+        return {"Authorization": f"Bearer {self.access_token}", "Content-Type": "application/json"}
+
     def send_message(self, recipient_id, content):
         if not self.is_configured:
-            return {'success': False, 'error': 'WhatsApp not configured'}
-        
-        recipient = recipient_id if recipient_id.startswith('+') else f"+{recipient_id}"
+            return {'success': False, 'error': self.init_error or 'WhatsApp not configured'}
+
+        # Normalise to E.164 without leading +  (WhatsApp API expects digits only or full E.164)
+        to = recipient_id.lstrip('+')
         url = f"https://graph.facebook.com/v18.0/{self.phone_number_id}/messages"
-        
         payload = {
             "messaging_product": "whatsapp",
-            "to": recipient,
+            "to": to,
             "type": "text",
             "text": {"body": content}
         }
-        
-        headers = {
-            "Authorization": f"Bearer {self.access_token}",
-            "Content-Type": "application/json"
-        }
-        
         try:
-            response = requests.post(url, json=payload, headers=headers, timeout=30)
+            response = requests.post(url, json=payload, headers=self._headers(), timeout=30)
             if response.status_code == 200:
+                data = response.json()
+                # API returns 200 even on some errors; check messages array
+                if data.get('messages'):
+                    return {'success': True, 'platform': 'whatsapp', 'message_id': data['messages'][0].get('id')}
+            error_data = response.json()
+            error_msg = error_data.get('error', {}).get('message', f'HTTP {response.status_code}')
+            error_code = error_data.get('error', {}).get('code')
+            logger.error(f"WhatsApp send failed (code {error_code}): {error_msg} | to: {to}")
+            return {'success': False, 'error': error_msg}
+        except Exception as e:
+            logger.error(f"WhatsApp send_message exception: {e}")
+            return {'success': False, 'error': str(e)}
+
+    def send_template(self, recipient_id, template_name, language_code='en_US'):
+        """Send an approved template message (works outside 24h window)"""
+        if not self.is_configured:
+            return {'success': False, 'error': self.init_error or 'WhatsApp not configured'}
+        to = recipient_id.lstrip('+')
+        url = f"https://graph.facebook.com/v18.0/{self.phone_number_id}/messages"
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to,
+            "type": "template",
+            "template": {"name": template_name, "language": {"code": language_code}}
+        }
+        try:
+            response = requests.post(url, json=payload, headers=self._headers(), timeout=30)
+            data = response.json()
+            if response.status_code == 200 and data.get('messages'):
                 return {'success': True, 'platform': 'whatsapp'}
-            return {'success': False, 'error': 'Failed to send'}
+            error_msg = data.get('error', {}).get('message', f'HTTP {response.status_code}')
+            return {'success': False, 'error': error_msg}
         except Exception as e:
             return {'success': False, 'error': str(e)}
+
+    def diagnose(self):
+        """Check token validity and phone number registration"""
+        result = {
+            'access_token_set': bool(self.access_token),
+            'phone_number_id_set': bool(self.phone_number_id),
+            'is_configured': self.is_configured,
+        }
+        if not self.is_configured:
+            result['error'] = self.init_error
+            return result
+        try:
+            r = requests.get(
+                f"https://graph.facebook.com/v18.0/{self.phone_number_id}",
+                params={'access_token': self.access_token, 'fields': 'verified_name,display_phone_number,quality_rating,status'},
+                timeout=10
+            )
+            data = r.json()
+            if 'error' in data:
+                result['api_error'] = data['error'].get('message')
+                result['api_ok'] = False
+            else:
+                result['display_phone_number'] = data.get('display_phone_number')
+                result['verified_name'] = data.get('verified_name')
+                result['quality_rating'] = data.get('quality_rating')
+                result['status'] = data.get('status')
+                result['api_ok'] = True
+        except Exception as e:
+            result['api_error'] = str(e)
+        return result
+
+    def get_conversations(self, limit=50):
+        """WhatsApp Cloud API does not support listing conversations — return contacts from DB"""
+        return {'success': False, 'error': 'WhatsApp contacts are added automatically when they message you via webhook. Use CSV import or add manually.'}
 
 
 class FacebookAdapter:
@@ -895,6 +962,108 @@ def check_auth():
             }
         })
     return jsonify({'authenticated': False}), 401
+
+# ==================== WHATSAPP ROUTES ====================
+
+@app.route('/api/whatsapp/diagnose', methods=['GET'])
+@login_required
+def whatsapp_diagnose():
+    result = adapters['whatsapp'].diagnose()
+    return jsonify(result)
+
+
+@app.route('/webhook/whatsapp', methods=['GET', 'POST'])
+def whatsapp_webhook():
+    """WhatsApp Cloud API webhook — verification + incoming message handler"""
+    if request.method == 'GET':
+        mode      = request.args.get('hub.mode')
+        token     = request.args.get('hub.verify_token')
+        challenge = request.args.get('hub.challenge')
+        expected  = os.getenv('WHATSAPP_VERIFY_TOKEN', 'magolis_whatsapp_verify')
+        if mode == 'subscribe' and token == expected:
+            logger.info('WhatsApp webhook verified')
+            return challenge, 200
+        logger.error(f'WhatsApp webhook verification failed. Got: {token}')
+        return 'Forbidden', 403
+
+    try:
+        payload = request.json
+        if not payload:
+            return jsonify({'status': 'ok'}), 200
+
+        for entry in payload.get('entry', []):
+            for change in entry.get('changes', []):
+                value = change.get('value', {})
+                messages = value.get('messages', [])
+                contacts_meta = {c['wa_id']: c.get('profile', {}).get('name', 'WhatsApp User')
+                                 for c in value.get('contacts', [])}
+
+                for msg in messages:
+                    sender_wa_id = msg.get('from')          # phone number digits
+                    msg_type     = msg.get('type', 'text')
+                    content      = ''
+
+                    if msg_type == 'text':
+                        content = msg.get('text', {}).get('body', '')
+                    elif msg_type == 'image':
+                        content = '[Image]'
+                    elif msg_type == 'audio':
+                        content = '[Audio]'
+                    elif msg_type == 'document':
+                        content = '[Document]'
+                    elif msg_type == 'location':
+                        loc = msg.get('location', {})
+                        content = f"[Location: {loc.get('latitude')},{loc.get('longitude')}]"
+                    else:
+                        content = f'[{msg_type}]'
+
+                    display_name = contacts_meta.get(sender_wa_id, 'WhatsApp User')
+                    contact_id = save_contact(
+                        platform='whatsapp',
+                        platform_user_id=sender_wa_id,
+                        display_name=display_name,
+                        phone_number=f'+{sender_wa_id}',
+                        opt_in=True
+                    )
+                    if content:
+                        save_message(contact_id, 'whatsapp', 'incoming', content)
+
+                    socketio.emit('new_message', {
+                        'platform': 'whatsapp',
+                        'sender_id': sender_wa_id,
+                        'display_name': display_name,
+                        'content': content,
+                        'timestamp': datetime.now().isoformat()
+                    })
+                    logger.info(f'WhatsApp message from {sender_wa_id} ({display_name}): {content[:80]}')
+
+        return jsonify({'status': 'ok'}), 200
+    except Exception as e:
+        logger.error(f'WhatsApp webhook error: {e}')
+        return jsonify({'status': 'error'}), 500
+
+
+@app.route('/api/whatsapp/sync-contacts', methods=['POST'])
+@login_required
+def sync_whatsapp_contacts():
+    """Load WhatsApp contacts already saved in the database (added via webhook)"""
+    try:
+        with get_db_cursor(commit=False) as cursor:
+            cursor.execute('''
+                SELECT id, platform_user_id, display_name, phone_number, opt_in, last_interaction
+                FROM contacts
+                WHERE platform = 'whatsapp'
+                ORDER BY last_interaction DESC NULLS LAST
+                LIMIT 200
+            ''')
+            rows = cursor.fetchall()
+
+        contacts = [dict(r) for r in rows]
+        return jsonify({'success': True, 'contacts': contacts, 'count': len(contacts)})
+    except Exception as e:
+        logger.error(f'WhatsApp sync-contacts error: {e}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 # ==================== FACEBOOK CONTACT SYNC ROUTES ====================
 

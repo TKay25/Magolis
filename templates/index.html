@@ -309,6 +309,9 @@
                                                 <button class="btn btn-sm btn-outline-primary rounded-pill py-0 px-2" onclick="syncInstagramContacts()">
                                                     <i class="bi bi-instagram me-1"></i> Sync IG
                                                 </button>
+                                                <button class="btn btn-sm btn-outline-success rounded-pill py-0 px-2" onclick="syncWhatsAppContacts()">
+                                                    <i class="bi bi-whatsapp me-1"></i> Sync WA
+                                                </button>
                                             </div>
                                         </div>
                                         <div class="card-body p-0">
@@ -323,6 +326,11 @@
                                                         <i class="bi bi-instagram"></i> Instagram
                                                     </a>
                                                 </li>
+                                                <li class="nav-item">
+                                                    <a class="nav-link" href="#" onclick="switchMetaTab('whatsapp'); return false;">
+                                                        <i class="bi bi-whatsapp text-success"></i> WhatsApp
+                                                    </a>
+                                                </li>
                                             </ul>
                                             <div id="facebook-contacts-list" class="contact-scroll">
                                                 <div class="text-center p-2 text-muted" style="font-size:0.7rem;">
@@ -334,6 +342,13 @@
                                                 <div class="text-center p-2 text-muted" style="font-size:0.7rem;">
                                                     <i class="bi bi-instagram fs-6"></i>
                                                     <p class="mt-1 mb-0">Click "Sync IG" to load Instagram contacts</p>
+                                                </div>
+                                            </div>
+                                            <div id="whatsapp-contacts-list" class="contact-scroll" style="display: none;">
+                                                <div class="text-center p-2 text-muted" style="font-size:0.7rem;">
+                                                    <i class="bi bi-whatsapp fs-6 text-success"></i>
+                                                    <p class="mt-1 mb-0">Click "Sync WA" to load WhatsApp contacts</p>
+                                                    <p class="mb-0" style="font-size:0.6rem;">Contacts appear here after they message your WhatsApp Business number</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -493,8 +508,9 @@
             currentMetaTab = tab;
             document.querySelectorAll('#dashboard-tab .nav-tabs .nav-link').forEach(link => link.classList.remove('active'));
             if(event && event.target) event.target.classList.add('active');
-            document.getElementById('facebook-contacts-list').style.display = tab === 'facebook' ? 'block' : 'none';
+            document.getElementById('facebook-contacts-list').style.display  = tab === 'facebook'  ? 'block' : 'none';
             document.getElementById('instagram-contacts-list').style.display = tab === 'instagram' ? 'block' : 'none';
+            document.getElementById('whatsapp-contacts-list').style.display  = tab === 'whatsapp'  ? 'block' : 'none';
         }
         
         function showTab(tabName) {
@@ -528,6 +544,45 @@
             } catch(e) { container.innerHTML = `<div class="alert alert-danger m-2 p-1"><i class="bi bi-exclamation-triangle me-1"></i>Error: ${escapeHtml(e.message)}</div>`; showToast('Error', e.message, 'danger'); }
         }
         
+        async function syncWhatsAppContacts() {
+            const container = document.getElementById('whatsapp-contacts-list');
+            container.innerHTML = '<div class="text-center p-2"><div class="spinner-border text-success spinner-border-sm"></div><p class="mt-1">Loading WhatsApp contacts...</p></div>';
+            try {
+                const diagRes = await fetch('/api/whatsapp/diagnose');
+                const diag = await diagRes.json();
+                if (!diag.is_configured) {
+                    container.innerHTML = `<div class="alert alert-warning m-2 p-2"><i class="bi bi-exclamation-triangle me-1"></i><strong>WhatsApp not configured:</strong><br>${escapeHtml(diag.error || 'Set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_ID in Render environment variables.')}</div>`;
+                    showToast('WhatsApp', 'Not configured', 'warning');
+                    return;
+                }
+                if (diag.api_ok) {
+                    showToast('WhatsApp', `Connected: ${diag.display_phone_number || diag.verified_name || 'OK'}`, 'success');
+                } else if (diag.api_error) {
+                    container.innerHTML = `<div class="alert alert-danger m-2 p-2"><i class="bi bi-exclamation-triangle me-1"></i><strong>API error:</strong> ${escapeHtml(diag.api_error)}</div>`;
+                    showToast('WhatsApp Error', diag.api_error, 'danger');
+                    return;
+                }
+            } catch(e) { /* proceed — diagnose endpoint may not yet be deployed */ }
+
+            try {
+                const res = await fetch('/api/whatsapp/sync-contacts', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+                const data = await res.json();
+                if (data.success && data.contacts?.length) {
+                    let html = '';
+                    data.contacts.forEach(c => {
+                        const num = c.phone_number || ('+' + c.platform_user_id);
+                        html += `<div class="contact-item"><div class="d-flex justify-content-between align-items-center"><div><i class="bi bi-whatsapp text-success me-1"></i><strong>${escapeHtml(c.display_name || num)}</strong><br><span class="text-muted" style="font-size:0.6rem;">${escapeHtml(num)}</span></div><span class="badge ${c.opt_in ? 'bg-success' : 'bg-secondary'}" style="font-size:0.55rem;">${c.opt_in ? 'Opted in' : 'No opt-in'}</span></div></div>`;
+                    });
+                    container.innerHTML = html;
+                    showToast('WhatsApp', `${data.contacts.length} contacts loaded`, 'success');
+                } else if (!data.success) {
+                    container.innerHTML = `<div class="alert alert-danger m-2 p-2">${escapeHtml(data.error)}</div>`;
+                } else {
+                    container.innerHTML = '<div class="text-center p-3 text-muted"><i class="bi bi-whatsapp fs-4 text-success"></i><p class="mb-1 mt-2">No WhatsApp contacts yet.</p><small class="d-block">When someone messages your WhatsApp Business number, they\'ll appear here automatically via webhook.</small><small>Or use CSV Import / Add Contact Manually in the Contacts tab.</small></div>';
+                }
+            } catch(e) { container.innerHTML = `<div class="alert alert-danger m-2 p-1">${escapeHtml(e.message)}</div>`; showToast('Error', e.message, 'danger'); }
+        }
+
         async function syncInstagramContacts() {
             const container = document.getElementById('instagram-contacts-list');
             container.innerHTML = '<div class="text-center p-2"><div class="spinner-border text-primary spinner-border-sm"></div><p class="mt-1">Syncing Instagram...</p></div>';
