@@ -225,7 +225,7 @@ def save_contact(platform, platform_user_id, display_name=None, phone_number=Non
             datetime.now(), datetime.now()
         ))
         result = cursor.fetchone()
-        return result[0]
+        return result['id']
 
 def save_message(contact_id, platform, direction, message, status='sent'):
     """Save a message - FIXED to use new cursor pattern"""
@@ -262,7 +262,7 @@ def create_broadcast_record(user_id, name, platform, message, audience_filter, t
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         ''', (user_id, name, platform, message, audience_filter, total_recipients, 'processing'))
-        return cursor.fetchone()[0]
+        return cursor.fetchone()['id']
 
 def update_broadcast_stats(broadcast_id, sent_count, failed_count):
     """Update broadcast stats"""
@@ -344,11 +344,11 @@ def get_dashboard_stats():
         broadcast_stats = cursor.fetchone()
         
         return {
-            'total_contacts': contact_stats[0] if contact_stats else 0,
-            'opted_in_contacts': contact_stats[1] if contact_stats else 0,
-            'sent_messages': message_stats[1] if message_stats else 0,
-            'total_broadcasts': broadcast_stats[0] if broadcast_stats else 0,
-            'contacts_by_platform': [{'platform': row[0], 'count': row[1]} for row in contacts_by_platform] if contacts_by_platform else []
+            'total_contacts': contact_stats['total'] if contact_stats else 0,
+            'opted_in_contacts': contact_stats['opted_in'] if contact_stats else 0,
+            'sent_messages': message_stats['sent'] if message_stats else 0,
+            'total_broadcasts': broadcast_stats['total'] if broadcast_stats else 0,
+            'contacts_by_platform': [{'platform': row['platform'], 'count': row['count']} for row in contacts_by_platform] if contacts_by_platform else []
         }
 
 # ==================== WEBHOOK ROUTE ====================
