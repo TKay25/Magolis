@@ -628,10 +628,25 @@
                 let res = await fetch('/api/broadcasts'); 
                 let data = await res.json(); 
                 if(data.success && data.broadcasts.length){ 
-                    let html = data.broadcasts.map(b => `<div class="message-item p-1 mb-1"><div class="d-flex justify-content-between"><strong>${escapeHtml(b.name)}</strong><span class="status-badge ${b.status === 'completed' ? 'status-configured' : 'status-not-configured'}">${b.status}</span></div><small>${b.platform} | ${b.sent_count}/${b.total_recipients} sent</small><div class="progress mt-1" style="height:2px"><div class="progress-bar bg-primary" style="width:${b.total_recipients > 0 ? (b.sent_count / b.total_recipients * 100) : 0}%"></div></div><small class="text-muted">${new Date(b.created_at).toLocaleString()}</small></div>`).join(''); 
+                    let html = data.broadcasts.map(b => {
+                        const isProcessing = b.status === 'processing';
+                        const cancelBtn = isProcessing ? `<button class="btn btn-xs btn-outline-danger py-0 px-1 ms-1" style="font-size:0.6rem;" onclick="cancelBroadcast(${b.id})">Cancel</button>` : '';
+                        const failedNote = b.failed_count > 0 ? `<span class="text-danger ms-1">(${b.failed_count} failed)</span>` : '';
+                        return `<div class="message-item p-1 mb-1"><div class="d-flex justify-content-between align-items-center"><strong>${escapeHtml(b.name)}</strong><div><span class="status-badge ${b.status === 'completed' ? 'status-configured' : b.status === 'cancelled' ? 'bg-secondary text-white' : 'status-not-configured'}">${b.status}</span>${cancelBtn}</div></div><small>${b.platform} | ${b.sent_count}/${b.total_recipients} sent${failedNote}</small><div class="progress mt-1" style="height:2px"><div class="progress-bar bg-primary" style="width:${b.total_recipients > 0 ? (b.sent_count / b.total_recipients * 100) : 0}%"></div></div><small class="text-muted">${new Date(b.created_at).toLocaleString()}</small></div>`;
+                    }).join(''); 
                     document.getElementById('recent-broadcasts-list').innerHTML = html; 
                 } else document.getElementById('recent-broadcasts-list').innerHTML = '<div class="text-center p-2 text-muted">No broadcasts yet</div>'; 
             } catch(e){} 
+        }
+
+        async function cancelBroadcast(id) {
+            if (!confirm('Cancel this stuck broadcast?')) return;
+            try {
+                const res = await fetch(`/api/broadcasts/${id}/cancel`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) { showToast('Cancelled', 'Broadcast cancelled', 'success'); loadBroadcasts(); }
+                else showToast('Error', data.error || 'Failed to cancel', 'danger');
+            } catch(e) { showToast('Error', e.message, 'danger'); }
         }
         
         async function addContactManually() {

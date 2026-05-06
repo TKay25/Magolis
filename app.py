@@ -476,8 +476,12 @@ class FacebookAdapter:
             response = requests.post(url, json=payload, headers=headers, timeout=30)
             if response.status_code == 200:
                 return {'success': True, 'platform': 'facebook'}
-            return {'success': False, 'error': 'Failed to send'}
+            error_data = response.json()
+            error_msg = error_data.get('error', {}).get('message', f'HTTP {response.status_code}')
+            logger.error(f"Facebook send_message failed: {error_msg} | payload: {payload}")
+            return {'success': False, 'error': error_msg}
         except Exception as e:
+            logger.error(f"Facebook send_message exception: {e}")
             return {'success': False, 'error': str(e)}
     
     def get_page_id(self):
@@ -1020,35 +1024,42 @@ def broadcast_message():
         sent_count = 0
         failed_count = 0
         
-        for i, recipient in enumerate(recipients):
-            result = adapter.send_message(recipient['platform_user_id'], message)
-            
-            add_broadcast_recipient(
-                broadcast_id, 
-                recipient['id'], 
-                'sent' if result.get('success') else 'failed', 
-                result.get('error')
-            )
-            
-            if result.get('success'):
-                sent_count += 1
-                save_message(recipient['id'], platform, 'outgoing', message)
-            else:
-                failed_count += 1
-            
-            update_broadcast_stats(broadcast_id, sent_count, failed_count)
-            
-            if i < len(recipients) - 1:
-                time.sleep(rate_limit)
-        
-        complete_broadcast(broadcast_id)
-        
-        socketio.emit('broadcast_completed', {
-            'broadcast_id': broadcast_id,
-            'sent': sent_count,
-            'failed': failed_count,
-            'total': len(recipients)
-        })
+        try:
+            for i, recipient in enumerate(recipients):
+                try:
+                    result = adapter.send_message(recipient['platform_user_id'], message)
+                except Exception as e:
+                    logger.error(f"Broadcast send exception for {recipient['platform_user_id']}: {e}")
+                    result = {'success': False, 'error': str(e)}
+                
+                add_broadcast_recipient(
+                    broadcast_id, 
+                    recipient['id'], 
+                    'sent' if result.get('success') else 'failed', 
+                    result.get('error')
+                )
+                
+                if result.get('success'):
+                    sent_count += 1
+                    save_message(recipient['id'], platform, 'outgoing', message)
+                else:
+                    failed_count += 1
+                    logger.error(f"Broadcast {broadcast_id} failed for {recipient['platform_user_id']}: {result.get('error')}")
+                
+                update_broadcast_stats(broadcast_id, sent_count, failed_count)
+                
+                if i < len(recipients) - 1:
+                    time.sleep(rate_limit)
+        except Exception as e:
+            logger.error(f"Broadcast {broadcast_id} thread crashed: {e}")
+        finally:
+            complete_broadcast(broadcast_id)
+            socketio.emit('broadcast_completed', {
+                'broadcast_id': broadcast_id,
+                'sent': sent_count,
+                'failed': failed_count,
+                'total': len(recipients)
+            })
     
     thread = threading.Thread(target=process_broadcast)
     thread.daemon = True
@@ -1212,6 +1223,19 @@ def get_broadcast_details(broadcast_id):
         recipients = cursor.fetchall()
     
     return jsonify({'success': True, 'broadcast': dict(broadcast), 'recipients': [dict(r) for r in recipients]})
+
+
+@app.route('/api/broadcasts/<int:broadcast_id>/cancel', methods=['POST'])
+@login_required
+def cancel_broadcast(broadcast_id):
+    """Unstick a broadcast stuck in processing"""
+    with get_db_cursor(commit=True) as cursor:
+        cursor.execute(
+            "UPDATE broadcasts SET status = 'cancelled', completed_at = %s WHERE id = %s AND status = 'processing'",
+            (datetime.now(), broadcast_id)
+        )
+    return jsonify({'success': True, 'message': 'Broadcast cancelled'})
+
 
 # ==================== STATUS ROUTES ====================
 
