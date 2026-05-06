@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proposal | Bulk Messaging System for Stephen Margolis Resort</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif;
+            background: #f0f2f5;
+            padding: 2rem 1rem;
+            color: #1e293b;
+        }
+        .proposal-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+        .proposal-header {
+            background: #0B2B4F;
+            color: white;
+            padding: 1.8rem 2rem;
+            border-bottom: 4px solid #D4AF37;
+        }
+        .badge-proposal {
+            background: rgba(255,255,255,0.12);
+            padding: 0.2rem 1rem;
+            border-radius: 30px;
+            font-size: 0.7rem;
+            display: inline-block;
+        }
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #0B2B4F;
+            border-left: 4px solid #D4AF37;
+            padding-left: 1rem;
+            margin: 1.5rem 0 1rem 0;
+        }
+        .section-title:first-of-type {
+            margin-top: 0;
+        }
+        .info-card {
+            background: #F8FAFE;
+            border-radius: 20px;
+            border: 1px solid #e9edf2;
+            padding: 1.2rem;
+            margin-bottom: 1.2rem;
+        }
+        .snapshot-box {
+            background: #1a2a3a;
+            border-radius: 20px;
+            padding: 1rem;
+            margin: 1rem 0;
+            color: #e2e8f0;
+            font-family: 'SF Mono', 'Courier New', monospace;
+            border-left: 5px solid #D4AF37;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .snapshot-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #D4AF37;
+            margin-bottom: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .snapshot-content {
+            background: #0f1a24;
+            border-radius: 14px;
+            padding: 0.8rem;
+        }
+        .mock-stat-row {
+            display: flex;
+            gap: 0.8rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        .mock-stat {
+            background: #0B2B4F;
+            border-radius: 12px;
+            padding: 0.5rem 0.8rem;
+            text-align: center;
+            flex: 1;
+            min-width: 80px;
+        }
+        .mock-stat-number {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: white;
+        }
+        .mock-stat-label {
+            font-size: 0.6rem;
+            color: #94a3b8;
+        }
+        .platform-row {
+            display: flex;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+            margin: 0.8rem 0;
+        }
+        .platform-tag {
+            background: #1e293b;
+            border-radius: 40px;
+            padding: 0.2rem 0.8rem;
+            font-size: 0.7rem;
+            border: 1px solid #334155;
+        }
+        .message-preview {
+            background: #0f1a24;
+            border-radius: 12px;
+            padding: 0.8rem;
+            margin: 0.8rem 0;
+            border-left: 3px solid #D4AF37;
+        }
+        .history-item {
+            background: #0f1a24;
+            border-radius: 10px;
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.7rem;
+        }
+        .progress-bar-custom {
+            height: 4px;
+            background: #334155;
+            border-radius: 4px;
+            margin-top: 0.3rem;
+        }
+        .progress-fill {
+            width: 94%;
+            height: 4px;
+            background: #D4AF37;
+            border-radius: 4px;
+        }
+        .btn-proposal {
+            background: #0B2B4F;
+            color: white;
+            border-radius: 40px;
+            padding: 0.5rem 1.8rem;
+            font-weight: 600;
+            border: none;
+        }
+        .btn-outline {
+            border: 1px solid #0B2B4F;
+            background: white;
+            color: #0B2B4F;
+            border-radius: 40px;
+            padding: 0.5rem 1.8rem;
+        }
+        .price-big {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #0B2B4F;
+        }
+        .footer-note {
+            background: #F9FBFD;
+            border-top: 1px solid #e9edf2;
+            font-size: 0.7rem;
+            padding: 1rem;
+            text-align: center;
+        }
+        hr {
+            opacity: 0.2;
+        }
+        @media print {
+            body { background: white; padding: 0; }
+            .proposal-container { box-shadow: none; border-radius: 0; }
+            .btn-proposal, .btn-outline, .no-print { display: none !important; }
+            .snapshot-box { background: #f0f2f5; border: 1px solid #ccc; color: #1e293b; }
+            .snapshot-content { background: #e9ecef; }
+            .mock-stat { background: #cbd5e1; color: #0B2B4F; }
+            .mock-stat-number { color: #0B2B4F; }
+            .platform-tag { background: #e2e8f0; }
+            .message-preview { background: #e9ecef; }
+            .history-item { background: #e9ecef; }
+        }
+        @media (max-width: 768px) {
+            .proposal-header { padding: 1.2rem; }
+            .platform-tag { font-size: 0.6rem; padding: 0.15rem 0.6rem; }
+        }
+        .text-gold { color: #D4AF37; }
+        .sign-line {
+            border-bottom: 1px solid #0B2B4F;
+            min-width: 180px;
+            height: 35px;
+        }
+        .benefit-card {
+            background: white;
+            border-radius: 16px;
+            padding: 1rem;
+            height: 100%;
+            border: 1px solid #e9edf2;
+            transition: all 0.2s;
+        }
+        .benefit-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+        }
+        .warning-note {
+            background: #FEF9E3;
+            border-left: 4px solid #D4AF37;
+            padding: 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+        }
+        .linkedin-color {
+            color: #0A66C2;
+        }
+    </style>
+</head>
+<body>
+<div class="proposal-container">
+    <!-- HEADER SECTION -->
+    <div class="proposal-header">
+        <div class="d-flex flex-wrap justify-content-between align-items-start">
+            <div>
+                <div class="badge-proposal mb-2">OFFICIAL PROPOSAL</div>
+                <h1 class="fw-bold" style="font-size: 1.8rem;">Bulk Messaging System</h1>
+                <p class="mb-0 opacity-75">Send thousands of messages to customers in one click</p>
+            </div>
+            <div class="text-end mt-2 mt-sm-0">
+                <div class="small opacity-75">Proposal #: EDS-MARGOLIS-001</div>
+                <div class="small opacity-75">Date: May 05, 2026</div>
+                <div class="small opacity-75">Valid: 30 days</div>
+            </div>
+        </div>
+        <hr class="my-3 opacity-25">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="small opacity-75">Prepared For:</div>
+                <div class="fw-semibold">Stephen Margolis Resort Pvt Ltd</div>
+                <div class="small opacity-75">Attention: Resort Management</div>
+            </div>
+            <div class="col-md-6 text-md-end">
+                <div class="small opacity-75">Prepared By:</div>
+                <div class="fw-semibold">Echelon Digital Solutions</div>
+                <div class="small opacity-75">Lead Developer: Takudzwa Zvakasikwa</div>
+                <div class="small opacity-75">Email: echelonequipmentimports@gmail.com</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="p-4 p-md-5">
+        
+        <!-- 1. What is this system? -->
+        <div class="section-title">📱 What is this system?</div>
+        <div class="info-card">
+            <p><strong>Bulk Messaging System</strong> is a software dashboard that lets you send <strong>mass messages</strong> to people who have contacted your resort through <strong>WhatsApp, Facebook Messenger, Instagram DM, Twitter/X, and LinkedIn</strong> — all from one place.</p>
+            <p class="mb-0">✅ No more copying/pasting messages to each customer.<br>✅ No more logging into five different apps.<br>✅ Just write your message once, choose who gets it, and click send.</p>
+        </div>
+
+
+        <!-- 3. What a Bulk Messenger will do (Pure bulk actions, no welcome or tracking) -->
+        <div class="section-title">🎯 What this Bulk Messenger will do for your resort</div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <div class="benefit-card">
+                    <i class="bi bi-megaphone-fill fs-2 text-gold"></i>
+                    <h6 class="mt-2">1. Send ONE message to ALL</h6>
+                    <p class="small text-secondary">Write an offer or news once. Select all contacts (WhatsApp, Facebook, Instagram, Twitter, LinkedIn). The system sends it to everyone instantly.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="benefit-card">
+                    <i class="bi bi-people-fill fs-2 text-gold"></i>
+                    <h6 class="mt-2">2. Reach every single person who contacted you</h6>
+                    <p class="small text-secondary">Anyone who ever messaged your resort on any social platform is saved. Broadcast promotions, event updates, and offers to ALL past & potential customers.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="benefit-card">
+                    <i class="bi bi-linkedin fs-2 linkedin-color"></i>
+                    <h6 class="mt-2">3. INCLUDING LinkedIn for B2B</h6>
+                    <p class="small text-secondary">Send corporate package deals, conference invites, and partnership opportunities directly to LinkedIn connections who messaged your business page.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. DASHBOARD SNAPSHOT (5 platforms now) -->
+        <div class="section-title">📸 What the system looks like (real screenshots preview)</div>
+        <div class="snapshot-box">
+            <div class="snapshot-title">
+                <i class="bi bi-camera-fill"></i> DASHBOARD SNAPSHOT
+            </div>
+            <div class="snapshot-content">
+                <div class="mock-stat-row">
+                    <div class="mock-stat"><div class="mock-stat-number">12,450</div><div class="mock-stat-label">Total Contacts</div></div>
+                    <div class="mock-stat"><div class="mock-stat-number">8,230</div><div class="mock-stat-label">Opted-in Customers</div></div>
+                    <div class="mock-stat"><div class="mock-stat-number">15.2k</div><div class="mock-stat-label">Messages Sent</div></div>
+                    <div class="mock-stat"><div class="mock-stat-number">96%</div><div class="mock-stat-label">Delivery Rate</div></div>
+                </div>
+                <!-- 5 PLATFORMS NOW INCLUDING LINKEDIN -->
+                <div class="platform-row">
+                    <span class="platform-tag"><i class="bi bi-whatsapp"></i> WhatsApp</span>
+                    <span class="platform-tag"><i class="bi bi-facebook"></i> Messenger</span>
+                    <span class="platform-tag"><i class="bi bi-instagram"></i> Instagram</span>
+                    <span class="platform-tag"><i class="bi bi-twitter-x"></i> Twitter</span>
+                    <span class="platform-tag"><i class="bi bi-linkedin linkedin-color"></i> LinkedIn</span>
+                </div>
+                <div class="message-preview">
+                    <div style="font-size:0.65rem; color:#94a3b8;">📝 Compose your broadcast</div>
+                    <div style="font-size:0.75rem; margin: 6px 0;">✨ Corporate retreat package: 15% off for groups of 20+. Inquire for customized experiences!</div>
+                    <div class="d-flex justify-content-between align-items-center mt-1">
+                        <span style="font-size:0.6rem; background:#1e293b; padding:2px 8px; border-radius:20px;">Audience: LinkedIn connections + All social media inquirers (Last 6 months)</span>
+                        <span style="font-size:0.6rem; color:#D4AF37;">▶ Send to 3,240 people</span>
+                    </div>
+                </div>
+                <div style="font-size:0.65rem; margin-top: 10px;">📨 Recent broadcasts</div>
+                <div class="history-item">
+                    <div class="d-flex justify-content-between"><span><strong>Corporate Event Promo</strong></span><span>Apr 28, 2026</span></div>
+                    <div>LinkedIn + WhatsApp | 1,850 sent | 94% delivered</div>
+                    <div class="progress-bar-custom"><div class="progress-fill" style="width:94%"></div></div>
+                </div>
+                <div class="history-item">
+                    <div class="d-flex justify-content-between"><span><strong>Summer Flash Sale</strong></span><span>Apr 20, 2026</span></div>
+                    <div>Facebook + Instagram | 2,100 sent | 97% delivered</div>
+                    <div class="progress-bar-custom"><div class="progress-fill" style="width:97%"></div></div>
+                </div>
+            </div>
+            <div class="small text-center mt-2" style="color:#94a3b8;">⬆ Exact preview of the actual dashboard interface (showing all 5 platforms)</div>
+        </div>
+
+
+        <!-- 4. ALL 5 Connected Platforms (With correct explanation) -->
+        <div class="section-title">💬 Which apps are connected? (5 Platforms)</div>
+        <div class="info-card">
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                <span class="badge bg-success p-2"><i class="bi bi-whatsapp"></i> WhatsApp</span>
+                <span class="badge bg-primary p-2"><i class="bi bi-facebook"></i> Messenger</span>
+                <span class="badge bg-danger p-2"><i class="bi bi-instagram"></i> Instagram DM</span>
+                <span class="badge bg-info p-2"><i class="bi bi-twitter-x"></i> Twitter/X DM</span>
+                <span class="badge" style="background:#0A66C2;"><i class="bi bi-linkedin"></i> LinkedIn</span>
+            </div>
+            <ul class="small mb-3">
+                <li><strong>WhatsApp:</strong> Everyone who messages your WhatsApp Business number</li>
+                <li><strong>Facebook Messenger:</strong> Everyone who messages your resort Facebook page</li>
+                <li><strong>Instagram DM:</strong> Everyone who DMs your resort Instagram account</li>
+                <li><strong>Twitter/X DM:</strong> Everyone who sends a direct message to your Twitter handle</li>
+                <li><strong>LinkedIn:</strong> Everyone who messages your company LinkedIn page (great for corporate clients & event planners)</li>
+            </ul>
+            <div class="warning-note">
+                <i class="bi bi-info-circle-fill me-2"></i>
+                <strong>Important:</strong> Messages are sent to ALL social media users who have contacted your business — including past guests, potential customers with inquiries, LinkedIn business partners, and event planners. The system respects opt-in rules and platform policies automatically.
+            </div>
+        </div>
+
+        <!-- 5. How it works (Simple, no jargon) -->
+        <div class="section-title">⚙️ How it works</div>
+        <div class="row text-center g-3 mb-3">
+            <div class="col-md-3 col-6">
+                <div class="info-card py-2"><i class="bi bi-person-plus fs-2 text-gold"></i><div class="fw-bold mt-1">1. Collect contacts</div><div class="small">System saves everyone who messages you on any platform</div></div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="info-card py-2"><i class="bi bi-pencil-square fs-2 text-gold"></i><div class="fw-bold mt-1">2. Write once</div><div class="small">Type your message or offer in the dashboard</div></div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="info-card py-2"><i class="bi bi-funnel fs-2 text-gold"></i><div class="fw-bold mt-1">3. Pick audience</div><div class="small">Choose WhatsApp only, LinkedIn only, or all platforms combined</div></div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="info-card py-2"><i class="bi bi-send fs-2 text-gold"></i><div class="fw-bold mt-1">4. Hit send</div><div class="small">System delivers to thousands automatically in minutes</div></div>
+            </div>
+        </div>
+
+        <!-- 6. Another Snapshot: Contact list showing all platforms -->
+        <div class="section-title">📇 Snapshot: Unified contact list (all platforms together)</div>
+        <div class="snapshot-box">
+            <div class="snapshot-title"><i class="bi bi-people-fill"></i> CONTACT MANAGER (5 platforms unified)</div>
+            <div class="snapshot-content">
+                <div class="d-flex justify-content-between border-bottom pb-1 mb-1" style="border-color:#334155;">
+                    <span style="font-size:0.65rem;">Customer</span><span style="font-size:0.65rem;">Platform</span><span style="font-size:0.65rem;">Type</span>
+                </div>
+                <div class="d-flex justify-content-between small mb-1"><span>+1 305 555 1289</span><span><i class="bi bi-whatsapp"></i> WhatsApp</span><span>Guest inquiry</span></div>
+                <div class="d-flex justify-content-between small mb-1"><span>Sarah Mitchell</span><span><i class="bi bi-facebook"></i> FB</span><span>Past guest</span></div>
+                <div class="d-flex justify-content-between small mb-1"><span>@corp_events</span><span><i class="bi bi-linkedin"></i> LinkedIn</span><span>Corporate planner</span></div>
+                <div class="d-flex justify-content-between small mb-1"><span>@travel_foodie</span><span><i class="bi bi-instagram"></i> IG</span><span>Potential customer</span></div>
+                <div class="d-flex justify-content-between small"><span>@business_travel</span><span><i class="bi bi-twitter-x"></i> Twitter</span><span>Inquiry</span></div>
+                <div class="mt-2 text-center"><span class="badge" style="background:#D4AF37; color:#0B2B4F;">All contacts searchable, filterable by platform</span></div>
+            </div>
+        </div>
+
+        <!-- 7. PRICE: USD 2000 one-time + monthly server -->
+        <div class="section-title">💰 Investment (One-time fee + small monthly)</div>
+        <div class="row">
+            <div class="col-md-7">
+                <div class="info-card" style="background:#F0F4FA;">
+                    <div class="price-big">USD $2,000</div>
+                    <p class="fw-semibold mb-1">One-time development & setup fee</p>
+                    <ul class="small">
+                        <li>✓ Full system installation on your server</li>
+                        <li>✓ Connect ALL 5 platforms (WhatsApp, Facebook, Instagram, Twitter, LinkedIn)</li>
+                        <li>✓ Contact import from existing lists (up to 3 CSVs)</li>
+                        <li>✓ Training session for resort staff (1 hour)</li>
+                        <li>✓ 30 days of technical support after launch</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-5">
+                <div class="info-card">
+                    <div class="fw-bold">Monthly server & maintenance</div>
+                    <div class="price-big" style="font-size: 1.8rem;">USD $30 – $50</div>
+                    <p class="small text-secondary">Includes cloud hosting, daily backups, security updates, and email support. Price varies based on total contact volume (starts at $30 for up to 30k contacts across all platforms).</p>
+                    <div class="alert alert-light small py-1 mb-0">📌 First month server cost included in setup fee.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 8. Simple Timeline -->
+        <div class="section-title">⏱️ When will it be ready?</div>
+        <div class="row g-2 text-center mb-3">
+            <div class="col-3"><div class="info-card py-2"><strong>Week 1-2</strong><br><span class="small">API Setup (5 platforms)</span></div></div>
+            <div class="col-3"><div class="info-card py-2"><strong>Week 3</strong><br><span class="small">Dashboard & Testing</span></div></div>
+            <div class="col-3"><div class="info-card py-2"><strong>Week 4</strong><br><span class="small">Training & Go-live</span></div></div>
+            <div class="col-3"><div class="info-card py-2"><strong>Week 5</strong><br><span class="small">First Broadcast</span></div></div>
+        </div>
+
+        <!-- 9. Terms & Signature -->
+        <div class="section-title">📄 Terms & acceptance</div>
+        <div class="row">
+            <div class="col-md-7">
+                <p class="small">This proposal is valid for 30 days. Payment schedule: 50% deposit to begin work, 50% upon completion before go-live. All prices USD, excluding taxes. The resort owns all customer data; Echelon Digital Solutions retains code ownership.</p>
+                <p class="small fw-bold">To accept, sign below and return a scanned copy.</p>
+            </div>
+            <div class="col-md-5">
+                <div class="border rounded-3 p-3 bg-light">
+                    <div class="row">
+                        <div class="col-6"><div class="small fw-bold">Client signature</div><div class="sign-line mb-2"></div><div class="small">Stephen Margolis Resort Rep</div></div>
+                        <div class="col-6"><div class="small fw-bold">Date</div><div class="sign-line mb-2"></div><div class="small">mm/dd/yyyy</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Supplier Signature -->
+        <div class="mt-3 p-2 border-top text-start">
+            <div class="small fw-bold">Echelon Digital Solutions</div>
+            <div class="small">Signed: <strong>Takudzwa Zvakasikwa</strong> (Lead Developer / Administrator)</div>
+            <div class="small">Date: May 05, 2026</div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="text-center mt-4 no-print">
+            <button class="btn btn-proposal me-3" onclick="window.print();"><i class="bi bi-printer me-2"></i> Print / Save as PDF</button>
+            <button class="btn btn-outline" onclick="alert('Thank you! Please email signed copy to echelonequipmentimports@gmail.com to proceed.');"><i class="bi bi-check2-circle me-2"></i> Accept Proposal</button>
+        </div>
+
+        <div class="footer-note mt-4">
+            <i class="bi bi-c-circle"></i> 2026 Echelon Digital Solution — Bulk Messaging System (WhatsApp | FB | IG | Twitter | LinkedIn). Confidential proposal for Stephen Margolis Resort Pvt Ltd.
+        </div>
+    </div>
+</div>
+
+<script>
+    window.onbeforeprint = function() { };
+</script>
+</body>
+</html>

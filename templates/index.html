@@ -7,7 +7,6 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * {
             margin: 0;
@@ -310,6 +309,11 @@
         hr {
             margin: 0.4rem 0;
         }
+        /* meta contact area scroll */
+        .meta-contact-scroll {
+            max-height: 240px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -344,7 +348,7 @@
             <div class="col-md-9 col-lg-10 ms-auto" style="min-height: 100vh; background: #ffffff;">
                 <div class="p-2 p-md-3">
                     
-                    <!-- Dashboard Tab -->
+                    <!-- Dashboard Tab (CHART REMOVED) -->
                     <div id="dashboard-tab" class="tab-content active">
                         <div class="animate-fade-in">
                             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
@@ -363,8 +367,9 @@
                             </div>
                             
                             <div class="row g-2 mb-3">
-                                <div class="col-md-6"><div class="card-modern"><div class="card-header-modern"><i class="bi bi-pie-chart me-1"></i> Contacts by Platform</div><div class="card-body p-2"><canvas id="contactsChart" height="160"></canvas></div></div></div>
-                                    <!-- Replace the existing Facebook contacts card with this dual-platform card -->
+                                <!-- CHART REMOVED: old col-md-6 with canvas completely eliminated -->
+                                <!-- Now only the Meta Contacts card spans full width (col-12) -->
+                                <div class="col-12">
                                     <div class="card-modern">
                                         <div class="card-header-modern d-flex justify-content-between align-items-center flex-wrap gap-1">
                                             <span><i class="bi bi-meta me-1"></i> Meta Contacts (Facebook & Instagram)</span>
@@ -391,13 +396,13 @@
                                                     </a>
                                                 </li>
                                             </ul>
-                                            <div id="facebook-contacts-list" style="max-height: 240px; overflow-y: auto;">
+                                            <div id="facebook-contacts-list" class="meta-contact-scroll">
                                                 <div class="text-center p-2 text-muted" style="font-size:0.7rem;">
                                                     <i class="bi bi-chat-dots fs-6"></i>
                                                     <p class="mt-1 mb-0">Click "Sync FB" to load Facebook contacts</p>
                                                 </div>
                                             </div>
-                                            <div id="instagram-contacts-list" style="max-height: 240px; overflow-y: auto; display: none;">
+                                            <div id="instagram-contacts-list" class="meta-contact-scroll" style="display: none;">
                                                 <div class="text-center p-2 text-muted" style="font-size:0.7rem;">
                                                     <i class="bi bi-instagram fs-6"></i>
                                                     <p class="mt-1 mb-0">Click "Sync IG" to load Instagram contacts</p>
@@ -405,8 +410,8 @@
                                             </div>
                                         </div>
                                     </div>
-
                                 </div>
+                            </div>
                             
                             <div class="card-modern"><div class="card-header-modern"><i class="bi bi-hdd-stack me-1"></i> Platform Overview</div><div class="card-body p-2"><div id="platform-status-list"><div class="text-muted text-center py-2" style="font-size:0.7rem;">Loading status...</div></div></div></div>
                         </div>
@@ -434,7 +439,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         const socket = io({ transports: ['websocket', 'polling'] });
-        let contactsChart = null;
         socket.on('connect', () => console.log('Socket connected'));
         socket.on('message_sent', (data) => showToast('Sent', `${data.platform} ✔`, 'success'));
         socket.on('broadcast_completed', (data) => { showToast('Broadcast Done', `${data.sent}/${data.total}`, 'success'); loadBroadcasts(); });
@@ -453,6 +457,23 @@
             if(window.innerWidth < 768) document.getElementById('sidebar')?.classList.remove('show');
         }
         
+        // --- META CONTACT HANDLERS (no chart reference) ---
+        let currentMetaTab = 'facebook';
+        function switchMetaTab(tab) {
+            currentMetaTab = tab;
+            document.querySelectorAll('#dashboard-tab .nav-tabs .nav-link').forEach(link => { link.classList.remove('active'); });
+            if(event && event.target) event.target.classList.add('active');
+            const fbList = document.getElementById('facebook-contacts-list');
+            const igList = document.getElementById('instagram-contacts-list');
+            if (tab === 'facebook') {
+                fbList.style.display = 'block';
+                igList.style.display = 'none';
+            } else {
+                fbList.style.display = 'none';
+                igList.style.display = 'block';
+            }
+        }
+        
         async function syncFacebookContacts() {
             const container = document.getElementById('facebook-contacts-list');
             container.innerHTML = '<div class="text-center p-2"><div class="spinner-border text-primary spinner-border-sm" style="width:1rem;height:1rem;"></div><p class="mt-1" style="font-size:0.7rem;">Syncing...</p></div>';
@@ -466,6 +487,28 @@
                     showToast('Synced', `${data.contacts.length} contacts`, 'success');
                 } else { container.innerHTML = '<div class="text-center p-2 text-muted" style="font-size:0.7rem;"><i class="bi bi-inbox fs-6"></i><p class="mb-0 mt-1">No Facebook contacts yet.</p></div>'; }
             } catch(e) { container.innerHTML = `<div class="alert alert-danger m-2 p-1" style="font-size:0.7rem;">Error</div>`; }
+        }
+        
+        async function syncInstagramContacts() {
+            const container = document.getElementById('instagram-contacts-list');
+            container.innerHTML = '<div class="text-center p-2"><div class="spinner-border text-primary spinner-border-sm" style="width:1rem;height:1rem;"></div><p class="mt-1" style="font-size:0.7rem;">Syncing Instagram contacts...</p></div>';
+            try {
+                const res = await fetch('/api/instagram/sync-contacts', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+                const data = await res.json();
+                if (data.success && data.contacts && data.contacts.length) {
+                    let html = '';
+                    data.contacts.forEach(c => {
+                        html += `<div class="facebook-contact-item" onclick="viewInstagramConversation('${c.psid}', '${escapeHtml(c.name)}')">
+                            <div class="d-flex justify-content-between"><div><i class="bi bi-instagram me-1 text-danger"></i><strong style="font-size:0.7rem;">${escapeHtml(c.name)}</strong><br><span class="text-muted" style="font-size:0.6rem;">${c.psid.substring(0,12)}...</span></div><i class="bi bi-chat-dots text-primary" style="font-size:0.8rem;"></i></div>
+                            ${c.last_message ? `<small class="text-muted d-block mt-1" style="font-size:0.6rem;">${escapeHtml(c.last_message.substring(0,55))}</small>` : ''}
+                        </div>`;
+                    });
+                    container.innerHTML = html;
+                    showToast('Instagram Synced', `${data.contacts.length} contacts loaded`, 'success');
+                } else {
+                    container.innerHTML = `<div class="text-center p-2 text-muted" style="font-size:0.7rem;"><i class="bi bi-instagram fs-6"></i><p class="mb-0 mt-1">No Instagram contacts yet.</p><small class="text-muted">Users who DM your Instagram will appear here</small></div>`;
+                }
+            } catch(e) { container.innerHTML = `<div class="alert alert-danger m-2 p-1" style="font-size:0.7rem;">Error: ${e.message}</div>`; }
         }
         
         async function viewFacebookConversation(psid, name) {
@@ -484,115 +527,26 @@
             } catch(e) { showToast('Error', 'Failed to load', 'danger'); }
         }
         
-// Track active Meta tab
-let currentMetaTab = 'facebook';
-
-function switchMetaTab(tab) {
-    currentMetaTab = tab;
-    
-    // Update tab styles
-    document.querySelectorAll('#dashboard-tab .nav-tabs .nav-link').forEach(link => {
-        link.classList.remove('active');
-    });
-    event.target.classList.add('active');
-    
-    // Show/hide appropriate contact lists
-    const fbList = document.getElementById('facebook-contacts-list');
-    const igList = document.getElementById('instagram-contacts-list');
-    
-    if (tab === 'facebook') {
-        fbList.style.display = 'block';
-        igList.style.display = 'none';
-    } else {
-        fbList.style.display = 'none';
-        igList.style.display = 'block';
-    }
-}
-
-// Sync Instagram contacts
-async function syncInstagramContacts() {
-    const container = document.getElementById('instagram-contacts-list');
-    container.innerHTML = '<div class="text-center p-2"><div class="spinner-border text-primary spinner-border-sm" style="width:1rem;height:1rem;"></div><p class="mt-1" style="font-size:0.7rem;">Syncing Instagram contacts...</p></div>';
-    
-    try {
-        const res = await fetch('/api/instagram/sync-contacts', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' } 
-        });
-        const data = await res.json();
-        
-        if (data.success && data.contacts && data.contacts.length) {
-            let html = '';
-            data.contacts.forEach(c => {
-                html += `
-                    <div class="facebook-contact-item" onclick="viewInstagramConversation('${c.psid}', '${escapeHtml(c.name)}')">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <i class="bi bi-instagram me-1 text-danger"></i>
-                                <strong style="font-size:0.7rem;">${escapeHtml(c.name)}</strong>
-                                <br>
-                                <span class="text-muted" style="font-size:0.6rem;">${c.psid.substring(0, 12)}...</span>
-                            </div>
-                            <i class="bi bi-chat-dots text-primary" style="font-size:0.8rem;"></i>
-                        </div>
-                        ${c.last_message ? `<small class="text-muted d-block mt-1" style="font-size:0.6rem;">${escapeHtml(c.last_message.substring(0, 55))}</small>` : ''}
-                    </div>
-                `;
-            });
-            container.innerHTML = html;
-            showToast('Instagram Synced', `${data.contacts.length} contacts loaded`, 'success');
-        } else {
-            container.innerHTML = `
-                <div class="text-center p-2 text-muted" style="font-size:0.7rem;">
-                    <i class="bi bi-instagram fs-6"></i>
-                    <p class="mb-0 mt-1">No Instagram contacts yet.</p>
-                    <small class="text-muted">Users who DM your Instagram will appear here</small>
-                </div>
-            `;
+        async function viewInstagramConversation(psid, name) {
+            try {
+                const res = await fetch(`/api/instagram/conversations/${psid}`);
+                const data = await res.json();
+                if (data.success && data.messages && data.messages.length) {
+                    let content = `<h6 class="mb-1" style="font-size:0.8rem;">📸 ${escapeHtml(name)}</h6><hr class="my-1">`;
+                    data.messages.forEach(m => {
+                        const align = m.direction === 'outgoing' ? 'text-end' : 'text-start';
+                        const bg = m.direction === 'outgoing' ? 'bg-primary text-white' : 'bg-light';
+                        content += `<div class="${align} mb-1"><div class="d-inline-block p-1 rounded-2 ${bg}" style="max-width:80%; font-size:0.7rem;"><small>${escapeHtml(m.content)}</small><br><span class="opacity-75" style="font-size:0.55rem;">${new Date(m.timestamp).toLocaleString()}</span></div></div>`;
+                    });
+                    showModal('Instagram Conversation', content);
+                } else showToast('No history', `No messages with ${name}`, 'info');
+            } catch(e) { showToast('Error', 'Failed to load conversation', 'danger'); }
         }
-    } catch (e) {
-        container.innerHTML = `<div class="alert alert-danger m-2 p-1" style="font-size:0.7rem;">Error: ${e.message}</div>`;
-    }
-}
-
-// View Instagram conversation
-async function viewInstagramConversation(psid, name) {
-    try {
-        const res = await fetch(`/api/instagram/conversations/${psid}`);
-        const data = await res.json();
         
-        if (data.success && data.messages && data.messages.length) {
-            let content = `<h6 class="mb-1" style="font-size:0.8rem;">📸 ${escapeHtml(name)}</h6><hr class="my-1">`;
-            data.messages.forEach(m => {
-                const align = m.direction === 'outgoing' ? 'text-end' : 'text-start';
-                const bg = m.direction === 'outgoing' ? 'bg-primary text-white' : 'bg-light';
-                content += `
-                    <div class="${align} mb-1">
-                        <div class="d-inline-block p-1 rounded-2 ${bg}" style="max-width:80%; font-size:0.7rem;">
-                            <small>${escapeHtml(m.content)}</small>
-                            <br>
-                            <span class="opacity-75" style="font-size:0.55rem;">${new Date(m.timestamp).toLocaleString()}</span>
-                        </div>
-                    </div>
-                `;
-            });
-            showModal('Instagram Conversation', content);
-        } else {
-            showToast('No history', `No messages with ${name}`, 'info');
-        }
-    } catch (e) {
-        showToast('Error', 'Failed to load conversation', 'danger');
-    }
-}
-
-// Also update the platform selection in broadcast to include Instagram
-// The broadcast platform dropdown already has Instagram option        
-
-
         function showModal(title, bodyHtml){ let modalDiv = document.createElement('div'); modalDiv.innerHTML = `<div class="modal fade" id="tempModal"><div class="modal-dialog modal-dialog-centered modal-sm"><div class="modal-content"><div class="modal-header bg-white border-0 py-1"><h6 class="modal-title fw-bold">${title}</h6><button type="button" class="btn-close btn-close-sm" data-bs-dismiss="modal"></button></div><div class="modal-body" style="max-height:50vh;overflow:auto; font-size:0.7rem;">${bodyHtml}</div><div class="modal-footer border-0 py-1"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button></div></div></div></div>`; document.body.appendChild(modalDiv); let modal = new bootstrap.Modal(document.getElementById('tempModal')); modal.show(); modalDiv.addEventListener('hidden.bs.modal',()=>modalDiv.remove()); }
         
-        async function loadDashboardStats() { try { let r = await fetch('/api/dashboard/stats'); let d = await r.json(); if(d.success){ document.getElementById('total-contacts').innerText=d.stats.total_contacts; document.getElementById('opted-in-contacts').innerText=d.stats.opted_in_contacts; document.getElementById('sent-messages').innerText=d.stats.sent_messages; document.getElementById('total-broadcasts').innerText=d.stats.total_broadcasts; updateContactsChart(d.stats.contacts_by_platform); } } catch(e){} }
-        function updateContactsChart(data){ let ctx=document.getElementById('contactsChart').getContext('2d'); let labels=data.map(p=>p.platform), counts=data.map(p=>p.count); if(contactsChart) contactsChart.destroy(); contactsChart=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data:counts,backgroundColor:['#25D366','#1877F2','#1DA1F2','#E4405F'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'bottom',labels:{font:{size:9}}}}}}); }
+        async function loadDashboardStats() { try { let r = await fetch('/api/dashboard/stats'); let d = await r.json(); if(d.success){ document.getElementById('total-contacts').innerText=d.stats.total_contacts; document.getElementById('opted-in-contacts').innerText=d.stats.opted_in_contacts; document.getElementById('sent-messages').innerText=d.stats.sent_messages; document.getElementById('total-broadcasts').innerText=d.stats.total_broadcasts; } } catch(e){} }
+        
         async function loadPlatformStatus(){ try { let r=await fetch('/api/status'); let s=await r.json(); let html=''; for(let [k,v] of Object.entries(s)) if(k!=='linkedin') html+=`<div class="d-flex justify-content-between align-items-center p-1 border-bottom" style="font-size:0.7rem;"><div><i class="bi bi-${k} me-1"></i><strong>${k.charAt(0).toUpperCase()+k.slice(1)}</strong></div><span class="status-badge" style="font-size:0.6rem;">${v.configured?'✓ Connected':'✗ Not set'}</span></div>`; document.getElementById('platform-status-list').innerHTML=html||'<div class="text-center p-2">No data</div>'; } catch(e){} }
         async function loadPlatformStatusCards(){ try { let r=await fetch('/api/status'); let s=await r.json(); let html=''; for(let [k,v] of Object.entries(s)) if(k!=='linkedin') html+=`<div class="col-md-6 col-lg-4"><div class="card-modern"><div class="card-body p-2"><div class="d-flex justify-content-between"><div><i class="bi bi-${k}" style="font-size:1rem; color:#0B2B4F"></i><h6 class="mt-1 mb-0" style="font-size:0.75rem;">${k}</h6></div><span class="status-badge" style="font-size:0.6rem;">${v.configured?'Active':'Inactive'}</span></div><p class="small text-secondary mt-1 mb-0" style="font-size:0.6rem;">${v.configured?'Ready':'Configure API keys'}</p></div></div></div>`; document.getElementById('platform-status-cards').innerHTML=html||'<div class="col-12 text-center">No platforms</div>'; } catch(e){} }
         
