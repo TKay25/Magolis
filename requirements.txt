@@ -6,8 +6,7 @@ python-dotenv==1.0.0
 requests==2.31.0
 tweepy==4.14.0
 gunicorn==21.2.0
-eventlet==0.33.3
-werkzeug==2.3.7
+Werkzeug==2.3.7
 psycopg2-binary==2.9.9
 SQLAlchemy==2.0.20
 Flask-SQLAlchemy==3.0.5

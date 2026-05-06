@@ -10,5 +10,6 @@ accesslog = "-"
 errorlog = "-"
 loglevel = "info"
 
-# For WebSocket fallback
-worker_connections = 1000
+preload_app = True
+max_requests = 1000
+max_requests_jitter = 50

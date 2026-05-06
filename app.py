@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 """
 Unified Social Media Messaging System
-Compatible with Python 3.11+ (no eventlet required)
+Compatible with Python 3.11
 """
 
 import os
+import sys
 import json
 import time
 import threading
+import warnings
+
+# Suppress deprecation warnings
+warnings.filterwarnings("ignore", category=SyntaxWarning)
+
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, request, jsonify, session, redirect, url_for
@@ -16,7 +22,14 @@ from flask_socketio import SocketIO, emit
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 import requests
-import tweepy
+
+# Fix tweepy import for Python 3.11+
+try:
+    import tweepy
+except ImportError:
+    tweepy = None
+    print("Warning: tweepy not installed")
+
 import logging
 from contextlib import contextmanager
 import psycopg2
@@ -42,7 +55,7 @@ CORS(app, supports_credentials=True, origins=[
     "https://magolis.onrender.com"
 ])
 
-# SocketIO with threading mode (no eventlet needed)
+# SocketIO with threading mode
 socketio = SocketIO(
     app,
     cors_allowed_origins=[
@@ -50,7 +63,7 @@ socketio = SocketIO(
         "http://127.0.0.1:5000",
         "https://magolis.onrender.com"
     ],
-    async_mode='threading',  # Use threading instead of eventlet
+    async_mode='threading',
     ping_timeout=60,
     ping_interval=25
 )
@@ -584,10 +597,10 @@ class TwitterAdapter:
         self.api_secret = os.getenv('TWITTER_API_SECRET')
         self.access_token = os.getenv('TWITTER_ACCESS_TOKEN')
         self.access_secret = os.getenv('TWITTER_ACCESS_SECRET')
-        self.is_configured = bool(self.bearer_token)
+        self.is_configured = bool(self.bearer_token) and tweepy is not None
         self.client = None
         
-        if self.is_configured:
+        if self.is_configured and tweepy:
             try:
                 self.client = tweepy.Client(
                     bearer_token=self.bearer_token,
@@ -596,7 +609,8 @@ class TwitterAdapter:
                     access_token=self.access_token,
                     access_token_secret=self.access_secret
                 )
-            except:
+            except Exception as e:
+                logger.error(f"Twitter init error: {e}")
                 self.is_configured = False
     
     def send_message(self, recipient_id, content):
