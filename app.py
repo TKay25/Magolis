@@ -466,12 +466,11 @@ class FacebookAdapter:
             "Content-Type": "application/json"
         }
 
-        # Try MESSAGE_TAG first (works outside 24-hour window, for broadcasts)
+        # Try RESPONSE first (works if user messaged within 24h — was working before with permanent token)
         payload = {
             "recipient": {"id": recipient_id},
             "message": {"text": content},
-            "messaging_type": "MESSAGE_TAG",
-            "tag": "CONFIRMED_EVENT_UPDATE"
+            "messaging_type": "RESPONSE"
         }
         
         try:
@@ -481,11 +480,11 @@ class FacebookAdapter:
             error_data = response.json()
             error_code = error_data.get('error', {}).get('code')
             error_msg = error_data.get('error', {}).get('message', f'HTTP {response.status_code}')
-            logger.warning(f"Facebook MESSAGE_TAG failed (code {error_code}): {error_msg} — trying RESPONSE type")
+            logger.warning(f"Facebook RESPONSE type failed (code {error_code}): {error_msg} — trying MESSAGE_TAG")
 
-            # Fallback: try RESPONSE type (works within 24h window)
-            payload['messaging_type'] = 'RESPONSE'
-            del payload['tag']
+            # Fallback: MESSAGE_TAG (works outside 24h window, needs pages_messaging_subscriptions approval)
+            payload['messaging_type'] = 'MESSAGE_TAG'
+            payload['tag'] = 'CONFIRMED_EVENT_UPDATE'
             response2 = requests.post(url, json=payload, headers=headers, timeout=30)
             if response2.status_code == 200:
                 return {'success': True, 'platform': 'facebook'}
@@ -866,6 +865,65 @@ def check_auth():
     return jsonify({'authenticated': False}), 401
 
 # ==================== FACEBOOK CONTACT SYNC ROUTES ====================
+
+@app.route('/api/facebook/diagnose', methods=['GET'])
+@login_required
+def facebook_diagnose():
+    """Check Facebook token validity and permissions"""
+    page_token = os.getenv('FACEBOOK_PAGE_TOKEN')
+    page_id = os.getenv('FACEBOOK_PAGE_ID')
+
+    if not page_token:
+        return jsonify({'success': False, 'error': 'FACEBOOK_PAGE_TOKEN not set'})
+    if not page_id:
+        return jsonify({'success': False, 'error': 'FACEBOOK_PAGE_ID not set'})
+
+    result = {'page_token_set': True, 'page_id': page_id}
+
+    # Check token info
+    try:
+        r = requests.get(
+            'https://graph.facebook.com/debug_token',
+            params={
+                'input_token': page_token,
+                'access_token': page_token
+            }
+        )
+        token_data = r.json().get('data', {})
+        result['token_valid'] = token_data.get('is_valid', False)
+        result['token_expires_at'] = token_data.get('expires_at', 'unknown')
+        result['token_type'] = token_data.get('type', 'unknown')
+        result['token_scopes'] = token_data.get('scopes', [])
+        result['token_error'] = token_data.get('error', {}).get('message') if not token_data.get('is_valid') else None
+    except Exception as e:
+        result['token_check_error'] = str(e)
+
+    # Try a simple API call to confirm the token works
+    try:
+        r2 = requests.get(
+            f'https://graph.facebook.com/v18.0/{page_id}',
+            params={'access_token': page_token, 'fields': 'id,name'}
+        )
+        page_data = r2.json()
+        if 'error' in page_data:
+            result['page_api_error'] = page_data['error'].get('message')
+        else:
+            result['page_name'] = page_data.get('name')
+            result['page_api_ok'] = True
+    except Exception as e:
+        result['page_api_error'] = str(e)
+
+    # Send a test message to yourself (skip — just check token)
+    result['recommendation'] = []
+    if not result.get('token_valid'):
+        result['recommendation'].append('Your token is INVALID or EXPIRED. Generate a new permanent Page Access Token in Meta Business Suite > Settings > Page Access Tokens.')
+    if 'pages_messaging' not in result.get('token_scopes', []):
+        result['recommendation'].append('Token is missing "pages_messaging" permission. Regenerate with this scope.')
+    if not result.get('recommendation'):
+        result['recommendation'].append('Token looks valid. If messages still fail, check server logs for the exact Facebook API error per recipient.')
+
+    return jsonify(result)
+
 
 @app.route('/api/facebook/sync-contacts', methods=['POST'])
 @login_required
