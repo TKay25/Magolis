@@ -158,6 +158,25 @@
         .contact-item .ci-sub  { color: #718096; font-size: 0.6rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .contact-item .ci-badge { font-size: 0.5rem; padding: 1px 5px; border-radius: 999px; flex-shrink: 0; }
 
+        /* ── Compact platform sync panel ── */
+        .sync-platform-btn {
+            font-size: 0.68rem; padding: 3px 10px; border-radius: 999px;
+            border: 1px solid transparent; cursor: pointer; transition: all 0.15s;
+            background: rgba(0,0,0,0.04); color: #555;
+        }
+        .sync-platform-btn:hover { opacity: 0.85; }
+        .sync-platform-btn.active { font-weight: 700; }
+        .sync-platform-btn.spb-fb  { border-color: rgba(24,119,242,0.35); color:#1877F2; }
+        .sync-platform-btn.spb-fb.active  { background:rgba(24,119,242,0.12); }
+        .sync-platform-btn.spb-ig  { border-color: rgba(225,48,108,0.35); color:#e1306c; }
+        .sync-platform-btn.spb-ig.active  { background:rgba(225,48,108,0.12); }
+        .sync-platform-btn.spb-wa  { border-color: rgba(37,211,102,0.35); color:#128C7E; }
+        .sync-platform-btn.spb-wa.active  { background:rgba(37,211,102,0.12); }
+        .sync-platform-btn.spb-li  { border-color: rgba(10,102,194,0.35); color:#0a66c2; }
+        .sync-platform-btn.spb-li.active  { background:rgba(10,102,194,0.12); }
+        .sync-platform-btn.spb-tw  { border-color: rgba(0,0,0,0.2); color:#111; }
+        .sync-platform-btn.spb-tw.active  { background:rgba(0,0,0,0.07); }
+
         .animate-fade-in {
             animation: fadeInUp 0.3s ease-out;
         }
@@ -388,6 +407,30 @@
                         <div class="animate-fade-in">
                             <h2 class="fw-bold main-title mb-2">Contacts Management</h2>
 
+                            <!-- Platform Sync Panel -->
+                            <div class="card-modern mb-2">
+                                <div class="card-header-modern d-flex justify-content-between align-items-center">
+                                    <span><i class="bi bi-arrow-repeat me-1"></i> Sync from Platform</span>
+                                    <button class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2" onclick="resyncCurrentMetaTab()" style="font-size:0.65rem;"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
+                                </div>
+                                <div class="card-body p-2">
+                                    <div class="d-flex gap-1 flex-wrap mb-2">
+                                        <button class="sync-platform-btn spb-fb active" id="sync-tab-facebook"  onclick="switchMetaTab('facebook')"><i class="bi bi-facebook me-1"></i>Facebook</button>
+                                        <button class="sync-platform-btn spb-ig"        id="sync-tab-instagram" onclick="switchMetaTab('instagram')"><i class="bi bi-instagram me-1"></i>Instagram</button>
+                                        <button class="sync-platform-btn spb-wa"        id="sync-tab-whatsapp"  onclick="switchMetaTab('whatsapp')"><i class="bi bi-whatsapp me-1"></i>WhatsApp</button>
+                                        <button class="sync-platform-btn spb-li"        id="sync-tab-linkedin"  onclick="switchMetaTab('linkedin')"><i class="bi bi-linkedin me-1"></i>LinkedIn</button>
+                                        <button class="sync-platform-btn spb-tw"        id="sync-tab-twitter"   onclick="switchMetaTab('twitter')"><i class="bi bi-twitter-x me-1"></i>Twitter</button>
+                                    </div>
+                                    <div style="max-height:220px;overflow-y:auto;">
+                                        <div id="facebook-contacts-list"><div class="text-center p-2 text-muted" style="font-size:0.7rem;"><i class="bi bi-arrow-repeat me-1"></i>Click Refresh to sync Facebook contacts</div></div>
+                                        <div id="instagram-contacts-list" style="display:none"><div class="text-center p-2 text-muted" style="font-size:0.7rem;"><i class="bi bi-arrow-repeat me-1"></i>Click Refresh to sync Instagram contacts</div></div>
+                                        <div id="whatsapp-contacts-list"  style="display:none"><div class="text-center p-2 text-muted" style="font-size:0.7rem;"><i class="bi bi-arrow-repeat me-1"></i>Click Refresh to sync WhatsApp contacts</div></div>
+                                        <div id="linkedin-contacts-list"  style="display:none"><div class="text-center p-2 text-muted" style="font-size:0.7rem;"><i class="bi bi-arrow-repeat me-1"></i>Click Refresh to sync LinkedIn contacts</div></div>
+                                        <div id="twitter-contacts-list"   style="display:none"><div class="text-center p-2 text-muted" style="font-size:0.7rem;"><i class="bi bi-arrow-repeat me-1"></i>Click Refresh to sync Twitter contacts</div></div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Add Contact + CSV Import Row -->
                             <div class="row g-2 mb-2">
                                 <div class="col-md-6">
@@ -488,13 +531,17 @@
 
         function switchMetaTab(tab) {
             currentMetaTab = tab;
-            document.querySelectorAll('#dashboard-tab .nav-tabs .nav-link').forEach(link => link.classList.remove('active'));
-            if(event && event.target) event.target.classList.add('active');
+            // Update pill button active states
+            ['facebook','instagram','whatsapp','linkedin','twitter'].forEach(p => {
+                const btn = document.getElementById('sync-tab-' + p);
+                if (btn) btn.classList.toggle('active', p === tab);
+            });
+            // Show only the selected list
             document.getElementById('facebook-contacts-list').style.display  = tab === 'facebook'  ? 'block' : 'none';
             document.getElementById('instagram-contacts-list').style.display = tab === 'instagram' ? 'block' : 'none';
             document.getElementById('whatsapp-contacts-list').style.display  = tab === 'whatsapp'  ? 'block' : 'none';
-            document.getElementById('linkedin-contacts-list').style.display   = tab === 'linkedin'   ? 'block' : 'none';
-            document.getElementById('twitter-contacts-list').style.display    = tab === 'twitter'    ? 'block' : 'none';
+            document.getElementById('linkedin-contacts-list').style.display  = tab === 'linkedin'  ? 'block' : 'none';
+            document.getElementById('twitter-contacts-list').style.display   = tab === 'twitter'   ? 'block' : 'none';
             // Auto-sync once per tab per page load
             if (!_metaSynced[tab]) {
                 _metaSynced[tab] = true;
@@ -521,7 +568,7 @@
             document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
             if(event && event.target) event.target.closest('.nav-link').classList.add('active');
             if(tabName === 'dashboard') { loadDashboardStats(); loadPlatformStatus(); loadDashboardRecentBroadcasts(); }
-            if(tabName === 'contacts') loadContacts();
+            if(tabName === 'contacts') { loadContacts(); if(!_metaSynced[currentMetaTab]){ _metaSynced[currentMetaTab]=true; if(currentMetaTab==='facebook') syncFacebookContacts(); else if(currentMetaTab==='instagram') syncInstagramContacts(); else if(currentMetaTab==='whatsapp') syncWhatsAppContacts(); else if(currentMetaTab==='linkedin') syncLinkedInContacts(); else if(currentMetaTab==='twitter') syncTwitterContacts(); } }
             if(tabName === 'history') loadMessageHistory();
             if(tabName === 'broadcast') { loadBroadcasts(); updateRecipientCount(); }
             if(tabName === 'status') loadPlatformStatusCards();
@@ -584,13 +631,14 @@
                     data.contacts.forEach(c => {
                         const num = c.phone_number || ('+' + c.platform_user_id);
                         const initials = (c.display_name||num).split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
-                        html += `<div class="contact-item">
+                        html += `<div class="contact-item" style="cursor:pointer;" onclick="viewConversation('whatsapp','${c.platform_user_id}','${escapeHtml(c.display_name||num)}',${c.id||'null'})">
                             <div class="ci-avatar ci-wa">${initials}</div>
                             <div class="ci-body">
                                 <div class="ci-name">${escapeHtml(c.display_name || num)}</div>
                                 <div class="ci-sub">${escapeHtml(num)}</div>
                             </div>
                             <span class="ci-badge ${c.opt_in ? 'bg-success text-white' : 'bg-light text-muted border'}">${c.opt_in ? 'In' : 'Out'}</span>
+                            <i class="bi bi-chevron-right text-muted ms-1" style="font-size:0.6rem;"></i>
                         </div>`;
                     });
                     container.innerHTML = html;
@@ -624,13 +672,14 @@
                     let html = '';
                     data.contacts.forEach(c => {
                         const initials = (c.display_name||'?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
-                        html += `<div class="contact-item">
+                        html += `<div class="contact-item" style="cursor:pointer;" onclick="viewConversation('twitter','${c.platform_user_id}','${escapeHtml(c.display_name||c.platform_user_id)}',${c.id||'null'})">
                             <div class="ci-avatar" style="background:#000;">${initials}</div>
                             <div class="ci-body">
                                 <div class="ci-name">${escapeHtml(c.display_name || c.platform_user_id)}</div>
                                 <div class="ci-sub">@${escapeHtml(c.platform_user_id)}</div>
                             </div>
                             <span class="ci-badge ${c.opt_in ? 'bg-success text-white' : 'bg-light text-muted border'}">${c.opt_in ? 'In' : 'Out'}</span>
+                            <i class="bi bi-chevron-right text-muted ms-1" style="font-size:0.6rem;"></i>
                         </div>`;
                     });
                     container.innerHTML = html;
@@ -664,13 +713,14 @@
                     let html = '';
                     data.contacts.forEach(c => {
                         const initials = (c.display_name||'?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
-                        html += `<div class="contact-item">
+                        html += `<div class="contact-item" style="cursor:pointer;" onclick="viewConversation('linkedin','${c.platform_user_id}','${escapeHtml(c.display_name||c.platform_user_id)}',${c.id||'null'})">
                             <div class="ci-avatar" style="background:#0a66c2;">${initials}</div>
                             <div class="ci-body">
                                 <div class="ci-name">${escapeHtml(c.display_name || c.platform_user_id)}</div>
                                 <div class="ci-sub">${escapeHtml(c.platform_user_id)}</div>
                             </div>
                             <span class="ci-badge ${c.opt_in ? 'bg-success text-white' : 'bg-light text-muted border'}">${c.opt_in ? 'In' : 'Out'}</span>
+                            <i class="bi bi-chevron-right text-muted ms-1" style="font-size:0.6rem;"></i>
                         </div>`;
                     });
                     container.innerHTML = html;
@@ -711,23 +761,69 @@
             } catch(e) { container.innerHTML = `<div class="alert alert-danger m-2 p-1"><i class="bi bi-exclamation-triangle me-1"></i>Error: ${escapeHtml(e.message)}</div>`; showToast('Error', e.message, 'danger'); }
         }
         
-        async function viewConversation(platform, psid, name) {
+        // platform, psid/id = platform_user_id, name, contactId = DB row id (optional)
+        async function viewConversation(platform, psid, name, contactId) {
+            const pm = platformMeta[platform] || { icon: 'bi-circle', color: '#888' };
+            const header = `<div class="d-flex align-items-center gap-2 mb-2">
+                <i class="bi ${pm.icon}" style="color:${pm.color};font-size:1.1rem;"></i>
+                <span class="fw-bold">${escapeHtml(name)}</span>
+                <small class="text-muted ms-auto" style="font-size:0.65rem;">${platform}</small>
+            </div><hr class="my-1">`;
+
+            // Facebook and Instagram have live Graph API history
+            const useLiveApi = (platform === 'facebook' || platform === 'instagram');
+            const url = useLiveApi
+                ? `/api/${platform}/conversations/${psid}`
+                : (contactId ? `/api/contacts/${contactId}/messages` : null);
+
+            if (!url) { showToast('No history', `No message history available for ${name}`, 'info'); return; }
+
             try {
-                const res = await fetch(`/api/${platform}/conversations/${psid}`);
+                const res  = await fetch(url);
                 const data = await res.json();
-                if(data.success && data.messages?.length){
-                    let content = `<h6 class="mb-1">${escapeHtml(name)}</h6><hr class="my-1">`;
-                    data.messages.forEach(m => {
-                        const align = m.direction === 'outgoing' ? 'text-end' : 'text-start';
-                        const bg = m.direction === 'outgoing' ? 'bg-primary text-white' : 'bg-light';
-                        content += `<div class="${align} mb-1"><div class="d-inline-block p-1 rounded-2 ${bg}" style="max-width:80%;"><small>${escapeHtml(m.content)}</small><br><span class="opacity-75" style="font-size:0.55rem;">${new Date(m.timestamp).toLocaleString()}</span></div></div>`;
-                    });
-                    showModal('Conversation with ' + name, content);
-                } else showToast('No history', `No messages with ${name}`, 'info');
-            } catch(e) { showToast('Error', 'Failed to load', 'danger'); }
+                if (data.success && data.messages?.length) {
+                    const msgs = data.messages.map(m => {
+                        const out   = m.direction === 'outgoing';
+                        const align = out ? 'text-end' : 'text-start';
+                        const bg    = out ? 'bg-primary text-white' : 'bg-light text-dark';
+                        const ts    = m.timestamp ? new Date(m.timestamp).toLocaleString() : '';
+                        return `<div class="${align} mb-2">
+                            <div class="d-inline-block px-2 py-1 rounded-3 ${bg}" style="max-width:82%;font-size:0.78rem;">
+                                ${escapeHtml(m.content || '')}
+                                <div class="opacity-60 mt-1" style="font-size:0.55rem;">${ts}</div>
+                            </div>
+                        </div>`;
+                    }).join('');
+                    showModal('Chat — ' + name, header + `<div id="chat-scroll">${msgs}</div>`, true);
+                    // scroll to bottom
+                    setTimeout(() => { const el = document.getElementById('chat-scroll'); if (el) el.closest('.modal-body').scrollTop = 9999; }, 80);
+                } else {
+                    showModal('Chat — ' + name, header + '<div class="text-center py-3 text-muted"><i class="bi bi-chat-dots fs-4 d-block mb-2"></i>No message history yet.</div>', false);
+                }
+            } catch(e) { showToast('Error', 'Failed to load conversation', 'danger'); }
         }
         
-        function showModal(title, bodyHtml){ let modalDiv = document.createElement('div'); modalDiv.innerHTML = `<div class="modal fade" id="tempModal"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header bg-white border-0 py-1"><h6 class="modal-title fw-bold">${title}</h6><button type="button" class="btn-close btn-close-sm" data-bs-dismiss="modal"></button></div><div class="modal-body" style="max-height:50vh;overflow:auto;">${bodyHtml}</div><div class="modal-footer border-0 py-1"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button></div></div></div></div>`; document.body.appendChild(modalDiv); let modal = new bootstrap.Modal(document.getElementById('tempModal')); modal.show(); modalDiv.addEventListener('hidden.bs.modal',()=>modalDiv.remove()); }
+        function showModal(title, bodyHtml, tall = false) {
+            let modalDiv = document.createElement('div');
+            modalDiv.innerHTML = `<div class="modal fade" id="tempModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+                    <div class="modal-content">
+                        <div class="modal-header border-0 py-2 px-3">
+                            <span class="fw-bold" style="font-size:0.85rem;">${title}</span>
+                            <button type="button" class="btn-close btn-close-sm ms-auto" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body px-3 py-2" style="max-height:${tall ? '65' : '50'}vh;overflow-y:auto;">${bodyHtml}</div>
+                        <div class="modal-footer border-0 py-1">
+                            <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+            document.body.appendChild(modalDiv);
+            const modal = new bootstrap.Modal(document.getElementById('tempModal'));
+            modal.show();
+            modalDiv.addEventListener('hidden.bs.modal', () => modalDiv.remove());
+        }
         
         const platformMeta = {
             facebook:  { icon: 'bi-facebook',  color: '#1877F2' },
@@ -962,7 +1058,11 @@
                 let res = await fetch(url); 
                 let data = await res.json(); 
                 if(data.success && data.contacts.length){ 
-                    let html = `<div class="table-responsive"><table class="table table-hover mb-0"><thead class="table-light"><tr><th>Platform</th><th>Name</th><th>ID</th><th>Last Interaction</th></tr></thead><tbody>${data.contacts.map(c => `<tr><td><span class="platform-badge platform-${c.platform}">${c.platform}</span></td><td>${escapeHtml(c.display_name || '—')}</td><td><span class="text-muted">${c.platform_user_id?.substring(0,15)}</span></td><td>${c.last_interaction ? new Date(c.last_interaction).toLocaleDateString() : 'never'}</td></tr>`).join('')}</tbody></table></div>`; 
+                    let html = `<div class="table-responsive"><table class="table table-hover mb-0" style="font-size:0.78rem;"><thead class="table-light"><tr><th>Platform</th><th>Name</th><th>ID</th><th>Last Interaction</th><th></th></tr></thead><tbody>${data.contacts.map(c => { 
+                        const canChat = ['facebook','instagram','whatsapp','twitter','linkedin'].includes(c.platform); 
+                        const chatBtn = canChat ? `<button class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size:0.6rem;" onclick="viewConversation('${c.platform}','${c.platform_user_id}','${escapeHtml(c.display_name||c.platform_user_id)}',${c.id})"><i class="bi bi-chat-dots"></i></button>` : ''; 
+                        return `<tr><td><span class="platform-badge platform-${c.platform}">${c.platform}</span></td><td>${escapeHtml(c.display_name || '—')}</td><td><span class="text-muted">${c.platform_user_id?.substring(0,15)}</span></td><td>${c.last_interaction ? new Date(c.last_interaction).toLocaleDateString() : 'never'}</td><td>${chatBtn}</td></tr>`; 
+                    }).join('')}</tbody></table></div>`; 
                     document.getElementById('contacts-list').innerHTML = html; 
                 } else document.getElementById('contacts-list').innerHTML = '<div class="text-center p-2 text-muted">No contacts found</div>'; 
             } catch(e){} 

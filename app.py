@@ -1471,6 +1471,22 @@ def sync_instagram_contacts():
         logger.error(f"Instagram sync error: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/contacts/<int:contact_id>/messages', methods=['GET'])
+@login_required
+def get_contact_messages(contact_id):
+    """Return DB-stored message history for any contact (outgoing + webhook-saved inbound)."""
+    with get_db_cursor(commit=False) as cursor:
+        cursor.execute('''
+            SELECT m.id, m.direction, m.message AS content, m.sent_at AS timestamp, c.display_name
+            FROM messages m
+            JOIN contacts c ON m.contact_id = c.id
+            WHERE m.contact_id = %s
+            ORDER BY m.sent_at ASC
+            LIMIT 200
+        ''', (contact_id,))
+        messages = [dict(row) for row in cursor.fetchall()]
+    return jsonify({'success': True, 'messages': messages})
+
 @app.route('/api/instagram/conversations/<psid>', methods=['GET'])
 @login_required
 def get_instagram_conversation(psid):

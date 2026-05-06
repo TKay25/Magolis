@@ -203,10 +203,11 @@
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 20px;
-      overflow: hidden;
+      overflow-x: auto;
       margin-bottom: 40px;
       box-shadow: 0 24px 64px rgba(0,0,0,0.4);
     }
+    table { min-width: 480px; }
 
     table { width: 100%; border-collapse: collapse; }
 
@@ -458,8 +459,32 @@
 
       @page {
         size: A4;
-        margin: 15mm 12mm;
+        margin: 12mm 10mm;
       }
+
+      /* ── Page break: one platform per printed page ── */
+      .divider {
+        page-break-before: always !important;
+        break-before: page !important;
+        border-top: none !important;
+        margin: 0 !important;
+        height: 0 !important;
+      }
+
+      /* ── Compact tables so nothing gets cut off ── */
+      body { font-size: 8.5pt !important; padding: 0 !important; }
+      table { min-width: 0 !important; width: 100% !important; table-layout: fixed; }
+      thead th { padding: 6px 7px !important; font-size: 7pt !important; }
+      td { padding: 6px 7px !important; font-size: 8pt !important; word-break: break-word; }
+      .pill { font-size: 7pt !important; padding: 2px 6px !important; gap: 4px !important; }
+      .pill-dot { width: 5px !important; height: 5px !important; }
+      .table-card { overflow: visible !important; border-radius: 8px !important; }
+      .fix-card { padding: 18px 20px !important; }
+      .step-text, .tip-text, .info-note-text { font-size: 8pt !important; }
+      .section-desc { font-size: 8pt !important; }
+      .env-key { min-width: 180px !important; font-size: 8pt !important; }
+      .env-desc { font-size: 8pt !important; }
+      h2.section-title { font-size: 1.1rem !important; }
     }
   </style>
 </head>
@@ -701,37 +726,8 @@
   <p class="section-label">Section 3 — WhatsApp Business</p>
   <h2 class="section-title">💬 WhatsApp Cloud API</h2>
   <p class="section-desc">
-    WhatsApp Business Cloud API is the most capable bulk messaging channel. Messages go directly to recipients' WhatsApp numbers. No 24-hour window restriction applies — but outside an active conversation, you <em>must</em> use a pre-approved template.
+    WhatsApp Business Cloud API sends messages directly to the recipient's phone number — no social graph or follower relationship needed. To <strong>initiate</strong> a conversation you must use a Meta-approved message template. Once the contact replies, free-form messages work for 24 hours without a template. Bulk broadcasts to opted-in numbers are fully supported via the Cloud API.
   </p>
-
-  <div class="table-card">
-    <table>
-      <thead>
-        <tr>
-          <th>Message Type</th>
-          <th>When to Use</th>
-          <th>Result</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>Free-form message</strong></td>
-          <td>Contact messaged you within the last <strong>24 hours</strong></td>
-          <td><span class="pill pill-success"><span class="pill-dot"></span>Works — any content</span></td>
-        </tr>
-        <tr>
-          <td><strong>Template message</strong></td>
-          <td>First contact, or outside 24h window</td>
-          <td><span class="pill pill-warn"><span class="pill-dot"></span>Needs approved template</span></td>
-        </tr>
-        <tr>
-          <td><strong>Broadcast to list</strong></td>
-          <td>Bulk send to opted-in numbers</td>
-          <td><span class="pill pill-success"><span class="pill-dot"></span>Supported via Cloud API</span></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
 
   <div class="fix-card">
     <h3>WhatsApp Business setup in Magolis <span class="fix-badge wa-badge">Cloud API</span></h3>
