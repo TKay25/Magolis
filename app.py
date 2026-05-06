@@ -236,7 +236,20 @@ def save_message(contact_id, platform, direction, message, status='sent'):
 def get_recipients_for_broadcast(platform, audience_filter='all', tags=None):
     """Get recipients for broadcast - FIXED to use new cursor pattern"""
     with get_db_cursor(commit=False) as cursor:
-        cursor.execute("SELECT id, platform_user_id, display_name FROM contacts WHERE platform = %s AND opt_in = TRUE", (platform,))
+        query = "SELECT id, platform_user_id, display_name FROM contacts WHERE platform = %s AND opt_in = TRUE"
+        params = [platform]
+
+        if audience_filter == 'active':
+            query += " AND last_interaction >= (CURRENT_DATE - INTERVAL '30 days')"
+        elif audience_filter == 'tagged' and tags:
+            tag_list = [t.strip() for t in tags.split(',') if t.strip()]
+            if tag_list:
+                # Assuming tags are stored as comma-separated in a 'tags' column
+                tag_conditions = " OR ".join(["tags ILIKE %s" for _ in tag_list])
+                query += f" AND (" + tag_conditions + ")"
+                params.extend([f"%{tag}%" for tag in tag_list])
+
+        cursor.execute(query, tuple(params))
         return [dict(row) for row in cursor.fetchall()]
 
 def create_broadcast_record(user_id, name, platform, message, audience_filter, total_recipients):
