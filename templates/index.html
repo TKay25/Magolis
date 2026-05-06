@@ -554,7 +554,7 @@
                                         <option value="instagram">Instagram</option>
                                     </select>
                                 </div>
-                                <div class="card-body p-2" id="history-list"><div class="text-center py-3">Loading history...</div></div>
+                                <div class="card-body p-2" id="history-list" style="max-height:60vh;overflow-y:auto;"><div class="text-center py-3">Loading history...</div></div>
                             </div>
                         </div>
                     </div>
@@ -1749,6 +1749,7 @@
                     document.getElementById('user-name').innerText = d.user.full_name || d.user.username; 
                     loadDashboardStats(); 
                     loadPlatformStatus(); 
+                    loadDashboardRecentBroadcasts();
                     loadBroadcasts(); 
                 } else window.location.href = '/login'; 
             }); 
