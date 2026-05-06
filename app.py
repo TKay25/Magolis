@@ -608,73 +608,93 @@ class InstagramAdapter:
     
     def _cache_business_id(self):
         """Get and cache Instagram Business Account ID - tries multiple methods"""
-        # Method 1: instagram_business_account field (requires instagram_basic permission)
-        try:
-            url = f"https://graph.facebook.com/v18.0/{self.page_id}"
-            params = {'access_token': self.access_token, 'fields': 'instagram_business_account'}
-            response = requests.get(url, params=params)
-            data = response.json()
+        not_linked_codes = set()
 
-            if 'error' in data:
-                error_code = data['error'].get('code')
-                msg = data['error'].get('message', 'Unknown API error')
-                logger.warning(f"Instagram method 1 failed (code {error_code}): {msg} — trying method 2")
-                # Fall through to method 2
-            elif 'instagram_business_account' in data:
+        # Method 1: instagram_business_account (Business accounts)
+        try:
+            r = requests.get(
+                f"https://graph.facebook.com/v18.0/{self.page_id}",
+                params={'access_token': self.access_token, 'fields': 'instagram_business_account'}
+            )
+            data = r.json()
+            if 'instagram_business_account' in data:
                 self.instagram_business_id = data['instagram_business_account']['id']
                 logger.info(f"Instagram Business ID loaded (method 1): {self.instagram_business_id}")
                 return
-            else:
-                logger.warning("instagram_business_account field missing — trying method 2")
-        except Exception as e:
-            logger.warning(f"Instagram method 1 exception: {e} — trying method 2")
-
-        # Method 2: connected_instagram_account field
-        try:
-            url = f"https://graph.facebook.com/v18.0/{self.page_id}"
-            params = {'access_token': self.access_token, 'fields': 'connected_instagram_account'}
-            response = requests.get(url, params=params)
-            data = response.json()
-
             if 'error' in data:
-                msg = data['error'].get('message', 'Unknown API error')
-                logger.error(f"Instagram method 2 failed: {msg}")
-            elif 'connected_instagram_account' in data:
+                not_linked_codes.add(data['error'].get('code'))
+                logger.warning(f"Instagram method 1 failed (code {data['error'].get('code')}): {data['error'].get('message')} — trying method 2")
+        except Exception as e:
+            logger.warning(f"Instagram method 1 exception: {e}")
+
+        # Method 2: connected_instagram_account (Creator accounts)
+        try:
+            r = requests.get(
+                f"https://graph.facebook.com/v18.0/{self.page_id}",
+                params={'access_token': self.access_token, 'fields': 'connected_instagram_account'}
+            )
+            data = r.json()
+            if 'connected_instagram_account' in data:
                 self.instagram_business_id = data['connected_instagram_account']['id']
                 logger.info(f"Instagram Business ID loaded (method 2): {self.instagram_business_id}")
                 return
-            else:
-                logger.warning("connected_instagram_account field missing — trying method 3")
+            if 'error' in data:
+                not_linked_codes.add(data['error'].get('code'))
+                logger.warning(f"Instagram method 2 failed (code {data['error'].get('code')}): {data['error'].get('message')} — trying method 3")
         except Exception as e:
-            logger.warning(f"Instagram method 2 exception: {e} — trying method 3")
+            logger.warning(f"Instagram method 2 exception: {e}")
 
-        # Method 3: /me endpoint with User Access Token
+        # Method 3: instagram_accounts field (works for some token types)
         try:
-            url = "https://graph.facebook.com/v18.0/me/accounts"
-            params = {'access_token': self.access_token, 'fields': 'instagram_business_account,connected_instagram_account,id,name'}
-            response = requests.get(url, params=params)
-            data = response.json()
-
-            if 'error' not in data:
-                for page in data.get('data', []):
-                    if page.get('id') == self.page_id:
-                        ig = page.get('instagram_business_account') or page.get('connected_instagram_account')
-                        if ig:
-                            self.instagram_business_id = ig['id']
-                            logger.info(f"Instagram Business ID loaded (method 3): {self.instagram_business_id}")
-                            return
+            r = requests.get(
+                f"https://graph.facebook.com/v18.0/{self.page_id}",
+                params={'access_token': self.access_token, 'fields': 'instagram_accounts{id,name,username}'}
+            )
+            data = r.json()
+            accounts = data.get('instagram_accounts', {}).get('data', [])
+            if accounts:
+                self.instagram_business_id = accounts[0]['id']
+                logger.info(f"Instagram Business ID loaded (method 3): {self.instagram_business_id}")
+                return
+            if 'error' in data:
+                not_linked_codes.add(data['error'].get('code'))
+                logger.warning(f"Instagram method 3 failed: {data['error'].get('message')} — trying method 4")
         except Exception as e:
             logger.warning(f"Instagram method 3 exception: {e}")
 
-        # All methods failed
+        # Method 4: /me/accounts (User Access Token path)
+        try:
+            r = requests.get(
+                "https://graph.facebook.com/v18.0/me/accounts",
+                params={'access_token': self.access_token, 'fields': 'id,name,instagram_business_account,connected_instagram_account'}
+            )
+            data = r.json()
+            for page in data.get('data', []):
+                if page.get('id') == self.page_id:
+                    ig = page.get('instagram_business_account') or page.get('connected_instagram_account')
+                    if ig:
+                        self.instagram_business_id = ig['id']
+                        logger.info(f"Instagram Business ID loaded (method 4): {self.instagram_business_id}")
+                        return
+        except Exception as e:
+            logger.warning(f"Instagram method 4 exception: {e}")
+
+        # All methods failed — determine most likely cause
+        # Code 100 = field doesn't exist on this object = Instagram not linked to page
+        if 100 in not_linked_codes:
+            self.init_error = (
+                'Instagram account is NOT linked to your Facebook Page. '
+                'Fix: Go to your Facebook Page > Settings > Linked Accounts (or Instagram section) > Connect your Instagram account. '
+                'Your Instagram must be a Business or Creator account (not Personal).'
+            )
+        else:
+            self.init_error = (
+                'Could not retrieve Instagram Business Account ID. '
+                'Ensure your token has instagram_basic + instagram_manage_messages permissions, '
+                'your Instagram is a Business/Creator account, and it is linked to your Facebook Page.'
+            )
         self.is_configured = False
-        self.init_error = (
-            'Could not find Instagram Business Account. Likely causes:\n'
-            '1. Your token is missing the "instagram_basic" permission — regenerate it in Meta Developer Console with instagram_basic + instagram_manage_messages scopes.\n'
-            '2. Your Instagram account is a Personal account — convert it to a Business or Creator account in Instagram Settings.\n'
-            '3. Your Instagram account is not linked to the Facebook Page — go to Facebook Page Settings > Linked Accounts > Instagram.'
-        )
-        logger.error(f"Instagram Business ID could not be loaded. {self.init_error}")
+        logger.error(f"Instagram Business ID could not be loaded: {self.init_error}")
     
     def get_conversations(self, limit=50):
         if not self.is_configured or not self.instagram_business_id:
