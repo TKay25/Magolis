@@ -485,8 +485,11 @@
                     data.contacts.forEach(c => { html += `<div class="contact-item" onclick="viewConversation('facebook','${c.psid}','${escapeHtml(c.name)}')"><div class="d-flex justify-content-between"><div><i class="bi bi-facebook text-primary me-1"></i><strong>${escapeHtml(c.name)}</strong><br><span class="text-muted" style="font-size:0.6rem;">${c.psid.substring(0,15)}...</span></div><i class="bi bi-chat-dots text-primary"></i></div>${c.last_message ? `<small class="text-muted d-block mt-1" style="font-size:0.6rem;">${escapeHtml(c.last_message.substring(0,55))}</small>` : ''}</div>` });
                     container.innerHTML = html;
                     showToast('Synced', `${data.contacts.length} Facebook contacts`, 'success');
-                } else { container.innerHTML = '<div class="text-center p-2 text-muted"><i class="bi bi-inbox fs-6"></i><p class="mb-0 mt-1">No Facebook contacts yet.</p></div>'; }
-            } catch(e) { container.innerHTML = `<div class="alert alert-danger m-2 p-1">Error syncing</div>`; }
+                } else if(!data.success && data.error) {
+                    container.innerHTML = `<div class="alert alert-danger m-2 p-2"><i class="bi bi-exclamation-triangle me-1"></i><strong>Sync failed:</strong> ${escapeHtml(data.error)}</div>`;
+                    showToast('Sync Failed', data.error, 'danger');
+                } else { container.innerHTML = '<div class="text-center p-2 text-muted"><i class="bi bi-inbox fs-6"></i><p class="mb-0 mt-1">No Facebook contacts yet. Try syncing.</p></div>'; }
+            } catch(e) { container.innerHTML = `<div class="alert alert-danger m-2 p-1"><i class="bi bi-exclamation-triangle me-1"></i>Error: ${escapeHtml(e.message)}</div>`; showToast('Error', e.message, 'danger'); }
         }
         
         async function syncInstagramContacts() {
@@ -500,8 +503,11 @@
                     data.contacts.forEach(c => { html += `<div class="contact-item" onclick="viewConversation('instagram','${c.psid}','${escapeHtml(c.name)}')"><div class="d-flex justify-content-between"><div><i class="bi bi-instagram text-danger me-1"></i><strong>${escapeHtml(c.name)}</strong><br><span class="text-muted" style="font-size:0.6rem;">${c.psid.substring(0,15)}...</span></div><i class="bi bi-chat-dots text-primary"></i></div>${c.last_message ? `<small class="text-muted d-block mt-1" style="font-size:0.6rem;">${escapeHtml(c.last_message.substring(0,55))}</small>` : ''}</div>` });
                     container.innerHTML = html;
                     showToast('Synced', `${data.contacts.length} Instagram contacts`, 'success');
+                } else if(!data.success && data.error) {
+                    container.innerHTML = `<div class="alert alert-danger m-2 p-2"><i class="bi bi-exclamation-triangle me-1"></i><strong>Sync failed:</strong> ${escapeHtml(data.error)}</div>`;
+                    showToast('Sync Failed', data.error, 'danger');
                 } else { container.innerHTML = '<div class="text-center p-2 text-muted"><i class="bi bi-instagram fs-6"></i><p class="mb-0 mt-1">No Instagram contacts yet.</p></div>'; }
-            } catch(e) { container.innerHTML = `<div class="alert alert-danger m-2 p-1">Error: ${e.message}</div>`; }
+            } catch(e) { container.innerHTML = `<div class="alert alert-danger m-2 p-1"><i class="bi bi-exclamation-triangle me-1"></i>Error: ${escapeHtml(e.message)}</div>`; showToast('Error', e.message, 'danger'); }
         }
         
         async function viewConversation(platform, psid, name) {
@@ -540,8 +546,11 @@
                         body: JSON.stringify({platform, audience_filter: audience, tags})
                     }); 
                     let d = await r.json(); 
-                    if(d.success) document.getElementById('recipient-count').innerText = d.count; 
-                } catch(e){} 
+                    if(d.success) {
+                        document.getElementById('recipient-count').innerText = d.count;
+                        if(d.count === 0) showToast('No Recipients', 'No opted-in contacts found for this platform/audience. Sync contacts first.', 'warning');
+                    } 
+                } catch(e){ showToast('Error', 'Could not fetch recipient count', 'danger'); } 
             }
         }
         
