@@ -1443,8 +1443,20 @@ def sync_instagram_contacts():
         
         result = instagram_adapter.get_conversations(limit=100)
         
+        # Error #3 = app not approved for instagram_manage_messages — fall back to DB contacts
         if not result['success']:
-            return jsonify({'success': False, 'error': result['error']}), 400
+            err = result.get('error', '')
+            is_permission_error = '(#3)' in err or 'capability' in err.lower() or 'permission' in err.lower()
+            if is_permission_error:
+                logger.warning(f"Instagram Conversations API not available ({err}) — falling back to DB contacts")
+                db_contacts = get_all_contacts(platform='instagram', opt_in_only=False)
+                contacts_out = [{'id': c['id'], 'psid': c['platform_user_id'], 'name': c['display_name'] or 'Instagram User', 'last_message': None} for c in db_contacts]
+                msg = (
+                    f"Live sync unavailable: the app needs Meta App Review approval for "
+                    f"instagram_manage_messages. Showing {len(contacts_out)} contact(s) from local database (contacts who have messaged via webhook)."
+                )
+                return jsonify({'success': True, 'synced': len(contacts_out), 'contacts': contacts_out, 'warning': msg})
+            return jsonify({'success': False, 'error': err}), 400
         
         synced_count = 0
         new_contacts = []

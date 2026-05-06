@@ -1227,6 +1227,9 @@
                 const data = await res.json();
                 if(data.success && data.contacts?.length){
                     let html = '';
+                    if (data.warning) {
+                        html += `<div class="alert alert-warning mx-2 mt-2 p-2" style="font-size:0.68rem;"><i class="bi bi-info-circle me-1"></i>${escapeHtml(data.warning)}</div>`;
+                    }
                     data.contacts.forEach(c => {
                         const initials = (c.name||'?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
                         html += `<div class="contact-item" onclick="viewConversation('instagram','${c.psid}','${escapeHtml(c.name)}')">
@@ -1239,11 +1242,13 @@
                         </div>`;
                     });
                     container.innerHTML = html;
-                    showToast('Synced', `${data.contacts.length} Instagram contacts`, 'success');
+                    showToast('Instagram', `${data.contacts.length} contact(s) loaded${data.warning ? ' (from DB)' : ''}`, data.warning ? 'warning' : 'success');
+                } else if (data.success && data.warning) {
+                    container.innerHTML = `<div class="alert alert-warning m-2 p-2" style="font-size:0.68rem;"><i class="bi bi-info-circle me-1"></i>${escapeHtml(data.warning)}</div>`;
                 } else if(!data.success && data.error) {
                     container.innerHTML = `<div class="alert alert-danger m-2 p-2"><i class="bi bi-exclamation-triangle me-1"></i><strong>Sync failed:</strong> ${escapeHtml(data.error)}</div>`;
                     showToast('Sync Failed', data.error, 'danger');
-                } else { container.innerHTML = '<div class="text-center p-2 text-muted"><i class="bi bi-instagram fs-6"></i><p class="mb-0 mt-1">No Instagram contacts yet.</p></div>'; }
+                } else { container.innerHTML = '<div class="text-center p-2 text-muted"><i class="bi bi-instagram fs-6"></i><p class="mb-0 mt-1">No Instagram contacts yet. Contacts appear here when someone DMs your Instagram.</p></div>'; }
             } catch(e) { container.innerHTML = `<div class="alert alert-danger m-2 p-1"><i class="bi bi-exclamation-triangle me-1"></i>Error: ${escapeHtml(e.message)}</div>`; showToast('Error', e.message, 'danger'); }
         }
         
