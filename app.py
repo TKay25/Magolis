@@ -1597,6 +1597,16 @@ def broadcast_message():
                     logger.error(f"Broadcast {broadcast_id} failed for {recipient['platform_user_id']}: {result.get('error')}")
                 
                 update_broadcast_stats(broadcast_id, sent_count, failed_count)
+                socketio.emit('broadcast_progress', {
+                    'broadcast_id': broadcast_id,
+                    'index': i + 1,
+                    'total': len(recipients),
+                    'sent': sent_count,
+                    'failed': failed_count,
+                    'name': recipient.get('display_name') or recipient.get('platform_user_id', ''),
+                    'success': result.get('success', False),
+                    'error': result.get('error')
+                })
                 
                 if i < len(recipients) - 1:
                     time.sleep(rate_limit)
@@ -1840,6 +1850,16 @@ def rerun_broadcast(broadcast_id):
                 else:
                     failed_count += 1
                 update_broadcast_stats(new_broadcast_id, sent_count, failed_count)
+                socketio.emit('broadcast_progress', {
+                    'broadcast_id': new_broadcast_id,
+                    'index': i + 1,
+                    'total': len(recipients),
+                    'sent': sent_count,
+                    'failed': failed_count,
+                    'name': recipient.get('display_name') or recipient.get('platform_user_id', ''),
+                    'success': result.get('success', False),
+                    'error': result.get('error')
+                })
                 if i < len(recipients) - 1:
                     time.sleep(rate_limit)
         except Exception as e:

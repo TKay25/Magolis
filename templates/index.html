@@ -420,8 +420,18 @@
                                             <div class="mb-2" id="tag-filter-container" style="display: none;"><label class="form-label">Tags (comma)</label><input type="text" id="broadcast-tags" class="form-control" placeholder="vip,newsletter" oninput="updateRecipientCount()"></div>
                                             <div class="mb-2"><label class="form-label">Message</label><textarea id="broadcast-message" class="form-control" rows="3" placeholder="Type your broadcast message here..."></textarea></div>
                                             <div class="mb-2"><label class="form-label">Delay between messages (seconds)</label><input type="number" id="broadcast-rate" class="form-control" value="1" step="0.5"></div>
-                                            <button class="btn btn-primary px-3 py-1" onclick="startBroadcast()"><i class="bi bi-megaphone me-1"></i> Start Broadcast</button>
+                                            <button class="btn btn-primary px-3 py-1" id="broadcast-btn" onclick="startBroadcast()"><i class="bi bi-megaphone me-1"></i> Start Broadcast</button>
                                             <div id="broadcast-result" class="mt-2"></div>
+                                            <!-- Live progress panel -->
+                                            <div id="broadcast-live" style="display:none;margin-top:10px;border:1px solid #e0e7ef;border-radius:10px;overflow:hidden;">
+                                                <div style="background:#f0f4fa;padding:7px 12px;display:flex;align-items:center;justify-content:space-between;">
+                                                    <span style="font-weight:700;font-size:0.75rem;" id="blive-title">Sending…</span>
+                                                    <span style="font-size:0.7rem;color:#555;" id="blive-counter">0 / 0</span>
+                                                </div>
+                                                <div style="height:4px;background:#e9ecef;"><div id="blive-bar" style="height:4px;background:#0d6efd;width:0%;transition:width 0.3s;"></div></div>
+                                                <div id="blive-feed" style="max-height:160px;overflow-y:auto;padding:4px 0;font-size:0.71rem;"></div>
+                                                <div id="blive-summary" style="display:none;padding:8px 12px;font-size:0.72rem;font-weight:600;border-top:1px solid #e9ecef;"></div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -717,7 +727,53 @@
     <script>
         const socket = io({ transports: ['websocket', 'polling'] });
         socket.on('connect', () => console.log('Socket connected'));
-        socket.on('broadcast_completed', (data) => { showToast('Broadcast Done', `${data.sent}/${data.total} sent`, 'success'); loadBroadcasts(); loadDashboardRecentBroadcasts(); loadDashboardStats(); });
+
+        let _activeBroadcastId = null;
+
+        socket.on('broadcast_progress', (data) => {
+            if (data.broadcast_id !== _activeBroadcastId) return;
+            const pct = Math.round((data.index / data.total) * 100);
+            document.getElementById('blive-bar').style.width = pct + '%';
+            document.getElementById('blive-counter').textContent = `${data.index} / ${data.total}`;
+            document.getElementById('blive-title').textContent = `Sending… ${data.sent} sent, ${data.failed} failed`;
+            const feed = document.getElementById('blive-feed');
+            const row = document.createElement('div');
+            row.style.cssText = 'padding:3px 12px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:6px;';
+            const icon = data.success
+                ? '<i class="bi bi-check-circle-fill" style="color:#198754;font-size:0.8rem;"></i>'
+                : '<i class="bi bi-x-circle-fill" style="color:#dc3545;font-size:0.8rem;"></i>';
+            const nameHtml = `<span style="flex:1;color:#333;">${escapeHtml(data.name || data.index)}</span>`;
+            const statusHtml = data.success
+                ? '<span style="color:#198754;font-size:0.68rem;">Sent</span>'
+                : `<span style="color:#dc3545;font-size:0.68rem;" title="${escapeHtml(data.error||'')}">Failed</span>`;
+            const timeHtml = `<span style="color:#aaa;font-size:0.65rem;">${new Date().toLocaleTimeString()}</span>`;
+            row.innerHTML = icon + nameHtml + statusHtml + timeHtml;
+            feed.appendChild(row);
+            feed.scrollTop = feed.scrollHeight;
+        });
+
+        socket.on('broadcast_completed', (data) => {
+            if (data.broadcast_id === _activeBroadcastId) {
+                const allOk = data.failed === 0;
+                const bar = document.getElementById('blive-bar');
+                bar.style.width = '100%';
+                bar.style.background = allOk ? '#198754' : (data.sent === 0 ? '#dc3545' : '#ffc107');
+                document.getElementById('blive-title').textContent = allOk ? 'Broadcast complete ✓' : `Broadcast done — ${data.failed} failed`;
+                document.getElementById('blive-counter').textContent = `${data.sent} / ${data.total}`;
+                const summary = document.getElementById('blive-summary');
+                summary.style.display = 'block';
+                summary.style.color = allOk ? '#198754' : '#dc3545';
+                summary.innerHTML = allOk
+                    ? `<i class="bi bi-check-circle-fill me-1"></i> All ${data.sent} messages sent successfully.`
+                    : `<i class="bi bi-exclamation-triangle-fill me-1"></i> ${data.sent} sent, ${data.failed} failed out of ${data.total}.`;
+                document.getElementById('broadcast-btn').disabled = false;
+                document.getElementById('broadcast-btn').innerHTML = '<i class="bi bi-megaphone me-1"></i> Start Broadcast';
+                _activeBroadcastId = null;
+            }
+            const toastType = data.failed === 0 ? 'success' : (data.sent === 0 ? 'danger' : 'warning');
+            showToast('Broadcast Done', `${data.sent}/${data.total} sent${data.failed > 0 ? ', ' + data.failed + ' failed' : ''}`, toastType);
+            loadBroadcasts(); loadDashboardRecentBroadcasts(); loadDashboardStats();
+        });
         
         let currentMetaTab = 'facebook';
         
@@ -1217,9 +1273,18 @@
             if(!name || !message){ showToast('Error', 'Campaign name and message required', 'danger'); return; } 
             if(count === 0){ showToast('Error', 'No recipients found', 'danger'); return; } 
             if(!confirm(`Send broadcast to ${count} recipients via ${platform}? This may take a few minutes.`)) return; 
-            let btn = event.target, orig = btn.innerHTML; 
+            let btn = document.getElementById('broadcast-btn');
             btn.disabled = true; 
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Starting...'; 
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Sending…'; 
+            // Reset and show live panel
+            document.getElementById('blive-feed').innerHTML = '';
+            document.getElementById('blive-bar').style.width = '0%';
+            document.getElementById('blive-bar').style.background = '#0d6efd';
+            document.getElementById('blive-counter').textContent = `0 / ${count}`;
+            document.getElementById('bliver-title') && (document.getElementById('bliver-title').textContent = 'Sending…');
+            document.getElementById('blive-title').textContent = 'Sending…';
+            document.getElementById('blive-summary').style.display = 'none';
+            document.getElementById('broadcast-live').style.display = 'block';
             try { 
                 let res = await fetch('/api/broadcast', {
                     method: 'POST', 
@@ -1228,13 +1293,22 @@
                 }); 
                 let data = await res.json(); 
                 if(data.success){ 
-                    showToast('Started', `Broadcast sent to ${data.total_recipients} recipients`, 'success'); 
+                    _activeBroadcastId = data.broadcast_id;
                     document.getElementById('broadcast-name').value = ''; 
                     document.getElementById('broadcast-message').value = ''; 
                     loadBroadcasts(); 
-                } else showToast('Error', data.error || 'Failed to start', 'danger'); 
-            } catch(e){ showToast('Error', 'Network error', 'danger'); } 
-            finally { btn.disabled = false; btn.innerHTML = orig; } 
+                } else {
+                    showToast('Error', data.error || 'Failed to start', 'danger');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-megaphone me-1"></i> Start Broadcast';
+                    document.getElementById('broadcast-live').style.display = 'none';
+                }
+            } catch(e){ 
+                showToast('Error', 'Network error', 'danger');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-megaphone me-1"></i> Start Broadcast';
+                document.getElementById('broadcast-live').style.display = 'none';
+            } 
         }
         
         async function loadBroadcasts(){ 
