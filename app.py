@@ -698,7 +698,7 @@ class InstagramAdapter:
     def __init__(self):
         self.access_token = os.getenv('FACEBOOK_PAGE_TOKEN')
         self.page_id = os.getenv('FACEBOOK_PAGE_ID')
-        self.instagram_business_id = None
+        self.instagram_business_id = os.getenv('INSTAGRAM_BUSINESS_ID')
         self.init_error = None
 
         if not self.access_token:
@@ -709,7 +709,10 @@ class InstagramAdapter:
             self.init_error = 'FACEBOOK_PAGE_ID env var is not set'
         else:
             self.is_configured = True
-            self._cache_business_id()
+            if self.instagram_business_id:
+                logger.info(f"Instagram Business ID loaded from env var: {self.instagram_business_id}")
+            else:
+                self._cache_business_id()
     
     def _cache_business_id(self):
         """Get and cache Instagram Business Account ID - tries multiple methods"""
