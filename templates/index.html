@@ -633,7 +633,7 @@
                         const isDone = b.status === 'completed' || b.status === 'cancelled' || b.status === 'failed';
                         const cancelBtn = isProcessing ? `<button class="btn btn-xs btn-outline-danger py-0 px-1 ms-1" style="font-size:0.6rem;" onclick="cancelBroadcast(${b.id})">Cancel</button>` : '';
                         const rerunBtn = isDone ? `<button class="btn btn-xs btn-outline-primary py-0 px-1 ms-1" style="font-size:0.6rem;" onclick="rerunBroadcast(${b.id})"><i class="bi bi-arrow-clockwise"></i> Rerun</button>` : '';
-                        const failedNote = b.failed_count > 0 ? `<span class="text-danger ms-1">(${b.failed_count} failed)</span>` : '';
+                        const failedNote = b.failed_count > 0 ? `<span class="text-danger ms-1" style="cursor:pointer;" onclick="showBroadcastErrors(${b.id})">(${b.failed_count} failed — click to see why)</span>` : '';
                         return `<div class="message-item p-1 mb-1"><div class="d-flex justify-content-between align-items-center"><strong>${escapeHtml(b.name)}</strong><div><span class="status-badge ${b.status === 'completed' ? 'status-configured' : b.status === 'cancelled' ? 'bg-secondary text-white' : 'status-not-configured'}">${b.status}</span>${cancelBtn}${rerunBtn}</div></div><small>${b.platform} | ${b.sent_count}/${b.total_recipients} sent${failedNote}</small><div class="progress mt-1" style="height:2px"><div class="progress-bar bg-primary" style="width:${b.total_recipients > 0 ? (b.sent_count / b.total_recipients * 100) : 0}%"></div></div><small class="text-muted">${new Date(b.created_at).toLocaleString()}</small></div>`;
                     }).join(''); 
                     document.getElementById('recent-broadcasts-list').innerHTML = html; 
@@ -660,6 +660,20 @@
                     showToast('Rerun Started', `Sending to ${data.total_recipients} recipients`, 'success');
                     loadBroadcasts();
                 } else showToast('Error', data.error || 'Failed to rerun', 'danger');
+            } catch(e) { showToast('Error', e.message, 'danger'); }
+        }
+
+        async function showBroadcastErrors(id) {
+            try {
+                const res = await fetch(`/api/broadcasts/${id}`);
+                const data = await res.json();
+                if (!data.success) { showToast('Error', data.error, 'danger'); return; }
+                const failed = data.recipients.filter(r => r.status === 'failed');
+                if (!failed.length) { showToast('Info', 'No failed recipients', 'info'); return; }
+                let content = `<table class="table table-sm mb-0"><thead><tr><th>Recipient</th><th>Error</th></tr></thead><tbody>`;
+                failed.forEach(r => { content += `<tr><td>${escapeHtml(r.display_name || r.platform_user_id)}</td><td class="text-danger" style="font-size:0.7rem;">${escapeHtml(r.error_message || 'Unknown error')}</td></tr>`; });
+                content += '</tbody></table>';
+                showModal(`Failed Recipients (${failed.length})`, content);
             } catch(e) { showToast('Error', e.message, 'danger'); }
         }
         

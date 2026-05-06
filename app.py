@@ -461,15 +461,17 @@ class FacebookAdapter:
             return {'success': False, 'error': 'Facebook not configured'}
         
         url = "https://graph.facebook.com/v18.0/me/messages"
-        payload = {
-            "recipient": {"id": recipient_id},
-            "message": {"text": content},
-            "messaging_type": "RESPONSE"
-        }
-        
         headers = {
             "Authorization": f"Bearer {self.page_access_token}",
             "Content-Type": "application/json"
+        }
+
+        # Try MESSAGE_TAG first (works outside 24-hour window, for broadcasts)
+        payload = {
+            "recipient": {"id": recipient_id},
+            "message": {"text": content},
+            "messaging_type": "MESSAGE_TAG",
+            "tag": "CONFIRMED_EVENT_UPDATE"
         }
         
         try:
@@ -477,12 +479,24 @@ class FacebookAdapter:
             if response.status_code == 200:
                 return {'success': True, 'platform': 'facebook'}
             error_data = response.json()
+            error_code = error_data.get('error', {}).get('code')
             error_msg = error_data.get('error', {}).get('message', f'HTTP {response.status_code}')
-            logger.error(f"Facebook send_message failed: {error_msg} | payload: {payload}")
-            return {'success': False, 'error': error_msg}
+            logger.warning(f"Facebook MESSAGE_TAG failed (code {error_code}): {error_msg} — trying RESPONSE type")
+
+            # Fallback: try RESPONSE type (works within 24h window)
+            payload['messaging_type'] = 'RESPONSE'
+            del payload['tag']
+            response2 = requests.post(url, json=payload, headers=headers, timeout=30)
+            if response2.status_code == 200:
+                return {'success': True, 'platform': 'facebook'}
+            error_data2 = response2.json()
+            final_error = error_data2.get('error', {}).get('message', f'HTTP {response2.status_code}')
+            logger.error(f"Facebook send_message both types failed: {final_error} | recipient: {recipient_id}")
+            return {'success': False, 'error': final_error}
         except Exception as e:
             logger.error(f"Facebook send_message exception: {e}")
             return {'success': False, 'error': str(e)}
+
     
     def get_page_id(self):
         return self.page_id
