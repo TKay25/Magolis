@@ -466,31 +466,43 @@ class FacebookAdapter:
             "Content-Type": "application/json"
         }
 
-        # Try RESPONSE first (works if user messaged within 24h — was working before with permanent token)
-        payload = {
+        base_payload = {
             "recipient": {"id": recipient_id},
-            "message": {"text": content},
-            "messaging_type": "RESPONSE"
+            "message": {"text": content}
         }
-        
-        try:
-            response = requests.post(url, json=payload, headers=headers, timeout=30)
-            if response.status_code == 200:
-                return {'success': True, 'platform': 'facebook'}
-            error_data = response.json()
-            error_code = error_data.get('error', {}).get('code')
-            error_msg = error_data.get('error', {}).get('message', f'HTTP {response.status_code}')
-            logger.warning(f"Facebook RESPONSE type failed (code {error_code}): {error_msg} — trying MESSAGE_TAG")
 
-            # Fallback: MESSAGE_TAG (works outside 24h window, needs pages_messaging_subscriptions approval)
-            payload['messaging_type'] = 'MESSAGE_TAG'
-            payload['tag'] = 'CONFIRMED_EVENT_UPDATE'
-            response2 = requests.post(url, json=payload, headers=headers, timeout=30)
-            if response2.status_code == 200:
-                return {'success': True, 'platform': 'facebook'}
-            error_data2 = response2.json()
-            final_error = error_data2.get('error', {}).get('message', f'HTTP {response2.status_code}')
-            logger.error(f"Facebook send_message both types failed: {final_error} | recipient: {recipient_id}")
+        attempts = [
+            # Works if the user messaged your Page within the last 24 hours
+            {"messaging_type": "RESPONSE"},
+            # Works outside 24h — requires pages_messaging_subscriptions (Meta App Review)
+            {"messaging_type": "MESSAGE_TAG", "tag": "CONFIRMED_EVENT_UPDATE"},
+            {"messaging_type": "MESSAGE_TAG", "tag": "ACCOUNT_UPDATE"},
+            {"messaging_type": "MESSAGE_TAG", "tag": "POST_PURCHASE_UPDATE"},
+        ]
+
+        last_error = None
+        last_code = None
+        try:
+            for attempt in attempts:
+                payload = {**base_payload, **attempt}
+                response = requests.post(url, json=payload, headers=headers, timeout=30)
+                if response.status_code == 200:
+                    return {'success': True, 'platform': 'facebook'}
+                err = response.json().get('error', {})
+                last_error = err.get('message', f'HTTP {response.status_code}')
+                last_code = err.get('code')
+                logger.warning(f"Facebook attempt {attempt} failed (code {last_code}): {last_error}")
+
+            # All attempts exhausted — return a clear, actionable error
+            if last_code == 10:
+                final_error = (
+                    "Outside 24h window & no approved message tags. "
+                    "To fix: (1) Have contacts message your Page first to open the window, OR "
+                    "(2) Submit your Facebook App for Meta App Review to get 'pages_messaging_subscriptions' approved."
+                )
+            else:
+                final_error = last_error or 'Unknown Facebook error'
+            logger.error(f"Facebook send_message all attempts failed (code {last_code}): {final_error} | recipient: {recipient_id}")
             return {'success': False, 'error': final_error}
         except Exception as e:
             logger.error(f"Facebook send_message exception: {e}")
