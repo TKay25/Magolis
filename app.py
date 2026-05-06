@@ -1042,20 +1042,20 @@ def api_login():
         cursor.execute("SELECT id, username, password, full_name, role FROM users WHERE username = %s", (username,))
         user = cursor.fetchone()
     
-    if user and check_password_hash(user[2], password):  # user[2] is password
+    if user and check_password_hash(user['password'], password):
         session.permanent = True
-        session['user_id'] = user[0]
-        session['username'] = user[1]
-        session['full_name'] = user[3]
-        session['role'] = user[4]
+        session['user_id'] = user['id']
+        session['username'] = user['username']
+        session['full_name'] = user['full_name']
+        session['role'] = user['role']
         
         return jsonify({
             'success': True,
             'user': {
-                'id': user[0],
-                'username': user[1],
-                'full_name': user[3],
-                'role': user[4]
+                'id': user['id'],
+                'username': user['username'],
+                'full_name': user['full_name'],
+                'role': user['role']
             }
         })
     
