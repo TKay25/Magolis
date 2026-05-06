@@ -16,7 +16,7 @@ warnings.filterwarnings("ignore", category=SyntaxWarning)
 
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import Flask, request, jsonify, session, redirect, url_for
+from flask import Flask, request, jsonify, session, redirect, url_for, render_template
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 from werkzeug.security import generate_password_hash, check_password_hash
