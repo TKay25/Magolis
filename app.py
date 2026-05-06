@@ -1,33 +1,16 @@
 #!/usr/bin/env python3
 """
-Unified Social Media Messaging System with Bulk Broadcast
-Complete Flask Backend - Production Ready with PostgreSQL
+Unified Social Media Messaging System
+Compatible with Python 3.11+ (no eventlet required)
 """
 
-# IMPORTANT: Monkey patch MUST be FIRST before any other imports
 import os
-import sys
-
-# Try to monkey patch with eventlet
-try:
-    import eventlet
-    eventlet.monkey_patch()
-    print("✅ Eventlet monkey patching applied successfully")
-    WEBSOCKET_AVAILABLE = True
-except ImportError:
-    print("⚠️ Eventlet not installed - WebSocket features disabled")
-    WEBSOCKET_AVAILABLE = False
-except Exception as e:
-    print(f"⚠️ Eventlet monkey patch failed: {e}")
-    WEBSOCKET_AVAILABLE = False
-
-# Now import the rest
 import json
 import time
 import threading
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import Flask, request, jsonify, render_template, session, g, send_from_directory, redirect, url_for
+from flask import Flask, request, jsonify, session, redirect, url_for
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -59,32 +42,21 @@ CORS(app, supports_credentials=True, origins=[
     "https://magolis.onrender.com"
 ])
 
-# SocketIO with fallback if eventlet not available
-if WEBSOCKET_AVAILABLE:
-    socketio = SocketIO(
-        app, 
-        cors_allowed_origins=[
-            "http://localhost:5000",
-            "http://127.0.0.1:5000",
-            "https://magolis.onrender.com"
-        ],
-        async_mode='eventlet',
-        logger=True,
-        engineio_logger=True
-    )
-else:
-    # Fallback to threading mode
-    socketio = SocketIO(
-        app,
-        cors_allowed_origins=[
-            "http://localhost:5000",
-            "http://127.0.0.1:5000",
-            "https://magolis.onrender.com"
-        ],
-        async_mode='threading'
-    )
-    logger.warning("Running SocketIO in threading mode (no WebSocket support)")
-    
+# SocketIO with threading mode (no eventlet needed)
+socketio = SocketIO(
+    app,
+    cors_allowed_origins=[
+        "http://localhost:5000",
+        "http://127.0.0.1:5000",
+        "https://magolis.onrender.com"
+    ],
+    async_mode='threading',  # Use threading instead of eventlet
+    ping_timeout=60,
+    ping_interval=25
+)
+
+logger.info("SocketIO running in threading mode")
+
 # ==================== DATABASE SETUP (POSTGRESQL) ====================
 
 DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://lmsdatabase_8ag3_user:6WD9lOnHkiU7utlUUjT88m4XgEYQMTLb@dpg-ctp9h0aj1k6c739h9di0-a.oregon-postgres.render.com/lmsdatabase_8ag3')
