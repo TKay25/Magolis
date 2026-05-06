@@ -997,6 +997,17 @@
         const socket = io({ transports: ['websocket', 'polling'] });
         socket.on('connect', () => console.log('Socket connected'));
 
+        function isAppReviewError(msg) {
+            if (!msg) return false;
+            const m = msg.toLowerCase();
+            return m.includes('(#3)') || m.includes('capability') || m.includes('pages_messaging_subscriptions')
+                || m.includes('instagram_manage_messages') || m.includes('app review') || m.includes('meta app review')
+                || m.includes('outside 24h') || m.includes('24-hour');
+        }
+        function appReviewLink() {
+            return ' <a href="#" style="white-space:nowrap;" onclick="openPlatformGuide(\'appreview\');return false;"><i class="bi bi-patch-check-fill"></i> App Review info</a>';
+        }
+
         let _activeBroadcastId = null;
 
         socket.on('broadcast_progress', (data) => {
@@ -1012,9 +1023,11 @@
                 ? '<i class="bi bi-check-circle-fill" style="color:#198754;font-size:0.8rem;"></i>'
                 : '<i class="bi bi-x-circle-fill" style="color:#dc3545;font-size:0.8rem;"></i>';
             const nameHtml = `<span style="flex:1;color:#333;">${escapeHtml(data.name || data.index)}</span>`;
+            const _errMsg = data.error || '';
+            const _isAR = isAppReviewError(_errMsg);
             const statusHtml = data.success
                 ? '<span style="color:#198754;font-size:0.68rem;">Sent</span>'
-                : `<span style="color:#dc3545;font-size:0.68rem;" title="${escapeHtml(data.error||'')}">Failed</span>`;
+                : `<span style="color:#dc3545;font-size:0.68rem;" title="${escapeHtml(_errMsg)}">${_isAR ? 'App Review required &nbsp;<a href="#" style="color:#e1306c;" onclick="openPlatformGuide(\'appreview\');return false;">ⓘ</a>' : 'Failed'}</span>`;
             const timeHtml = `<span style="color:#aaa;font-size:0.65rem;">${new Date().toLocaleTimeString()}</span>`;
             row.innerHTML = icon + nameHtml + statusHtml + timeHtml;
             feed.appendChild(row);
@@ -1151,8 +1164,10 @@
                     container.innerHTML = html;
                     showToast('Synced', `${data.contacts.length} Facebook contacts`, 'success');
                 } else if(!data.success && data.error) {
-                    container.innerHTML = `<div class="alert alert-danger m-2 p-2"><i class="bi bi-exclamation-triangle me-1"></i><strong>Sync failed:</strong> ${escapeHtml(data.error)}</div>`;
-                    showToast('Sync Failed', data.error, 'danger');
+                    const _ar = isAppReviewError(data.error);
+                    const _arNote = _ar ? `<br><small>This requires <strong>Meta App Review</strong> approval. ${appReviewLink()}</small>` : '';
+                    container.innerHTML = `<div class="alert alert-danger m-2 p-2"><i class="bi bi-exclamation-triangle me-1"></i><strong>Sync failed:</strong> ${escapeHtml(data.error)}${_arNote}</div>`;
+                    showToast('Sync Failed', data.error + (_ar ? ' — App Review required' : ''), 'danger');
                 } else { container.innerHTML = '<div class="text-center p-2 text-muted"><i class="bi bi-inbox fs-6"></i><p class="mb-0 mt-1">No Facebook contacts yet. Try syncing.</p></div>'; }
             } catch(e) { container.innerHTML = `<div class="alert alert-danger m-2 p-1"><i class="bi bi-exclamation-triangle me-1"></i>Error: ${escapeHtml(e.message)}</div>`; showToast('Error', e.message, 'danger'); }
         }
@@ -1314,8 +1329,10 @@
                 } else if (data.success && data.warning) {
                     container.innerHTML = `<div class="alert alert-warning m-2 p-2" style="font-size:0.68rem;"><i class="bi bi-info-circle me-1"></i>${escapeHtml(data.warning)}</div>`;
                 } else if(!data.success && data.error) {
-                    container.innerHTML = `<div class="alert alert-danger m-2 p-2"><i class="bi bi-exclamation-triangle me-1"></i><strong>Sync failed:</strong> ${escapeHtml(data.error)}</div>`;
-                    showToast('Sync Failed', data.error, 'danger');
+                    const _ar = isAppReviewError(data.error);
+                    const _arNote = _ar ? `<br><small>This requires <strong>Meta App Review</strong> approval for <code>instagram_manage_messages</code>. ${appReviewLink()}</small>` : '';
+                    container.innerHTML = `<div class="alert alert-danger m-2 p-2"><i class="bi bi-exclamation-triangle me-1"></i><strong>Sync failed:</strong> ${escapeHtml(data.error)}${_arNote}</div>`;
+                    showToast('Sync Failed', data.error + (_ar ? ' — App Review required' : ''), 'danger');
                 } else { container.innerHTML = '<div class="text-center p-2 text-muted"><i class="bi bi-instagram fs-6"></i><p class="mb-0 mt-1">No Instagram contacts yet. Contacts appear here when someone DMs your Instagram.</p></div>'; }
             } catch(e) { container.innerHTML = `<div class="alert alert-danger m-2 p-1"><i class="bi bi-exclamation-triangle me-1"></i>Error: ${escapeHtml(e.message)}</div>`; showToast('Error', e.message, 'danger'); }
         }
@@ -1588,7 +1605,11 @@
                     document.getElementById('broadcast-message').value = ''; 
                     loadBroadcasts(); 
                 } else {
-                    showToast('Error', data.error || 'Failed to start', 'danger');
+                    const _arErr = isAppReviewError(data.error);
+                    showToast('Error', (data.error || 'Failed to start') + (_arErr ? ' — App Review required' : ''), 'danger');
+                    if (_arErr) {
+                        document.getElementById('broadcast-result').innerHTML = `<div class="alert alert-danger mt-2 p-2" style="font-size:0.75rem;"><i class="bi bi-patch-check-fill me-1"></i><strong>Meta App Review required.</strong> ${escapeHtml(data.error)} ${appReviewLink()}</div>`;
+                    }
                     btn.disabled = false;
                     btn.innerHTML = '<i class="bi bi-megaphone me-1"></i> Start Broadcast';
                     document.getElementById('broadcast-live').style.display = 'none';
@@ -1649,7 +1670,11 @@
                 const failed = data.recipients.filter(r => r.status === 'failed');
                 if (!failed.length) { showToast('Info', 'No failed recipients', 'info'); return; }
                 let content = `<table class="table table-sm mb-0"><thead><tr><th>Recipient</th><th>Error</th></tr></thead><tbody>`;
-                failed.forEach(r => { content += `<tr><td>${escapeHtml(r.display_name || r.platform_user_id)}</td><td class="text-danger" style="font-size:0.7rem;">${escapeHtml(r.error_message || 'Unknown error')}</td></tr>`; });
+                failed.forEach(r => {
+                    const _em = r.error_message || 'Unknown error';
+                    const _arCell = isAppReviewError(_em) ? ` <a href="#" onclick="openPlatformGuide('appreview');return false;" style="white-space:nowrap;"><i class="bi bi-patch-check-fill"></i> App Review required</a>` : '';
+                    content += `<tr><td>${escapeHtml(r.display_name || r.platform_user_id)}</td><td class="text-danger" style="font-size:0.7rem;">${escapeHtml(_em)}${_arCell}</td></tr>`;
+                });
                 content += '</tbody></table>';
                 showModal(`Failed Recipients (${failed.length})`, content);
             } catch(e) { showToast('Error', e.message, 'danger'); }
