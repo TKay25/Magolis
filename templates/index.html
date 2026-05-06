@@ -349,6 +349,7 @@
                         <li class="nav-item"><a class="nav-link" href="#" onclick="showTab('history'); return false;"><i class="bi bi-clock-history"></i> History</a></li>
                         <li class="nav-item"><a class="nav-link" href="#" onclick="showTab('status'); return false;"><i class="bi bi-check-circle"></i> Platform Status</a></li>
                         <li class="nav-item"><a class="nav-link" href="#" onclick="openPlatformGuide(); return false;"><i class="bi bi-journal-text"></i> Platform Guide</a></li>
+                        <li class="nav-item"><a class="nav-link" href="#" onclick="openDataGuide(); return false;"><i class="bi bi-database"></i> Data Guide</a></li>
                         <li class="nav-item mt-3"><a class="nav-link text-white-50" href="#" onclick="logout(); return false;"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
                     </ul>
                 </div>
@@ -723,6 +724,206 @@
     </div>
     <!-- END PLATFORM GUIDE MODAL -->
 
+    <!-- DATA GUIDE MODAL -->
+    <div class="modal fade" id="dataGuideModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" style="max-width:860px;">
+        <div class="modal-content border-0 shadow" style="border-radius:14px;overflow:hidden;">
+          <div class="modal-header py-2 px-3" style="background:#0B2B4F;border:none;">
+            <span style="color:#fff;font-weight:700;font-size:0.85rem;"><i class="bi bi-database me-2"></i>Data Guide — How Data is Stored &amp; Imported</span>
+            <button type="button" class="btn-close btn-close-white btn-sm" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body p-0" style="display:flex;height:78vh;">
+            <!-- sidebar -->
+            <div class="pg-sidebar">
+              <button class="pg-sidebar-btn active" onclick="dgSwitch('auto-save',this)"><i class="bi bi-lightning-charge"></i>Auto-Save Triggers</button>
+              <button class="pg-sidebar-btn" onclick="dgSwitch('manual',this)"><i class="bi bi-person-plus"></i>Manual Add</button>
+              <button class="pg-sidebar-btn" onclick="dgSwitch('csv',this)"><i class="bi bi-file-earmark-spreadsheet"></i>CSV Import</button>
+              <button class="pg-sidebar-btn" onclick="dgSwitch('messages',this)"><i class="bi bi-chat-dots"></i>Message Storage</button>
+              <button class="pg-sidebar-btn" onclick="dgSwitch('schema',this)"><i class="bi bi-diagram-3"></i>DB Schema</button>
+            </div>
+            <!-- panels -->
+            <div style="flex:1;overflow-y:auto;padding:20px 24px;">
+
+              <!-- AUTO-SAVE -->
+              <div class="pg-panel active" id="dg-auto-save">
+                <div class="pg-section-title"><i class="bi bi-lightning-charge me-2" style="color:#f59e0b;"></i>Auto-Save Triggers</div>
+                <p class="pg-section-sub">Magolis automatically saves contacts and messages without any manual action when certain events occur on each platform.</p>
+
+                <div style="font-size:0.78rem;font-weight:700;margin:14px 0 8px;color:#1877F2;"><i class="bi bi-facebook me-1"></i>Facebook Messenger</div>
+                <table class="pg-table">
+                  <thead><tr><th>Event</th><th>What gets saved</th><th>Fields populated</th></tr></thead>
+                  <tbody>
+                    <tr><td>Someone messages your Facebook Page</td><td>Contact + inbound message</td><td><code>platform_user_id</code> (PSID), <code>display_name</code>, <code>last_interaction</code></td></tr>
+                    <tr><td>You send a broadcast</td><td>Outbound message per recipient</td><td><code>direction=outgoing</code>, <code>content</code>, <code>sent_at</code></td></tr>
+                    <tr><td>Sync button clicked</td><td>Conversation participants refreshed</td><td>Updates <code>display_name</code>, <code>last_interaction</code></td></tr>
+                  </tbody>
+                </table>
+
+                <div style="font-size:0.78rem;font-weight:700;margin:14px 0 8px;color:#e1306c;"><i class="bi bi-instagram me-1"></i>Instagram</div>
+                <table class="pg-table">
+                  <thead><tr><th>Event</th><th>What gets saved</th><th>Fields populated</th></tr></thead>
+                  <tbody>
+                    <tr><td>Someone DMs your Instagram account</td><td>Contact + inbound message</td><td><code>platform_user_id</code> (IGSID), <code>display_name</code></td></tr>
+                    <tr><td>Sync button clicked</td><td>Conversation list pulled from Graph API</td><td><code>display_name</code>, <code>last_interaction</code></td></tr>
+                  </tbody>
+                </table>
+
+                <div style="font-size:0.78rem;font-weight:700;margin:14px 0 8px;color:#128C7E;"><i class="bi bi-whatsapp me-1"></i>WhatsApp</div>
+                <table class="pg-table">
+                  <thead><tr><th>Event</th><th>What gets saved</th><th>Fields populated</th></tr></thead>
+                  <tbody>
+                    <tr><td>Someone messages your WhatsApp Business number</td><td>Contact + inbound message <span class="pg-pill pg-pill-yes" style="font-size:0.62rem;">Auto</span></td><td><code>platform_user_id</code> (phone number), <code>phone_number</code>, <code>opt_in=true</code></td></tr>
+                    <tr><td>You send a broadcast</td><td>Outbound message per recipient</td><td><code>direction=outgoing</code>, <code>content</code>, <code>sent_at</code></td></tr>
+                  </tbody>
+                </table>
+                <div class="pg-tip"><strong>WhatsApp is the most automatic:</strong> Every inbound message from a new number creates a contact and saves the message — no sync needed.</div>
+
+                <div style="font-size:0.78rem;font-weight:700;margin:14px 0 8px;color:#0a66c2;"><i class="bi bi-linkedin me-1"></i>LinkedIn &amp; <i class="bi bi-twitter-x ms-1 me-1"></i>Twitter</div>
+                <table class="pg-table">
+                  <thead><tr><th>Event</th><th>What gets saved</th></tr></thead>
+                  <tbody>
+                    <tr><td>You send a broadcast (tweet / LinkedIn post)</td><td>Outbound message saved to DB</td></tr>
+                    <tr><td>No webhook / no inbound API</td><td><span class="pg-pill pg-pill-no">Contacts NOT auto-saved</span> — must be added manually or via CSV</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- MANUAL ADD -->
+              <div class="pg-panel" id="dg-manual">
+                <div class="pg-section-title"><i class="bi bi-person-plus me-2" style="color:#0d6efd;"></i>Manual Add</div>
+                <p class="pg-section-sub">Use the <strong>Add Contact Manually</strong> form in the Contacts tab to add a single contact for any platform.</p>
+                <table class="pg-table">
+                  <thead><tr><th>Field</th><th>Required?</th><th>Notes</th></tr></thead>
+                  <tbody>
+                    <tr><td><code>Platform</code></td><td><span class="pg-pill pg-pill-yes">Required</span></td><td>whatsapp, facebook, instagram, twitter, linkedin</td></tr>
+                    <tr><td><code>User ID / Phone</code></td><td><span class="pg-pill pg-pill-yes">Required</span></td><td>Phone number for WhatsApp; PSID for FB/IG; username for Twitter/LinkedIn</td></tr>
+                    <tr><td><code>Display Name</code></td><td><span class="pg-pill pg-pill-warn">Optional</span></td><td>Human-readable name shown in contact lists</td></tr>
+                    <tr><td><code>Phone Number</code></td><td><span class="pg-pill pg-pill-warn">Optional</span></td><td>Only relevant for WhatsApp contacts</td></tr>
+                    <tr><td><code>Opted In</code></td><td><span class="pg-pill pg-pill-warn">Optional</span></td><td>Defaults to <strong>true</strong>. Only opted-in contacts receive broadcasts.</td></tr>
+                  </tbody>
+                </table>
+                <div class="pg-note"><strong>Upsert behaviour:</strong> If a contact with the same platform + user ID already exists, the record is updated (name, phone), not duplicated. <code>last_interaction</code> is always refreshed.</div>
+                <div class="pg-tip"><strong>WhatsApp:</strong> Use the full international phone number as the User ID (e.g. <code>263771234567</code> — no + or spaces).</div>
+              </div>
+
+              <!-- CSV IMPORT -->
+              <div class="pg-panel" id="dg-csv">
+                <div class="pg-section-title"><i class="bi bi-file-earmark-spreadsheet me-2" style="color:#198754;"></i>CSV Import</div>
+                <p class="pg-section-sub">Upload a <code>.csv</code> file in the Contacts tab to bulk-import contacts. The file is processed row-by-row and uses the same upsert logic as manual add.</p>
+
+                <div style="font-size:0.78rem;font-weight:700;margin-bottom:8px;">Required columns</div>
+                <table class="pg-table">
+                  <thead><tr><th>Column</th><th>Required?</th><th>Example value</th></tr></thead>
+                  <tbody>
+                    <tr><td><code>platform</code></td><td><span class="pg-pill pg-pill-yes">Required</span></td><td><code>whatsapp</code></td></tr>
+                    <tr><td><code>platform_user_id</code></td><td><span class="pg-pill pg-pill-yes">Required</span></td><td><code>263771234567</code></td></tr>
+                    <tr><td><code>display_name</code></td><td><span class="pg-pill pg-pill-warn">Optional</span></td><td><code>Tinashe Moyo</code></td></tr>
+                    <tr><td><code>phone_number</code></td><td><span class="pg-pill pg-pill-warn">Optional</span></td><td><code>263771234567</code></td></tr>
+                    <tr><td><code>opt_in</code></td><td><span class="pg-pill pg-pill-warn">Optional</span></td><td><code>true</code> or <code>false</code> (default: true)</td></tr>
+                  </tbody>
+                </table>
+
+                <div style="font-size:0.78rem;font-weight:700;margin:14px 0 8px;">Example CSV</div>
+                <div style="background:#1e2a3e;color:#a8d8a8;font-family:monospace;font-size:0.72rem;padding:10px 14px;border-radius:8px;line-height:1.8;">
+                  platform,platform_user_id,display_name,phone_number,opt_in<br>
+                  whatsapp,263771234567,Tinashe Moyo,263771234567,true<br>
+                  whatsapp,263772345678,Rumbidzai Dube,,true<br>
+                  linkedin,john-smith-123,John Smith,,true<br>
+                  twitter,janedoe_handle,Jane Doe,,false
+                </div>
+
+                <div class="pg-note" style="margin-top:12px;"><strong>Encoding:</strong> Save your file as UTF-8 (with or without BOM). Excel's default CSV export works. Column names are case-insensitive and whitespace-trimmed.</div>
+                <div class="pg-tip"><strong>Opt-out rows:</strong> Setting <code>opt_in=false</code> adds the contact to the database but excludes them from all broadcasts. Useful for maintaining a suppression list.</div>
+              </div>
+
+              <!-- MESSAGE STORAGE -->
+              <div class="pg-panel" id="dg-messages">
+                <div class="pg-section-title"><i class="bi bi-chat-dots me-2" style="color:#6610f2;"></i>Message Storage</div>
+                <p class="pg-section-sub">Every sent and received message is stored in the <code>messages</code> table, linked to a contact by <code>contact_id</code>.</p>
+                <table class="pg-table">
+                  <thead><tr><th>Column</th><th>Value</th><th>Set when</th></tr></thead>
+                  <tbody>
+                    <tr><td><code>contact_id</code></td><td>FK → contacts.id</td><td>Always</td></tr>
+                    <tr><td><code>platform</code></td><td>whatsapp / facebook / etc.</td><td>Always</td></tr>
+                    <tr><td><code>direction</code></td><td><code>incoming</code> or <code>outgoing</code></td><td>Always</td></tr>
+                    <tr><td><code>message</code></td><td>Message text content</td><td>Always</td></tr>
+                    <tr><td><code>status</code></td><td><code>sent</code> / <code>failed</code> / <code>received</code></td><td>Always</td></tr>
+                    <tr><td><code>sent_at</code></td><td>Timestamp of save</td><td>Always</td></tr>
+                  </tbody>
+                </table>
+                <div style="font-size:0.78rem;font-weight:700;margin:14px 0 8px;">What triggers a message record</div>
+                <table class="pg-table">
+                  <thead><tr><th>Action</th><th>direction</th><th>Platform</th></tr></thead>
+                  <tbody>
+                    <tr><td>Inbound webhook (WA / FB / IG)</td><td><code>incoming</code></td><td>whatsapp, facebook, instagram</td></tr>
+                    <tr><td>Broadcast send (per recipient)</td><td><code>outgoing</code></td><td>all platforms</td></tr>
+                    <tr><td>Individual DM send</td><td><code>outgoing</code></td><td>all platforms</td></tr>
+                  </tbody>
+                </table>
+                <div class="pg-note"><strong>Live conversations (FB/IG):</strong> When you open a chat for Facebook or Instagram, the conversation is fetched live from the Graph API — it is NOT read from the local <code>messages</code> table. WhatsApp, Twitter, and LinkedIn chats are read from the local DB.</div>
+              </div>
+
+              <!-- DB SCHEMA -->
+              <div class="pg-panel" id="dg-schema">
+                <div class="pg-section-title"><i class="bi bi-diagram-3 me-2" style="color:#d63384;"></i>Database Schema</div>
+                <p class="pg-section-sub">PostgreSQL hosted on Render. Three core tables.</p>
+
+                <div style="font-size:0.78rem;font-weight:700;margin-bottom:6px;">contacts</div>
+                <table class="pg-table">
+                  <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+                  <tbody>
+                    <tr><td><code>id</code></td><td>SERIAL PK</td><td>Auto-increment primary key</td></tr>
+                    <tr><td><code>platform</code></td><td>VARCHAR</td><td>whatsapp / facebook / instagram / twitter / linkedin</td></tr>
+                    <tr><td><code>platform_user_id</code></td><td>VARCHAR</td><td>Unique per platform — phone / PSID / handle</td></tr>
+                    <tr><td><code>display_name</code></td><td>VARCHAR</td><td>Human-readable name (nullable)</td></tr>
+                    <tr><td><code>phone_number</code></td><td>VARCHAR</td><td>WhatsApp only (nullable)</td></tr>
+                    <tr><td><code>opt_in</code></td><td>BOOLEAN</td><td>Must be TRUE to receive broadcasts</td></tr>
+                    <tr><td><code>opt_in_date</code></td><td>TIMESTAMP</td><td>When opt_in was set to true</td></tr>
+                    <tr><td><code>last_interaction</code></td><td>TIMESTAMP</td><td>Updated on every save_contact() call</td></tr>
+                    <tr><td><code>tags</code></td><td>TEXT</td><td>Comma-separated tags for audience filtering</td></tr>
+                    <tr><td><code>created_at / updated_at</code></td><td>TIMESTAMP</td><td>Record lifecycle</td></tr>
+                  </tbody>
+                </table>
+                <div style="font-size:0.78rem;font-weight:700;margin:12px 0 6px;">Unique constraint: <code>(platform, platform_user_id)</code> — prevents duplicate contacts per platform.</div>
+
+                <div style="font-size:0.78rem;font-weight:700;margin:14px 0 6px;">messages</div>
+                <table class="pg-table">
+                  <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+                  <tbody>
+                    <tr><td><code>id</code></td><td>SERIAL PK</td><td></td></tr>
+                    <tr><td><code>contact_id</code></td><td>INT FK</td><td>→ contacts.id</td></tr>
+                    <tr><td><code>platform</code></td><td>VARCHAR</td><td></td></tr>
+                    <tr><td><code>direction</code></td><td>VARCHAR</td><td>incoming / outgoing</td></tr>
+                    <tr><td><code>message</code></td><td>TEXT</td><td>Raw message content</td></tr>
+                    <tr><td><code>status</code></td><td>VARCHAR</td><td>sent / failed / received</td></tr>
+                    <tr><td><code>sent_at</code></td><td>TIMESTAMP</td><td></td></tr>
+                  </tbody>
+                </table>
+
+                <div style="font-size:0.78rem;font-weight:700;margin:14px 0 6px;">broadcasts</div>
+                <table class="pg-table">
+                  <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+                  <tbody>
+                    <tr><td><code>id</code></td><td>SERIAL PK</td><td></td></tr>
+                    <tr><td><code>user_id</code></td><td>INT FK</td><td>→ users.id (who sent it)</td></tr>
+                    <tr><td><code>name</code></td><td>VARCHAR</td><td>Campaign name</td></tr>
+                    <tr><td><code>platform</code></td><td>VARCHAR</td><td></td></tr>
+                    <tr><td><code>message</code></td><td>TEXT</td><td>Broadcast message content</td></tr>
+                    <tr><td><code>status</code></td><td>VARCHAR</td><td>processing / completed / cancelled</td></tr>
+                    <tr><td><code>total_recipients</code></td><td>INT</td><td>Count at time of send</td></tr>
+                    <tr><td><code>sent_count / failed_count</code></td><td>INT</td><td>Updated in real time during send</td></tr>
+                    <tr><td><code>created_at / completed_at</code></td><td>TIMESTAMP</td><td></td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+            </div><!-- end right panel -->
+          </div><!-- end modal-body -->
+        </div>
+      </div>
+    </div>
+    <!-- END DATA GUIDE MODAL -->
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         const socket = io({ transports: ['websocket', 'polling'] });
@@ -783,6 +984,22 @@
             if (section) pgSwitch(section, null);
             new bootstrap.Modal(document.getElementById('platformGuideModal')).show();
             if(window.innerWidth < 768) document.getElementById('sidebar')?.classList.remove('show');
+        }
+
+        function openDataGuide(section) {
+            if (section) dgSwitch(section, null);
+            new bootstrap.Modal(document.getElementById('dataGuideModal')).show();
+            if(window.innerWidth < 768) document.getElementById('sidebar')?.classList.remove('show');
+        }
+
+        function dgSwitch(section, btn) {
+            document.querySelectorAll('#dataGuideModal .pg-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('#dataGuideModal .pg-sidebar-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('dg-' + section).classList.add('active');
+            document.querySelectorAll('#dataGuideModal .pg-sidebar-btn').forEach(b => {
+                if (b.getAttribute('onclick')?.includes("'" + section + "'")) b.classList.add('active');
+            });
+            if (btn) btn.classList.add('active');
         }
 
         function pgSwitch(section, btn) {
