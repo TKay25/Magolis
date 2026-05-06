@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Facebook Messaging Policy — Magolis</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:   #1877F2;
+      --green:  #00C853;
+      --red:    #FF3D57;
+      --yellow: #FFB300;
+      --dark:   #0D1117;
+      --card:   #161B22;
+      --border: rgba(255,255,255,0.07);
+      --text:   #E6EDF3;
+      --muted:  #8B949E;
+    }
+
+    body {
+      background: white;
+      color: var(--dark);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 60px 24px 100px;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated gradient background ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(24,119,242,0.18) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 100%, rgba(0,200,83,0.12) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 860px;
+    }
+
+    /* ── Badge ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(24,119,242,0.15);
+      border: 1px solid rgba(24,119,242,0.35);
+      color: #5BA4FF;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 6px 16px;
+      border-radius: 999px;
+      margin-bottom: 28px;
+    }
+    .badge svg { width: 14px; height: 14px; }
+
+    /* ── Headline ── */
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 900;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      margin-bottom: 16px;
+    }
+    h1 span {
+      background: linear-gradient(135deg, #1877F2 0%, #42A5F5 50%, #00C853 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 1.05rem;
+      font-weight: 400;
+      line-height: 1.7;
+      max-width: 600px;
+      margin-bottom: 56px;
+    }
+
+    /* ── Section label ── */
+    .section-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+
+    /* ── Main table card ── */
+    .table-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      margin-bottom: 48px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.06) inset;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead tr {
+      background: rgba(255,255,255,0.035);
+    }
+
+    thead th {
+      padding: 18px 28px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.2s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,0.025); }
+
+    td {
+      padding: 22px 28px;
+      vertical-align: middle;
+      font-size: 0.95rem;
+      line-height: 1.55;
+    }
+
+    /* Scenario column */
+    td.scenario {
+      font-weight: 500;
+      color: var(--text);
+      max-width: 320px;
+    }
+    td.scenario .tag {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      padding: 3px 10px;
+      border-radius: 6px;
+      margin-top: 6px;
+    }
+    td.scenario .tag-blue  { background: rgba(24,119,242,0.18); color: #5BA4FF; }
+    td.scenario .tag-gray  { background: rgba(139,148,158,0.15); color: var(--muted); }
+    td.scenario .tag-green { background: rgba(0,200,83,0.15); color: #5CE88A; }
+
+    /* Status column */
+    td.status { width: 160px; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .pill-success {
+      background: rgba(0,200,83,0.12);
+      border: 1px solid rgba(0,200,83,0.3);
+      color: #5CE88A;
+    }
+    .pill-danger {
+      background: rgba(255,61,87,0.12);
+      border: 1px solid rgba(255,61,87,0.3);
+      color: #FF6B7A;
+    }
+    .pill-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .pill-success .pill-dot { background: #00C853; }
+    .pill-danger  .pill-dot { background: #FF3D57; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(0.75); }
+    }
+
+    /* Type column */
+    td.type { width: 200px; }
+    .type-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      padding: 5px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: var(--muted);
+    }
+    .type-badge.active-blue  { background: rgba(24,119,242,0.12); border-color: rgba(24,119,242,0.3); color: #5BA4FF; }
+    .type-badge.active-green { background: rgba(0,200,83,0.12);   border-color: rgba(0,200,83,0.3);   color: #5CE88A; }
+    .type-badge.blocked      { text-decoration: line-through; opacity: 0.45; }
+
+    /* ── Info cards row ── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-bottom: 48px;
+    }
+
+    .info-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .info-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.45);
+    }
+    .info-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+    }
+    .info-card.green::before { background: linear-gradient(90deg, #00C853, #69F0AE); }
+    .info-card.blue::before  { background: linear-gradient(90deg, #1877F2, #42A5F5); }
+    .info-card.red::before   { background: linear-gradient(90deg, #FF3D57, #FF8A80); }
+
+    .card-icon {
+      width: 42px; height: 42px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem;
+    }
+    .card-icon.green { background: rgba(0,200,83,0.12); }
+    .card-icon.blue  { background: rgba(24,119,242,0.12); }
+    .card-icon.red   { background: rgba(255,61,87,0.12); }
+
+    .card-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .card-desc {
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ── Fix steps ── */
+    .fix-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px 40px;
+      margin-bottom: 48px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .fix-card h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .fix-card h2 span {
+      background: rgba(255,179,0,0.15);
+      border: 1px solid rgba(255,179,0,0.3);
+      color: #FFD54F;
+      font-size: 0.68rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 999px;
+    }
+
+    .steps { display: flex; flex-direction: column; gap: 14px; }
+    .step {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: rgba(24,119,242,0.15);
+      border: 1px solid rgba(24,119,242,0.3);
+      color: #5BA4FF;
+      font-size: 0.75rem;
+      font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 2px;
+    }
+    .step-text {
+      font-size: 0.9rem;
+      color: var(--text);
+      line-height: 1.65;
+    }
+    .step-text code {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 1px 7px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.83em;
+      color: #5BA4FF;
+    }
+    .step-text a {
+      color: #5BA4FF;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(91,164,255,0.35);
+      transition: border-color 0.2s;
+    }
+    .step-text a:hover { border-color: #5BA4FF; }
+
+    /* ── Quick tip ── */
+    .tip {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      background: rgba(255,179,0,0.06);
+      border: 1px solid rgba(255,179,0,0.2);
+      border-radius: 14px;
+      padding: 20px 24px;
+      margin-top: 16px;
+    }
+    .tip-icon { font-size: 1.4rem; flex-shrink: 0; margin-top: 2px; }
+    .tip-text { font-size: 0.85rem; color: #E6D06A; line-height: 1.65; }
+    .tip-text strong { color: #FFD54F; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.75rem;
+      margin-top: 24px;
+      opacity: 0.6;
+    }
+
+    @media (max-width: 600px) {
+      td { padding: 16px 18px; }
+      .fix-card { padding: 28px 22px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- Header -->
+  <div class="badge">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.879V14.89h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.989C18.343 21.129 22 16.99 22 12c0-5.523-4.477-10-10-10z"/></svg>
+    Facebook Messenger Policy
+  </div>
+
+  <h1>When can you send<br/><span>broadcast messages?</span></h1>
+  <p class="subtitle">
+    Facebook enforces a strict messaging window. Understanding it explains why some broadcasts succeed and others fail — and exactly what to do about it.
+  </p>
+
+  <!-- Summary cards -->
+  <p class="section-label">At a glance</p>
+  <div class="cards">
+    <div class="info-card green">
+      <div class="card-icon green">⚡</div>
+      <div class="card-title">Within 24 Hours</div>
+      <div class="card-desc">Contact sent your Page a message recently. Any reply is allowed — no special permissions needed.</div>
+    </div>
+    <div class="info-card red">
+      <div class="card-icon red">🔒</div>
+      <div class="card-title">Outside 24h, Unreviewed App</div>
+      <div class="card-desc">All message types are blocked by Facebook. No workaround exists without Meta App Review.</div>
+    </div>
+    <div class="info-card blue">
+      <div class="card-icon blue">🚀</div>
+      <div class="card-title">Outside 24h, Approved App</div>
+      <div class="card-desc"><code style="background:rgba(24,119,242,0.15);border:none;border-radius:5px;padding:2px 7px;font-size:0.82em;color:#5BA4FF;">MESSAGE_TAG</code> unlocks proactive broadcasts to any opted-in contact, anytime.</div>
+    </div>
+  </div>
+
+  <!-- Main table -->
+  <p class="section-label">Detailed breakdown</p>
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Scenario</th>
+          <th>Result</th>
+          <th>Messaging Type Used</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <tr>
+          <td class="scenario">
+            Contact messaged your Page<br/>within the last <strong>24 hours</strong>
+            <div><span class="tag tag-blue">24h window open</span></div>
+          </td>
+          <td class="status">
+            <span class="pill pill-success">
+              <span class="pill-dot"></span> Works
+            </span>
+          </td>
+          <td class="type">
+            <span class="type-badge active-blue">RESPONSE</span>
+          </td>
+        </tr>
+
+        <tr>
+          <td class="scenario">
+            Contact has <strong>not</strong> messaged in &gt;24h<br/>
+            App has <strong>not</strong> been reviewed by Meta
+            <div><span class="tag tag-gray">window closed · no approval</span></div>
+          </td>
+          <td class="status">
+            <span class="pill pill-danger">
+              <span class="pill-dot"></span> Blocked
+            </span>
+          </td>
+          <td class="type">
+            <span class="type-badge blocked">RESPONSE</span><br/><br/>
+            <span class="type-badge blocked">MESSAGE_TAG</span>
+          </td>
+        </tr>
+
+        <tr>
+          <td class="scenario">
+            Contact has <strong>not</strong> messaged in &gt;24h<br/>
+            App approved · <code style="font-size:0.8em;background:rgba(0,200,83,0.1);border:1px solid rgba(0,200,83,0.2);border-radius:5px;padding:2px 7px;color:#5CE88A;">pages_messaging_subscriptions</code> granted
+            <div><span class="tag tag-green">Meta App Review approved</span></div>
+          </td>
+          <td class="status">
+            <span class="pill pill-success">
+              <span class="pill-dot"></span> Works
+            </span>
+          </td>
+          <td class="type">
+            <span class="type-badge active-green">MESSAGE_TAG</span>
+          </td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Fix steps -->
+  <div class="fix-card">
+    <h2>How to fix this permanently <span>Recommended Path</span></h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">
+          Go to <a href="https://developers.facebook.com" target="_blank">developers.facebook.com</a> and open your app's dashboard.
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">
+          Navigate to <strong>App Review → Permissions and Features</strong>. Find <code>pages_messaging_subscriptions</code> and click <strong>Request</strong>.
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">
+          Provide a screen recording of your broadcast flow, a privacy policy URL, and a description of your use case. Submit for review.
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-text">
+          Once approved, Magolis will automatically use <code>MESSAGE_TAG</code> with <code>CONFIRMED_EVENT_UPDATE</code> — broadcasts will reach all opted-in contacts regardless of when they last messaged.
+        </div>
+      </div>
+    </div>
+
+    <div class="tip">
+      <div class="tip-icon">💡</div>
+      <div class="tip-text">
+        <strong>Quick workaround while waiting for approval:</strong> Ask your contacts to send any message to your Facebook Page (e.g. "Hi"), then run your broadcast within 24 hours. Their message opens the window and <code>RESPONSE</code> type will work immediately.
+      </div>
+    </div>
+  </div>
+
+  <footer>Magolis · Facebook Messenger Platform Policy Reference · Updated May 2026</footer>
+
+</div>
+</body>
+</html>
