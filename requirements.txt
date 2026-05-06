@@ -7,6 +7,6 @@ requests==2.31.0
 tweepy==4.14.0
 gunicorn==21.2.0
 Werkzeug==2.3.7
-psycopg2-binary==2.9.9
+psycopg2==2.9.9  # Changed from psycopg2-binary to psycopg2
 SQLAlchemy==2.0.20
 Flask-SQLAlchemy==3.0.5
