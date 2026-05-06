@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Magolis — Platform API Guide & Messaging Policy</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:    #1877F2;
+      --green:   #00C853;
+      --red:     #FF3D57;
+      --yellow:  #FFB300;
+      --purple:  #7C3AED;
+      --teal:    #0EA5E9;
+      --dark:    #0D1117;
+      --card:    #161B22;
+      --border:  rgba(255,255,255,0.07);
+      --text:    #E6EDF3;
+      --muted:   #8B949E;
+      --wa:      #25D366;
+      --li:      #0A66C2;
+      --tw:      #1DA1F2;
+      --ig:      #E1306C;
+    }
+
+    body {
+      background: var(--dark);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      padding: 60px 24px 100px;
+    }
+
+    .wrapper {
+      width: 100%;
+      max-width: 920px;
+      margin: 0 auto;
+    }
+
+    /* ── Print button ── */
+    .print-bar {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 32px;
+    }
+    .btn-print {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 10px 20px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-print:hover { background: rgba(255,255,255,0.12); }
+
+    /* ── Page header ── */
+    .page-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(124,58,237,0.15);
+      border: 1px solid rgba(124,58,237,0.35);
+      color: #A78BFA;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 6px 16px;
+      border-radius: 999px;
+      margin-bottom: 24px;
+    }
+
+    h1.page-title {
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 900;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      margin-bottom: 14px;
+    }
+    h1.page-title span {
+      background: linear-gradient(135deg, #7C3AED 0%, #1877F2 40%, #00C853 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .page-subtitle {
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.7;
+      max-width: 640px;
+      margin-bottom: 56px;
+    }
+
+    /* ── Section headings ── */
+    .section-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+
+    h2.section-title {
+      font-size: 1.4rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .section-desc {
+      font-size: 0.88rem;
+      color: var(--muted);
+      line-height: 1.65;
+      margin-bottom: 24px;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 56px 0;
+    }
+
+    /* ── Platform summary grid ── */
+    .platform-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-bottom: 48px;
+    }
+
+    .platform-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .platform-card:hover { transform: translateY(-3px); box-shadow: 0 16px 40px rgba(0,0,0,0.4); }
+    .platform-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+    .pc-fb::before  { background: linear-gradient(90deg, #1877F2, #42A5F5); }
+    .pc-ig::before  { background: linear-gradient(90deg, #F58529, #E1306C, #833AB4); }
+    .pc-wa::before  { background: linear-gradient(90deg, #25D366, #128C7E); }
+    .pc-li::before  { background: linear-gradient(90deg, #0A66C2, #0E86F5); }
+    .pc-tw::before  { background: linear-gradient(90deg, #000, #555); }
+
+    .pc-logo {
+      width: 40px; height: 40px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem;
+      margin-bottom: 14px;
+    }
+    .pc-fb .pc-logo  { background: rgba(24,119,242,0.15); }
+    .pc-ig .pc-logo  { background: rgba(225,48,108,0.15); }
+    .pc-wa .pc-logo  { background: rgba(37,211,102,0.15); }
+    .pc-li .pc-logo  { background: rgba(10,102,194,0.15); }
+    .pc-tw .pc-logo  { background: rgba(255,255,255,0.08); }
+
+    .pc-name {
+      font-size: 1rem;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+
+    .pc-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8rem;
+    }
+    .pc-row:last-child { border-bottom: none; }
+    .pc-row-label { color: var(--muted); }
+
+    .tag-yes  { color: #5CE88A; font-weight: 700; }
+    .tag-no   { color: #FF6B7A; font-weight: 700; }
+    .tag-paid { color: #FFD54F; font-weight: 700; }
+    .tag-post { color: #A78BFA; font-weight: 700; }
+
+    /* ── Capability table ── */
+    .table-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      margin-bottom: 40px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    thead tr { background: rgba(255,255,255,0.035); }
+    thead th {
+      padding: 16px 22px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+    td {
+      padding: 16px 22px;
+      vertical-align: middle;
+      font-size: 0.88rem;
+      line-height: 1.55;
+      color: var(--text);
+    }
+    td.dim { color: var(--muted); }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 13px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .pill-success { background: rgba(0,200,83,0.12);   border: 1px solid rgba(0,200,83,0.3);   color: #5CE88A; }
+    .pill-danger  { background: rgba(255,61,87,0.12);  border: 1px solid rgba(255,61,87,0.3);  color: #FF6B7A; }
+    .pill-warn    { background: rgba(255,179,0,0.12);  border: 1px solid rgba(255,179,0,0.3);  color: #FFD54F; }
+    .pill-info    { background: rgba(14,165,233,0.12); border: 1px solid rgba(14,165,233,0.3); color: #7DD3FC; }
+    .pill-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .pill-success .pill-dot { background: #00C853; }
+    .pill-danger  .pill-dot { background: #FF3D57; }
+    .pill-warn    .pill-dot { background: #FFB300; }
+    .pill-info    .pill-dot { background: #0EA5E9; }
+
+    code {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 1px 7px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.83em;
+      color: #5BA4FF;
+    }
+
+    /* ── Info/fix cards ── */
+    .fix-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px 36px;
+      margin-bottom: 40px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .fix-card h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .fix-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 999px;
+    }
+    .fb-badge  { background: rgba(255,179,0,0.15); border: 1px solid rgba(255,179,0,0.3); color: #FFD54F; }
+    .wa-badge  { background: rgba(37,211,102,0.15); border: 1px solid rgba(37,211,102,0.3); color: #5CE88A; }
+    .li-badge  { background: rgba(10,102,194,0.15); border: 1px solid rgba(10,102,194,0.3); color: #7DD3FC; }
+    .tw-badge  { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: var(--muted); }
+
+    .steps { display: flex; flex-direction: column; gap: 12px; }
+    .step { display: flex; gap: 14px; align-items: flex-start; }
+    .step-num {
+      flex-shrink: 0;
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      background: rgba(24,119,242,0.15);
+      border: 1px solid rgba(24,119,242,0.3);
+      color: #5BA4FF;
+      font-size: 0.72rem;
+      font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 2px;
+    }
+    .step-text {
+      font-size: 0.87rem;
+      color: var(--text);
+      line-height: 1.65;
+    }
+    .step-text a { color: #5BA4FF; text-decoration: none; border-bottom: 1px solid rgba(91,164,255,0.3); }
+    .step-text a:hover { border-color: #5BA4FF; }
+
+    .tip {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      background: rgba(255,179,0,0.06);
+      border: 1px solid rgba(255,179,0,0.2);
+      border-radius: 12px;
+      padding: 18px 22px;
+      margin-top: 18px;
+    }
+    .tip-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 1px; }
+    .tip-text { font-size: 0.83rem; color: #E6D06A; line-height: 1.65; }
+    .tip-text strong { color: #FFD54F; }
+
+    .info-note {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      background: rgba(14,165,233,0.06);
+      border: 1px solid rgba(14,165,233,0.2);
+      border-radius: 12px;
+      padding: 18px 22px;
+      margin-bottom: 32px;
+    }
+    .info-note-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 2px; }
+    .info-note-text { font-size: 0.83rem; color: #BAE6FD; line-height: 1.65; }
+    .info-note-text strong { color: #7DD3FC; }
+
+    /* ── Env vars table ── */
+    .env-grid {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+    .env-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 18px;
+    }
+    .env-key {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.8rem;
+      color: #5BA4FF;
+      font-weight: 600;
+      flex-shrink: 0;
+      min-width: 230px;
+    }
+    .env-desc {
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.72rem;
+      margin-top: 32px;
+      opacity: 0.55;
+    }
+
+    /* ── Print styles ── */
+    @media print {
+      body {
+        background: white !important;
+        color: #111 !important;
+        padding: 20px !important;
+        font-size: 11pt;
+      }
+      .print-bar { display: none !important; }
+      body::before { display: none !important; }
+      .wrapper { max-width: 100%; }
+
+      :root {
+        --dark: #fff;
+        --card: #f8f9fa;
+        --border: #dee2e6;
+        --text: #111;
+        --muted: #555;
+      }
+
+      .platform-card,
+      .table-card,
+      .fix-card,
+      .env-row,
+      .tip,
+      .info-note {
+        border: 1px solid #ccc !important;
+        background: #f8f9fa !important;
+        box-shadow: none !important;
+        break-inside: avoid;
+      }
+
+      h1.page-title span {
+        -webkit-text-fill-color: #1877F2 !important;
+        background: none !important;
+      }
+
+      .pc-fb::before  { background: #1877F2 !important; }
+      .pc-ig::before  { background: #E1306C !important; }
+      .pc-wa::before  { background: #25D366 !important; }
+      .pc-li::before  { background: #0A66C2 !important; }
+      .pc-tw::before  { background: #333 !important; }
+
+      .pill-success { background: #d4edda !important; color: #155724 !important; border-color: #c3e6cb !important; }
+      .pill-danger  { background: #f8d7da !important; color: #721c24 !important; border-color: #f5c6cb !important; }
+      .pill-warn    { background: #fff3cd !important; color: #856404 !important; border-color: #ffeeba !important; }
+      .pill-info    { background: #cce5ff !important; color: #004085 !important; border-color: #b8daff !important; }
+
+      code { background: #f1f3f5 !important; color: #1877F2 !important; border-color: #dee2e6 !important; }
+
+      .tip { background: #fffde7 !important; border-color: #ffe082 !important; }
+      .tip-text { color: #5d4037 !important; }
+      .info-note { background: #e3f2fd !important; border-color: #90caf9 !important; }
+      .info-note-text { color: #0d47a1 !important; }
+
+      .tag-yes  { color: #155724 !important; }
+      .tag-no   { color: #721c24 !important; }
+      .tag-paid { color: #856404 !important; }
+      .tag-post { color: #4a148c !important; }
+
+      a { color: #1877F2 !important; text-decoration: underline !important; }
+
+      h2.section-title, .pc-name, thead th, .env-key { color: #111 !important; }
+      .section-label, .page-subtitle, .section-desc, td.dim { color: #555 !important; }
+
+      .divider { border-color: #dee2e6 !important; }
+      .step-num { background: #e3f0fe !important; border-color: #90bef5 !important; color: #1877F2 !important; }
+      .page-badge { background: #ede9fe !important; border-color: #c4b5fd !important; color: #5b21b6 !important; }
+
+      @page {
+        size: A4;
+        margin: 15mm 12mm;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- Print button -->
+  <div class="print-bar">
+    <button class="btn-print" onclick="window.print()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Print / Save PDF
+    </button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- PAGE HEADER                                    -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="page-badge">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+    Magolis · Platform API Reference
+  </div>
+
+  <h1 class="page-title">Social Platform<br/><span>Messaging Capabilities</span></h1>
+  <p class="page-subtitle">
+    A complete reference covering what each platform's API can and cannot do, Facebook's 24-hour messaging policy, WhatsApp Business setup, Twitter/X API tiers, and LinkedIn's posting model — plus all environment variables needed for Magolis on Render.
+  </p>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SECTION 1: Platform comparison at a glance     -->
+  <!-- ══════════════════════════════════════════════ -->
+  <p class="section-label">Section 1 — Platform overview</p>
+  <h2 class="section-title">At a Glance</h2>
+  <p class="section-desc">What each platform supports through its public developer API as of 2026.</p>
+
+  <div class="platform-grid">
+
+    <div class="platform-card pc-fb">
+      <div class="pc-logo">📘</div>
+      <div class="pc-name">Facebook Messenger</div>
+      <div class="pc-row"><span class="pc-row-label">Bulk DMs</span><span class="tag-yes">✓ Yes (with review)</span></div>
+      <div class="pc-row"><span class="pc-row-label">Broadcast</span><span class="tag-yes">✓ Messenger DMs</span></div>
+      <div class="pc-row"><span class="pc-row-label">Contacts API</span><span class="tag-yes">✓ Page conversations</span></div>
+      <div class="pc-row"><span class="pc-row-label">24h policy</span><span class="tag-no">⚠ Applies</span></div>
+    </div>
+
+    <div class="platform-card pc-ig">
+      <div class="pc-logo">📸</div>
+      <div class="pc-name">Instagram</div>
+      <div class="pc-row"><span class="pc-row-label">Bulk DMs</span><span class="tag-yes">✓ Via Graph API</span></div>
+      <div class="pc-row"><span class="pc-row-label">Broadcast</span><span class="tag-yes">✓ Instagram DMs</span></div>
+      <div class="pc-row"><span class="pc-row-label">Contacts API</span><span class="tag-yes">✓ Requires IG Business</span></div>
+      <div class="pc-row"><span class="pc-row-label">Requirement</span><span class="tag-no">⚠ Must link to FB Page</span></div>
+    </div>
+
+    <div class="platform-card pc-wa">
+      <div class="pc-logo">💬</div>
+      <div class="pc-name">WhatsApp Business</div>
+      <div class="pc-row"><span class="pc-row-label">Bulk messages</span><span class="tag-yes">✓ Cloud API</span></div>
+      <div class="pc-row"><span class="pc-row-label">Broadcast</span><span class="tag-yes">✓ Direct to number</span></div>
+      <div class="pc-row"><span class="pc-row-label">Templates</span><span class="tag-yes">✓ Pre-approved only</span></div>
+      <div class="pc-row"><span class="pc-row-label">Contacts</span><span class="tag-yes">✓ Via webhook (inbound)</span></div>
+    </div>
+
+    <div class="platform-card pc-li">
+      <div class="pc-logo">💼</div>
+      <div class="pc-name">LinkedIn</div>
+      <div class="pc-row"><span class="pc-row-label">Bulk DMs</span><span class="tag-no">✗ No public DM API</span></div>
+      <div class="pc-row"><span class="pc-row-label">Broadcast</span><span class="tag-post">⬡ Feed post only</span></div>
+      <div class="pc-row"><span class="pc-row-label">Contacts API</span><span class="tag-no">✗ None (manual/CSV)</span></div>
+      <div class="pc-row"><span class="pc-row-label">Conversions API</span><span class="tag-no">✗ Tracking only</span></div>
+    </div>
+
+    <div class="platform-card pc-tw">
+      <div class="pc-logo">𝕏</div>
+      <div class="pc-name">Twitter / X</div>
+      <div class="pc-row"><span class="pc-row-label">Bulk DMs</span><span class="tag-paid">⚠ Paid + restricted</span></div>
+      <div class="pc-row"><span class="pc-row-label">Broadcast</span><span class="tag-post">⬡ Tweet / feed post</span></div>
+      <div class="pc-row"><span class="pc-row-label">Free tier DMs</span><span class="tag-no">✗ Read-only</span></div>
+      <div class="pc-row"><span class="pc-row-label">Basic tier ($100/mo)</span><span class="tag-paid">⚠ ~1,000 DMs/day</span></div>
+    </div>
+
+  </div>
+
+  <!-- Capability comparison table -->
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>Facebook</th>
+          <th>Instagram</th>
+          <th>WhatsApp</th>
+          <th>LinkedIn</th>
+          <th>Twitter/X</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Send DMs via API</td>
+          <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
+          <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
+          <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
+          <td><span class="pill pill-danger"><span class="pill-dot"></span>No</span></td>
+          <td><span class="pill pill-warn"><span class="pill-dot"></span>Paid</span></td>
+        </tr>
+        <tr>
+          <td>Bulk/broadcast messaging</td>
+          <td><span class="pill pill-warn"><span class="pill-dot"></span>Needs review</span></td>
+          <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
+          <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
+          <td><span class="pill pill-info"><span class="pill-dot"></span>Feed post</span></td>
+          <td><span class="pill pill-info"><span class="pill-dot"></span>Tweet</span></td>
+        </tr>
+        <tr>
+          <td>Contacts API (fetch recipients)</td>
+          <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
+          <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
+          <td><span class="pill pill-warn"><span class="pill-dot"></span>Inbound only</span></td>
+          <td><span class="pill pill-danger"><span class="pill-dot"></span>No</span></td>
+          <td><span class="pill pill-danger"><span class="pill-dot"></span>No</span></td>
+        </tr>
+        <tr>
+          <td>Free tier available</td>
+          <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
+          <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
+          <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
+          <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
+          <td><span class="pill pill-danger"><span class="pill-dot"></span>Read-only</span></td>
+        </tr>
+        <tr>
+          <td>Requires Meta App Review</td>
+          <td><span class="pill pill-warn"><span class="pill-dot"></span>For bulk tags</span></td>
+          <td><span class="pill pill-warn"><span class="pill-dot"></span>For some features</span></td>
+          <td><span class="pill pill-danger"><span class="pill-dot"></span>No (verified number)</span></td>
+          <td><span class="pill pill-danger"><span class="pill-dot"></span>Not applicable</span></td>
+          <td><span class="pill pill-danger"><span class="pill-dot"></span>Not applicable</span></td>
+        </tr>
+        <tr>
+          <td>Inbound webhook</td>
+          <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
+          <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
+          <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
+          <td><span class="pill pill-danger"><span class="pill-dot"></span>No</span></td>
+          <td><span class="pill pill-danger"><span class="pill-dot"></span>No</span></td>
+        </tr>
+        <tr>
+          <td>Magolis broadcast method</td>
+          <td class="dim">Messenger DM</td>
+          <td class="dim">Instagram DM</td>
+          <td class="dim">Cloud API message</td>
+          <td class="dim">UGC post to feed</td>
+          <td class="dim">Tweet to timeline</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <hr class="divider"/>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SECTION 2: Facebook 24h policy                 -->
+  <!-- ══════════════════════════════════════════════ -->
+  <p class="section-label">Section 2 — Facebook Messenger</p>
+  <h2 class="section-title">📘 The 24-Hour Messaging Window</h2>
+  <p class="section-desc">
+    Facebook enforces a strict messaging policy on the Messenger API. A contact must have messaged your Page within the last 24 hours for a standard reply to work. Outside that window, you need Meta App Review approval to use <code>MESSAGE_TAG</code>.
+  </p>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Scenario</th>
+          <th>Result</th>
+          <th>Messaging Type</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Contact messaged your Page <strong>within 24 hours</strong></td>
+          <td><span class="pill pill-success"><span class="pill-dot"></span>Works</span></td>
+          <td><code>RESPONSE</code></td>
+          <td class="dim">No special permissions needed</td>
+        </tr>
+        <tr>
+          <td>Contact messaged &gt;24h ago — app <strong>not reviewed</strong></td>
+          <td><span class="pill pill-danger"><span class="pill-dot"></span>Blocked</span></td>
+          <td><code style="text-decoration:line-through;opacity:0.4;">MESSAGE_TAG</code></td>
+          <td class="dim">Error code 10 — no workaround</td>
+        </tr>
+        <tr>
+          <td>Contact messaged &gt;24h ago — app <strong>approved</strong> with <code>pages_messaging_subscriptions</code></td>
+          <td><span class="pill pill-success"><span class="pill-dot"></span>Works</span></td>
+          <td><code>MESSAGE_TAG</code></td>
+          <td class="dim">Tag: <code>CONFIRMED_EVENT_UPDATE</code></td>
+        </tr>
+        <tr>
+          <td>Magolis tries <code>CONFIRMED_EVENT_UPDATE</code>, falls back to <code>ACCOUNT_UPDATE</code>, then <code>POST_PURCHASE_UPDATE</code></td>
+          <td><span class="pill pill-info"><span class="pill-dot"></span>Auto-retry</span></td>
+          <td><code>MESSAGE_TAG</code></td>
+          <td class="dim">4-attempt fallback chain built into Magolis</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="fix-card">
+    <h3>How to unlock bulk messaging permanently <span class="fix-badge fb-badge">Meta App Review</span></h3>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">Go to <a href="https://developers.facebook.com" target="_blank">developers.facebook.com</a> → your app → <strong>App Review → Permissions and Features</strong>.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">Find <code>pages_messaging_subscriptions</code> and click <strong>Request</strong>.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">Provide a screen recording of your broadcast flow, a privacy policy URL, and a description of your use case.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-text">Once approved, Magolis automatically uses <code>MESSAGE_TAG</code> with <code>CONFIRMED_EVENT_UPDATE</code> — broadcasts reach all opted-in contacts at any time.</div>
+      </div>
+    </div>
+    <div class="tip">
+      <div class="tip-icon">💡</div>
+      <div class="tip-text"><strong>Quick workaround while waiting for approval:</strong> Ask your contacts to send any message to your Facebook Page (e.g. "Hi"), then run your broadcast within 24 hours. Their message opens the window and <code>RESPONSE</code> type works immediately.</div>
+    </div>
+  </div>
+
+  <hr class="divider"/>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SECTION 3: WhatsApp                            -->
+  <!-- ══════════════════════════════════════════════ -->
+  <p class="section-label">Section 3 — WhatsApp Business</p>
+  <h2 class="section-title">💬 WhatsApp Cloud API</h2>
+  <p class="section-desc">
+    WhatsApp Business Cloud API is the most capable bulk messaging channel. Messages go directly to recipients' WhatsApp numbers. No 24-hour window restriction applies — but outside an active conversation, you <em>must</em> use a pre-approved template.
+  </p>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Message Type</th>
+          <th>When to Use</th>
+          <th>Result</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Free-form message</strong></td>
+          <td>Contact messaged you within the last <strong>24 hours</strong></td>
+          <td><span class="pill pill-success"><span class="pill-dot"></span>Works — any content</span></td>
+        </tr>
+        <tr>
+          <td><strong>Template message</strong></td>
+          <td>First contact, or outside 24h window</td>
+          <td><span class="pill pill-warn"><span class="pill-dot"></span>Needs approved template</span></td>
+        </tr>
+        <tr>
+          <td><strong>Broadcast to list</strong></td>
+          <td>Bulk send to opted-in numbers</td>
+          <td><span class="pill pill-success"><span class="pill-dot"></span>Supported via Cloud API</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="fix-card">
+    <h3>WhatsApp Business setup in Magolis <span class="fix-badge wa-badge">Cloud API</span></h3>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">Go to <a href="https://developers.facebook.com" target="_blank">developers.facebook.com</a> → create an app → add <strong>WhatsApp</strong> product.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">Under <strong>WhatsApp → API Setup</strong>, get your <code>Access Token</code> and <code>Phone Number ID</code>.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">Set up your webhook URL: <code>https://magolis.onrender.com/webhook/whatsapp</code>. Verify token: set <code>WHATSAPP_VERIFY_TOKEN</code> env var.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-text">In <strong>WhatsApp → Message Templates</strong>, create and submit templates for approval (used for first contact or outside 24h window).</div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-text">Set <code>WHATSAPP_ACCESS_TOKEN</code>, <code>WHATSAPP_PHONE_ID</code>, and <code>WHATSAPP_VERIFY_TOKEN</code> in Render environment variables.</div>
+      </div>
+    </div>
+    <div class="tip">
+      <div class="tip-icon">📱</div>
+      <div class="tip-text"><strong>Contacts appear automatically:</strong> When someone sends a message to your WhatsApp Business number, the webhook saves them as a contact in Magolis — no manual entry needed.</div>
+    </div>
+  </div>
+
+  <hr class="divider"/>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SECTION 4: Instagram                           -->
+  <!-- ══════════════════════════════════════════════ -->
+  <p class="section-label">Section 4 — Instagram</p>
+  <h2 class="section-title">📸 Instagram Messaging API</h2>
+  <p class="section-desc">
+    Instagram DMs are accessible via the Facebook Graph API using your Page token — but your Instagram account must be a <strong>Business or Creator account linked to a Facebook Page</strong>. Without that link, the API returns error code 100.
+  </p>
+
+  <div class="info-note">
+    <div class="info-note-icon">ℹ️</div>
+    <div class="info-note-text">
+      <strong>Error code 100 — "nonexisting field"</strong> means your Instagram account is not linked to your Facebook Page. Go to <strong>Instagram Settings → Account → Linked Accounts</strong> and connect your Facebook Page. Magolis uses a 4-method fallback to find the Business ID but all methods require this link.
+    </div>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Requirement</th>
+          <th>Status check</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Instagram Business or Creator account</td>
+          <td class="dim">Required — Personal accounts cannot use the API</td>
+        </tr>
+        <tr>
+          <td>Account linked to a Facebook Page</td>
+          <td class="dim">Required — Without this, all API calls return error 100</td>
+        </tr>
+        <tr>
+          <td><code>FACEBOOK_PAGE_TOKEN</code> with <code>instagram_manage_messages</code></td>
+          <td class="dim">Required permission on the token</td>
+        </tr>
+        <tr>
+          <td>Contact must have messaged first</td>
+          <td class="dim">Instagram DM API only allows replies to inbound messages</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <hr class="divider"/>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SECTION 5: LinkedIn                            -->
+  <!-- ══════════════════════════════════════════════ -->
+  <p class="section-label">Section 5 — LinkedIn</p>
+  <h2 class="section-title">💼 LinkedIn API</h2>
+  <p class="section-desc">
+    LinkedIn's public API does not expose a DM or messaging endpoint. The Messaging API exists but is only available to approved CRM partners (HubSpot, Salesforce, etc.) — not to developers generally. The Conversions API is a <strong>tracking-only tool</strong> that sends event data back to LinkedIn for ad measurement; it cannot send any message to users.
+  </p>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>LinkedIn API</th>
+          <th>Purpose</th>
+          <th>Can send messages?</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>UGC Posts API</strong> (<code>/v2/ugcPosts</code>)</td>
+          <td class="dim">Publish posts to your LinkedIn feed</td>
+          <td><span class="pill pill-info"><span class="pill-dot"></span>Feed post (public)</span></td>
+        </tr>
+        <tr>
+          <td><strong>Messaging API</strong></td>
+          <td class="dim">Send DMs to connections</td>
+          <td><span class="pill pill-danger"><span class="pill-dot"></span>Partner access only</span></td>
+        </tr>
+        <tr>
+          <td><strong>Conversions API</strong></td>
+          <td class="dim">Send conversion event data to LinkedIn for ad attribution</td>
+          <td><span class="pill pill-danger"><span class="pill-dot"></span>No — tracking only</span></td>
+        </tr>
+        <tr>
+          <td><strong>Sponsored Messaging</strong></td>
+          <td class="dim">Paid DM-style ads via Campaign Manager</td>
+          <td><span class="pill pill-warn"><span class="pill-dot"></span">Paid ads — not an API</span></span></td>
+        </tr>
+        <tr>
+          <td><strong>InMail</strong></td>
+          <td class="dim">Outreach to non-connections</td>
+          <td><span class="pill pill-warn"><span class="pill-dot"></span>Manual only, credit-based</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="fix-card">
+    <h3>LinkedIn setup in Magolis <span class="fix-badge li-badge">UGC Posts API</span></h3>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">Go to <a href="https://www.linkedin.com/developers/apps" target="_blank">linkedin.com/developers/apps</a> → create an app → associate it with a LinkedIn Company Page.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">Under <strong>Products</strong>, request access to <strong>Share on LinkedIn</strong> (grants <code>w_member_social</code>) and <strong>Sign In with LinkedIn</strong> (grants <code>r_liteprofile</code>).</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">Generate an <strong>OAuth 2.0 access token</strong> via the OAuth 2.0 token generator in the developer portal. Copy the token.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-text">Set <code>LINKEDIN_ACCESS_TOKEN</code> in Render environment variables. Magolis will verify and display your LinkedIn profile name on connect.</div>
+      </div>
+    </div>
+    <div class="tip">
+      <div class="tip-icon">💡</div>
+      <div class="tip-text"><strong>Contacts:</strong> LinkedIn contacts must be added to Magolis manually or via CSV import (set platform = linkedin). There is no public API to retrieve your connections or followers as a contact list.</div>
+    </div>
+  </div>
+
+  <hr class="divider"/>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SECTION 6: Twitter / X                         -->
+  <!-- ══════════════════════════════════════════════ -->
+  <p class="section-label">Section 6 — Twitter / X</p>
+  <h2 class="section-title">𝕏 Twitter / X API</h2>
+  <p class="section-desc">
+    The Twitter API v2 supports DMs and tweets through Tweepy, but access is gated behind paid tiers since 2023. The free tier is read-only — no DMs, no posting. Bulk DMs require Elevated access which starts at $100/month (Basic tier) with strict rate limits.
+  </p>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Twitter API Tier</th>
+          <th>Cost</th>
+          <th>Post tweets</th>
+          <th>Send DMs</th>
+          <th>DM limit</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Free</strong></td>
+          <td class="dim">$0/month</td>
+          <td><span class="pill pill-danger"><span class="pill-dot"></span>No</span></td>
+          <td><span class="pill pill-danger"><span class="pill-dot"></span>No</span></td>
+          <td class="dim">Read-only</td>
+        </tr>
+        <tr>
+          <td><strong>Basic</strong></td>
+          <td class="dim">$100/month</td>
+          <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
+          <td><span class="pill pill-warn"><span class="pill-dot"></span>Limited</span></td>
+          <td class="dim">~1,000 DMs/day</td>
+        </tr>
+        <tr>
+          <td><strong>Pro</strong></td>
+          <td class="dim">$5,000/month</td>
+          <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
+          <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
+          <td class="dim">Higher limits</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="info-note">
+    <div class="info-note-icon">⚠️</div>
+    <div class="info-note-text">
+      <strong>DM restriction:</strong> Even on paid tiers, you can only send DMs to users who <strong>follow you</strong> or have <strong>open DMs</strong> enabled in their privacy settings. You cannot cold-DM arbitrary users even with a paid API key.
+    </div>
+  </div>
+
+  <div class="fix-card">
+    <h3>Twitter setup in Magolis <span class="fix-badge tw-badge">API v2</span></h3>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">Go to <a href="https://developer.twitter.com/en/portal/dashboard" target="_blank">developer.twitter.com</a> → create a project and app. Upgrade to Basic tier ($100/month) if you need to send DMs or post tweets.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">Under <strong>Keys and Tokens</strong>, generate: <strong>Bearer Token</strong>, <strong>API Key</strong>, <strong>API Secret</strong>, <strong>Access Token</strong>, <strong>Access Secret</strong>.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">Set all five in Render: <code>TWITTER_BEARER_TOKEN</code>, <code>TWITTER_API_KEY</code>, <code>TWITTER_API_SECRET</code>, <code>TWITTER_ACCESS_TOKEN</code>, <code>TWITTER_ACCESS_SECRET</code>.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-text">Magolis verifies the connection by calling <code>GET /2/users/me</code> and displays your Twitter username in the platform status panel.</div>
+      </div>
+    </div>
+    <div class="tip">
+      <div class="tip-icon">💡</div>
+      <div class="tip-text"><strong>Twitter "broadcast" in Magolis</strong> = posting a tweet to your timeline (reaches all followers). Individual DMs only work if the recipient follows you and the API tier allows it. Contacts must be added manually/CSV.</div>
+    </div>
+  </div>
+
+  <hr class="divider"/>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SECTION 7: Environment variables reference     -->
+  <!-- ══════════════════════════════════════════════ -->
+  <p class="section-label">Section 7 — Configuration reference</p>
+  <h2 class="section-title">⚙️ Render Environment Variables</h2>
+  <p class="section-desc">All environment variables required for full Magolis functionality. Set these under <strong>Render → Your Service → Environment</strong>.</p>
+
+  <p style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">Core</p>
+  <div class="env-grid" style="margin-bottom:28px;">
+    <div class="env-row"><span class="env-key">SECRET_KEY</span><span class="env-desc">Flask session secret — use a long random string</span></div>
+    <div class="env-row"><span class="env-key">DATABASE_URL</span><span class="env-desc">PostgreSQL connection string from Render Postgres</span></div>
+  </div>
+
+  <p style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">Facebook &amp; Instagram</p>
+  <div class="env-grid" style="margin-bottom:28px;">
+    <div class="env-row"><span class="env-key">FACEBOOK_PAGE_TOKEN</span><span class="env-desc">Page Access Token — used for Messenger and Instagram DMs</span></div>
+    <div class="env-row"><span class="env-key">FACEBOOK_PAGE_ID</span><span class="env-desc">Numeric Facebook Page ID</span></div>
+  </div>
+
+  <p style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">WhatsApp</p>
+  <div class="env-grid" style="margin-bottom:28px;">
+    <div class="env-row"><span class="env-key">WHATSAPP_ACCESS_TOKEN</span><span class="env-desc">WhatsApp Cloud API access token from Meta Developer Portal</span></div>
+    <div class="env-row"><span class="env-key">WHATSAPP_PHONE_ID</span><span class="env-desc">Phone Number ID (not the actual phone number)</span></div>
+    <div class="env-row"><span class="env-key">WHATSAPP_VERIFY_TOKEN</span><span class="env-desc">Custom string used to verify the webhook (e.g. <code>magolis_whatsapp_verify</code>)</span></div>
+  </div>
+
+  <p style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">Twitter / X</p>
+  <div class="env-grid" style="margin-bottom:28px;">
+    <div class="env-row"><span class="env-key">TWITTER_BEARER_TOKEN</span><span class="env-desc">App-only Bearer Token — required for all read operations and diagnose</span></div>
+    <div class="env-row"><span class="env-key">TWITTER_API_KEY</span><span class="env-desc">Consumer Key (API Key)</span></div>
+    <div class="env-row"><span class="env-key">TWITTER_API_SECRET</span><span class="env-desc">Consumer Secret (API Secret)</span></div>
+    <div class="env-row"><span class="env-key">TWITTER_ACCESS_TOKEN</span><span class="env-desc">User Access Token — required for posting and DMs</span></div>
+    <div class="env-row"><span class="env-key">TWITTER_ACCESS_SECRET</span><span class="env-desc">User Access Token Secret</span></div>
+  </div>
+
+  <p style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">LinkedIn</p>
+  <div class="env-grid" style="margin-bottom:28px;">
+    <div class="env-row"><span class="env-key">LINKEDIN_ACCESS_TOKEN</span><span class="env-desc">OAuth 2.0 token with <code>r_liteprofile</code> + <code>w_member_social</code> scopes</span></div>
+  </div>
+
+  <hr class="divider"/>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SECTION 8: Quick reference                     -->
+  <!-- ══════════════════════════════════════════════ -->
+  <p class="section-label">Section 8 — Quick reference</p>
+  <h2 class="section-title">🗂 Platform Broadcast Method Summary</h2>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Platform</th>
+          <th>Broadcast method in Magolis</th>
+          <th>Contacts source</th>
+          <th>API cost</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>📘 Facebook Messenger</td>
+          <td class="dim">DM via <code>/me/messages</code></td>
+          <td class="dim">Synced from Page conversations</td>
+          <td class="dim">Free (with Meta approval for bulk)</td>
+        </tr>
+        <tr>
+          <td>📸 Instagram</td>
+          <td class="dim">DM via <code>/{ig_id}/messages</code></td>
+          <td class="dim">Synced from IG conversations</td>
+          <td class="dim">Free (Business account required)</td>
+        </tr>
+        <tr>
+          <td>💬 WhatsApp Business</td>
+          <td class="dim">Message via <code>/{phone_id}/messages</code></td>
+          <td class="dim">Auto-saved via inbound webhook</td>
+          <td class="dim">Free (1,000 convos/month free)</td>
+        </tr>
+        <tr>
+          <td>💼 LinkedIn</td>
+          <td class="dim">Post via <code>/v2/ugcPosts</code></td>
+          <td class="dim">Manual / CSV import only</td>
+          <td class="dim">Free</td>
+        </tr>
+        <tr>
+          <td>𝕏 Twitter / X</td>
+          <td class="dim">Tweet via Tweepy v2</td>
+          <td class="dim">Manual / CSV import only</td>
+          <td class="dim">$100/month minimum for posting</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>Magolis · Platform API &amp; Messaging Policy Reference · May 2026 · <a href="https://magolis.onrender.com" style="color:inherit;">magolis.onrender.com</a></footer>
+
+</div>
+</body>
+</html>

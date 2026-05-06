@@ -315,75 +315,22 @@
                             </div>
                             
                             <div class="row g-2 mb-3">
-                                <div class="col-12">
-                                    <div class="card-modern">
-                                        <div class="card-header-modern d-flex justify-content-between align-items-center">
-                                            <span><i class="bi bi-people me-1"></i> Social Contacts</span>
-                                            <button class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2" id="meta-sync-btn" onclick="resyncCurrentMetaTab()" style="font-size:0.65rem;">
-                                                <i class="bi bi-arrow-clockwise me-1"></i> Refresh
-                                            </button>
+                                <div class="col-md-5">
+                                    <div class="card-modern h-100">
+                                        <div class="card-header-modern"><i class="bi bi-bar-chart-fill me-1"></i> Contacts by Platform</div>
+                                        <div class="card-body p-2" id="platform-breakdown-list">
+                                            <div class="text-muted text-center py-2" style="font-size:0.75rem;">Loading...</div>
                                         </div>
-                                        <div class="card-body p-0">
-                                            <ul class="nav nav-tabs px-2 pt-1" style="border-bottom: 1px solid #dee2e6;">
-                                                <li class="nav-item">
-                                                    <a class="nav-link active px-2 py-1" href="#" onclick="switchMetaTab('facebook'); return false;" style="font-size:0.75rem;">
-                                                        <i class="bi bi-facebook text-primary"></i> <span class="d-none d-sm-inline">Facebook</span>
-                                                    </a>
-                                                </li>
-                                                <li class="nav-item">
-                                                    <a class="nav-link px-2 py-1" href="#" onclick="switchMetaTab('instagram'); return false;" style="font-size:0.75rem;">
-                                                        <i class="bi bi-instagram" style="color:#e1306c;"></i> <span class="d-none d-sm-inline">Instagram</span>
-                                                    </a>
-                                                </li>
-                                                <li class="nav-item">
-                                                    <a class="nav-link px-2 py-1" href="#" onclick="switchMetaTab('whatsapp'); return false;" style="font-size:0.75rem;">
-                                                        <i class="bi bi-whatsapp text-success"></i> <span class="d-none d-sm-inline">WhatsApp</span>
-                                                    </a>
-                                                </li>
-                                                <li class="nav-item">
-                                                    <a class="nav-link px-2 py-1" href="#" onclick="switchMetaTab('linkedin'); return false;" style="font-size:0.75rem;">
-                                                        <i class="bi bi-linkedin" style="color:#0a66c2;"></i> <span class="d-none d-sm-inline">LinkedIn</span>
-                                                    </a>
-                                                </li>
-                                                <li class="nav-item">
-                                                    <a class="nav-link px-2 py-1" href="#" onclick="switchMetaTab('twitter'); return false;" style="font-size:0.75rem;">
-                                                        <i class="bi bi-twitter-x"></i> <span class="d-none d-sm-inline">Twitter</span>
-                                                    </a>
-                                                </li>
-                                            </ul>
-                                            <div id="facebook-contacts-list" class="contact-scroll">
-                                                <div class="text-center p-2 text-muted" style="font-size:0.7rem;">
-                                                    <i class="bi bi-chat-dots fs-6"></i>
-                                                    <p class="mt-1 mb-0">Click "Sync FB" to load Facebook contacts</p>
-                                                </div>
-                                            </div>
-                                            <div id="instagram-contacts-list" class="contact-scroll" style="display: none;">
-                                                <div class="text-center p-2 text-muted" style="font-size:0.7rem;">
-                                                    <i class="bi bi-instagram fs-6"></i>
-                                                    <p class="mt-1 mb-0">Click "Sync IG" to load Instagram contacts</p>
-                                                </div>
-                                            </div>
-                                            <div id="whatsapp-contacts-list" class="contact-scroll" style="display: none;">
-                                                <div class="text-center p-2 text-muted" style="font-size:0.7rem;">
-                                                    <i class="bi bi-whatsapp fs-6 text-success"></i>
-                                                    <p class="mt-1 mb-0">Click "Sync WA" to load WhatsApp contacts</p>
-                                                    <p class="mb-0" style="font-size:0.6rem;">Contacts appear here after they message your WhatsApp Business number</p>
-                                                </div>
-                                            </div>
-                                            <div id="linkedin-contacts-list" class="contact-scroll" style="display: none;">
-                                                <div class="text-center p-2 text-muted" style="font-size:0.7rem;">
-                                                    <i class="bi bi-linkedin fs-4" style="color:#0a66c2;"></i>
-                                                    <p class="mt-1 mb-0">LinkedIn contacts</p>
-                                                    <p class="mb-0" style="font-size:0.6rem;">Add contacts manually or via CSV. LinkedIn has no public contacts API.</p>
-                                                </div>
-                                            </div>
-                                            <div id="twitter-contacts-list" class="contact-scroll" style="display: none;">
-                                                <div class="text-center p-2 text-muted" style="font-size:0.7rem;">
-                                                    <i class="bi bi-twitter-x fs-4"></i>
-                                                    <p class="mt-1 mb-0">Twitter contacts</p>
-                                                    <p class="mb-0" style="font-size:0.6rem;">Add contacts manually or via CSV import.</p>
-                                                </div>
-                                            </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-7">
+                                    <div class="card-modern h-100">
+                                        <div class="card-header-modern d-flex justify-content-between align-items-center">
+                                            <span><i class="bi bi-clock-history me-1"></i> Recent Broadcasts</span>
+                                            <a href="#" class="text-muted" onclick="showTab('broadcast'); return false;" style="font-size:0.65rem;">View all &rsaquo;</a>
+                                        </div>
+                                        <div class="card-body p-0" style="max-height:220px;overflow-y:auto;" id="dash-recent-broadcasts">
+                                            <div class="text-muted text-center py-3" style="font-size:0.75rem;">Loading...</div>
                                         </div>
                                     </div>
                                 </div>
@@ -531,7 +478,7 @@
     <script>
         const socket = io({ transports: ['websocket', 'polling'] });
         socket.on('connect', () => console.log('Socket connected'));
-        socket.on('broadcast_completed', (data) => { showToast('Broadcast Done', `${data.sent}/${data.total} sent`, 'success'); loadBroadcasts(); });
+        socket.on('broadcast_completed', (data) => { showToast('Broadcast Done', `${data.sent}/${data.total} sent`, 'success'); loadBroadcasts(); loadDashboardRecentBroadcasts(); loadDashboardStats(); });
         
         let currentMetaTab = 'facebook';
         
@@ -573,7 +520,7 @@
             document.getElementById(`${tabName}-tab`).style.display = 'block';
             document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
             if(event && event.target) event.target.closest('.nav-link').classList.add('active');
-            if(tabName === 'dashboard') { loadDashboardStats(); loadPlatformStatus(); if(!_metaSynced.facebook){ _metaSynced.facebook=true; syncFacebookContacts(); } }
+            if(tabName === 'dashboard') { loadDashboardStats(); loadPlatformStatus(); loadDashboardRecentBroadcasts(); }
             if(tabName === 'contacts') loadContacts();
             if(tabName === 'history') loadMessageHistory();
             if(tabName === 'broadcast') { loadBroadcasts(); updateRecipientCount(); }
@@ -782,7 +729,76 @@
         
         function showModal(title, bodyHtml){ let modalDiv = document.createElement('div'); modalDiv.innerHTML = `<div class="modal fade" id="tempModal"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header bg-white border-0 py-1"><h6 class="modal-title fw-bold">${title}</h6><button type="button" class="btn-close btn-close-sm" data-bs-dismiss="modal"></button></div><div class="modal-body" style="max-height:50vh;overflow:auto;">${bodyHtml}</div><div class="modal-footer border-0 py-1"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button></div></div></div></div>`; document.body.appendChild(modalDiv); let modal = new bootstrap.Modal(document.getElementById('tempModal')); modal.show(); modalDiv.addEventListener('hidden.bs.modal',()=>modalDiv.remove()); }
         
-        async function loadDashboardStats() { try { let r = await fetch('/api/dashboard/stats'); let d = await r.json(); if(d.success){ document.getElementById('total-contacts').innerText = d.stats.total_contacts; document.getElementById('opted-in-contacts').innerText = d.stats.opted_in_contacts; document.getElementById('sent-messages').innerText = d.stats.sent_messages; document.getElementById('total-broadcasts').innerText = d.stats.total_broadcasts; } } catch(e){} }
+        const platformMeta = {
+            facebook:  { icon: 'bi-facebook',  color: '#1877F2' },
+            instagram: { icon: 'bi-instagram',  color: '#e1306c' },
+            whatsapp:  { icon: 'bi-whatsapp',   color: '#25D366' },
+            linkedin:  { icon: 'bi-linkedin',   color: '#0a66c2' },
+            twitter:   { icon: 'bi-twitter-x',  color: '#000'    },
+        };
+
+        async function loadDashboardStats() {
+            try {
+                let r = await fetch('/api/dashboard/stats');
+                let d = await r.json();
+                if (d.success) {
+                    document.getElementById('total-contacts').innerText   = d.stats.total_contacts   || 0;
+                    document.getElementById('opted-in-contacts').innerText = d.stats.opted_in_contacts || 0;
+                    document.getElementById('sent-messages').innerText    = d.stats.sent_messages    || 0;
+                    document.getElementById('total-broadcasts').innerText  = d.stats.total_broadcasts  || 0;
+                    // Platform breakdown
+                    const breakdown = d.stats.contacts_by_platform || [];
+                    const maxCount  = Math.max(...breakdown.map(p => p.count), 1);
+                    const el = document.getElementById('platform-breakdown-list');
+                    if (breakdown.length) {
+                        el.innerHTML = breakdown.map(p => {
+                            const m = platformMeta[p.platform] || { icon: 'bi-circle', color: '#888' };
+                            const pct = Math.round((p.count / maxCount) * 100);
+                            return `<div class="mb-2">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span style="font-size:0.75rem;"><i class="bi ${m.icon} me-1" style="color:${m.color};"></i>${p.platform.charAt(0).toUpperCase()+p.platform.slice(1)}</span>
+                                    <span class="fw-bold" style="font-size:0.75rem;">${p.count}</span>
+                                </div>
+                                <div class="progress" style="height:4px;border-radius:2px;">
+                                    <div class="progress-bar" style="width:${pct}%;background:${m.color};border-radius:2px;"></div>
+                                </div>
+                            </div>`;
+                        }).join('');
+                    } else {
+                        el.innerHTML = '<div class="text-muted text-center py-2" style="font-size:0.75rem;">No contacts yet</div>';
+                    }
+                }
+            } catch(e) {}
+        }
+
+        async function loadDashboardRecentBroadcasts() {
+            const el = document.getElementById('dash-recent-broadcasts');
+            try {
+                const res  = await fetch('/api/broadcasts');
+                const data = await res.json();
+                if (data.success && data.broadcasts?.length) {
+                    el.innerHTML = data.broadcasts.slice(0, 5).map(b => {
+                        const statusClass = b.status === 'completed' ? 'text-success' : b.status === 'processing' ? 'text-primary' : b.status === 'cancelled' ? 'text-secondary' : 'text-danger';
+                        const statusIcon  = b.status === 'completed' ? 'bi-check-circle-fill' : b.status === 'processing' ? 'bi-arrow-repeat' : b.status === 'cancelled' ? 'bi-slash-circle' : 'bi-x-circle-fill';
+                        const m = platformMeta[b.platform] || { icon: 'bi-circle', color: '#888' };
+                        const pct = b.total_recipients > 0 ? Math.round(b.sent_count / b.total_recipients * 100) : 0;
+                        return `<div class="px-2 py-2 border-bottom">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span style="font-size:0.78rem;font-weight:600;">${escapeHtml(b.name)}</span>
+                                <span class="${statusClass}" style="font-size:0.7rem;"><i class="bi ${statusIcon} me-1"></i>${b.status}</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-1">
+                                <span style="font-size:0.7rem;color:#888;"><i class="bi ${m.icon} me-1" style="color:${m.color};"></i>${b.platform} &middot; ${b.sent_count}/${b.total_recipients} sent</span>
+                                <span style="font-size:0.65rem;color:#aaa;">${new Date(b.created_at).toLocaleDateString()}</span>
+                            </div>
+                            <div class="progress mt-1" style="height:2px;"><div class="progress-bar" style="width:${pct}%;background:${m.color};"></div></div>
+                        </div>`;
+                    }).join('');
+                } else {
+                    el.innerHTML = '<div class="text-center py-3 text-muted" style="font-size:0.75rem;"><i class="bi bi-megaphone mb-1 d-block fs-5"></i>No broadcasts yet</div>';
+                }
+            } catch(e) { el.innerHTML = '<div class="text-center py-2 text-muted" style="font-size:0.75rem;">Could not load</div>'; }
+        }
         
         async function loadPlatformStatus(){ try { let r=await fetch('/api/status'); let s=await r.json(); let html=''; for(let [k,v] of Object.entries(s)) if(k!=='linkedin') html+=`<div class="d-flex justify-content-between align-items-center p-1 border-bottom"><div><i class="bi bi-${k} me-1"></i><strong>${k.charAt(0).toUpperCase()+k.slice(1)}</strong></div><span class="status-badge ${v.configured?'status-configured':'status-not-configured'}">${v.configured?'✓ Connected':'✗ Not set'}</span></div>`; document.getElementById('platform-status-list').innerHTML=html||'<div class="text-center p-2">No data</div>'; } catch(e){} }
         
