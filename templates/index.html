@@ -559,6 +559,170 @@
         </div>
     </div>
 
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <!-- PLATFORM GUIDE MODAL                                       -->
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <div class="modal fade" id="platformGuideModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header border-0 py-2 px-3" style="background:#0B2B4F;">
+            <span style="color:#fff;font-weight:700;font-size:0.88rem;"><i class="bi bi-journal-text me-2" style="color:#D4AF37;"></i>Platform API Guide</span>
+            <button type="button" class="btn-close btn-close-white btn-close-sm ms-auto" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <!-- left nav -->
+            <div class="pg-sidebar">
+              <button class="pg-sidebar-btn active" onclick="pgSwitch('overview',this)"><i class="bi bi-grid-1x2-fill"></i>Overview</button>
+              <button class="pg-sidebar-btn" onclick="pgSwitch('facebook',this)"><i class="bi bi-facebook" style="color:#1877F2;"></i>Facebook</button>
+              <button class="pg-sidebar-btn" onclick="pgSwitch('instagram',this)"><i class="bi bi-instagram" style="color:#e1306c;"></i>Instagram</button>
+              <button class="pg-sidebar-btn" onclick="pgSwitch('whatsapp',this)"><i class="bi bi-whatsapp" style="color:#25D366;"></i>WhatsApp</button>
+              <button class="pg-sidebar-btn" onclick="pgSwitch('linkedin',this)"><i class="bi bi-linkedin" style="color:#0a66c2;"></i>LinkedIn</button>
+              <button class="pg-sidebar-btn" onclick="pgSwitch('twitter',this)"><i class="bi bi-twitter-x"></i>Twitter / X</button>
+              <button class="pg-sidebar-btn" onclick="pgSwitch('envvars',this)"><i class="bi bi-gear-fill" style="color:#D4AF37;"></i>Env Vars</button>
+            </div>
+
+            <!-- panels -->
+
+            <!-- OVERVIEW -->
+            <div class="pg-panel active" id="pg-overview">
+              <div class="pg-section-title">Platform Capabilities at a Glance</div>
+              <p class="pg-section-sub">What each platform supports via its public API as of 2026.</p>
+              <table class="pg-table">
+                <thead><tr><th>Feature</th><th>FB</th><th>IG</th><th>WA</th><th>LinkedIn</th><th>Twitter</th></tr></thead>
+                <tbody>
+                  <tr><td>Send DMs via API</td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-no">✗ No</span></td><td><span class="pg-pill pg-pill-warn">Paid</span></td></tr>
+                  <tr><td>Bulk broadcast</td><td><span class="pg-pill pg-pill-warn">Review needed</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-info">Feed post</span></td><td><span class="pg-pill pg-pill-info">Tweet</span></td></tr>
+                  <tr><td>Contacts API</td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-warn">Inbound only</span></td><td><span class="pg-pill pg-pill-no">✗ No</span></td><td><span class="pg-pill pg-pill-no">✗ No</span></td></tr>
+                  <tr><td>Free tier</td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-no">Read-only</span></td></tr>
+                  <tr><td>Inbound webhook</td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-no">✗ No</span></td><td><span class="pg-pill pg-pill-no">✗ No</span></td></tr>
+                  <tr><td>Magolis method</td><td style="color:#666;">Messenger DM</td><td style="color:#666;">Instagram DM</td><td style="color:#666;">Cloud API</td><td style="color:#666;">UGC post</td><td style="color:#666;">Tweet</td></tr>
+                </tbody>
+              </table>
+              <div class="pg-tip"><strong>💡 Best for bulk DMs:</strong> WhatsApp (direct to number, no 24h window for templates) and Instagram (business account required). Facebook requires Meta App Review for unrestricted bulk messaging.</div>
+            </div>
+
+            <!-- FACEBOOK -->
+            <div class="pg-panel" id="pg-facebook">
+              <div class="pg-section-title" style="color:#1877F2;"><i class="bi bi-facebook me-2"></i>Facebook Messenger</div>
+              <p class="pg-section-sub">The 24-hour messaging window is the main restriction. A contact must have messaged your Page within the last 24 hours for a standard reply. Outside that window you need Meta App Review approval.</p>
+              <table class="pg-table">
+                <thead><tr><th>Scenario</th><th>Result</th><th>Type</th></tr></thead>
+                <tbody>
+                  <tr><td>Contact messaged within <strong>24h</strong></td><td><span class="pg-pill pg-pill-yes">Works</span></td><td><code>RESPONSE</code></td></tr>
+                  <tr><td>Outside 24h — app <strong>not reviewed</strong></td><td><span class="pg-pill pg-pill-no">Blocked</span></td><td>Error code 10</td></tr>
+                  <tr><td>Outside 24h — app <strong>approved</strong></td><td><span class="pg-pill pg-pill-yes">Works</span></td><td><code>MESSAGE_TAG</code></td></tr>
+                  <tr><td>Magolis 4-tag fallback chain</td><td><span class="pg-pill pg-pill-info">Auto-retry</span></td><td><code>MESSAGE_TAG</code></td></tr>
+                </tbody>
+              </table>
+              <div style="font-size:0.78rem;font-weight:700;margin-bottom:10px;">How to unlock bulk messaging permanently</div>
+              <div class="pg-step"><div class="pg-step-num">1</div><div class="pg-step-text">Go to <strong>developers.facebook.com</strong> → your app → App Review → Permissions and Features.</div></div>
+              <div class="pg-step"><div class="pg-step-num">2</div><div class="pg-step-text">Find <code>pages_messaging_subscriptions</code> and click <strong>Request</strong>.</div></div>
+              <div class="pg-step"><div class="pg-step-num">3</div><div class="pg-step-text">Provide a screen recording of your broadcast flow, a privacy policy URL, and a use-case description.</div></div>
+              <div class="pg-step"><div class="pg-step-num">4</div><div class="pg-step-text">Once approved, Magolis automatically uses <code>MESSAGE_TAG</code> with <code>CONFIRMED_EVENT_UPDATE</code>.</div></div>
+              <div class="pg-tip"><strong>Quick workaround:</strong> Ask contacts to send any message to your Page (e.g. "Hi"), then broadcast within 24 hours. The <code>RESPONSE</code> type works immediately.</div>
+            </div>
+
+            <!-- INSTAGRAM -->
+            <div class="pg-panel" id="pg-instagram">
+              <div class="pg-section-title" style="color:#e1306c;"><i class="bi bi-instagram me-2"></i>Instagram</div>
+              <p class="pg-section-sub">Instagram DMs use the Facebook Graph API with your Page token. Your Instagram account must be a <strong>Business or Creator account linked to a Facebook Page</strong>. Without that link the API returns error 100.</p>
+              <div class="pg-note"><strong>Error code 100 — "nonexisting field"</strong> means your Instagram is not linked to your Facebook Page. Go to Instagram Settings → Account → Linked Accounts and connect the Page.</div>
+              <table class="pg-table">
+                <thead><tr><th>Requirement</th><th>Notes</th></tr></thead>
+                <tbody>
+                  <tr><td>Instagram Business or Creator account</td><td style="color:#666;">Personal accounts cannot use the API</td></tr>
+                  <tr><td>Account linked to a Facebook Page</td><td style="color:#666;">All API calls return error 100 without this</td></tr>
+                  <tr><td><code>instagram_manage_messages</code> permission</td><td style="color:#666;">Must be on your Page token</td></tr>
+                  <tr><td>Contact must have messaged first</td><td style="color:#666;">API only allows replies to inbound messages</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- WHATSAPP -->
+            <div class="pg-panel" id="pg-whatsapp">
+              <div class="pg-section-title" style="color:#128C7E;"><i class="bi bi-whatsapp me-2"></i>WhatsApp Business</div>
+              <p class="pg-section-sub">The most capable bulk channel. Messages go directly to phone numbers. To <strong>initiate</strong> contact you must use a Meta-approved template. Once the contact replies, free-form messages work for 24 hours.</p>
+              <div class="pg-step"><div class="pg-step-num">1</div><div class="pg-step-text">Go to <strong>developers.facebook.com</strong> → create an app → add WhatsApp product.</div></div>
+              <div class="pg-step"><div class="pg-step-num">2</div><div class="pg-step-text">Under <strong>WhatsApp → API Setup</strong>, copy your <code>Access Token</code> and <code>Phone Number ID</code>.</div></div>
+              <div class="pg-step"><div class="pg-step-num">3</div><div class="pg-step-text">Set webhook: <code>https://magolis.onrender.com/webhook/whatsapp</code>. Verify token = <code>WHATSAPP_VERIFY_TOKEN</code>.</div></div>
+              <div class="pg-step"><div class="pg-step-num">4</div><div class="pg-step-text">In <strong>WhatsApp → Message Templates</strong>, create and submit templates for first-contact scenarios.</div></div>
+              <div class="pg-step"><div class="pg-step-num">5</div><div class="pg-step-text">Set <code>WHATSAPP_ACCESS_TOKEN</code>, <code>WHATSAPP_PHONE_ID</code>, and <code>WHATSAPP_VERIFY_TOKEN</code> in Render.</div></div>
+              <div class="pg-tip"><strong>📱 Auto-contacts:</strong> When someone messages your WhatsApp Business number, the webhook saves them automatically — no manual entry needed.</div>
+            </div>
+
+            <!-- LINKEDIN -->
+            <div class="pg-panel" id="pg-linkedin">
+              <div class="pg-section-title" style="color:#0a66c2;"><i class="bi bi-linkedin me-2"></i>LinkedIn</div>
+              <p class="pg-section-sub">LinkedIn's public API has no DM endpoint. The Messaging API is only available to approved CRM partners. The Conversions API is a <strong>tracking-only tool</strong> — it cannot send messages. Magolis broadcasts = posting to your feed.</p>
+              <table class="pg-table">
+                <thead><tr><th>LinkedIn API</th><th>Purpose</th><th>Sends messages?</th></tr></thead>
+                <tbody>
+                  <tr><td><strong>UGC Posts</strong> (<code>/v2/ugcPosts</code>)</td><td style="color:#666;">Post to LinkedIn feed</td><td><span class="pg-pill pg-pill-info">Feed post only</span></td></tr>
+                  <tr><td><strong>Messaging API</strong></td><td style="color:#666;">Send DMs</td><td><span class="pg-pill pg-pill-no">Partner access only</span></td></tr>
+                  <tr><td><strong>Conversions API</strong></td><td style="color:#666;">Ad attribution tracking</td><td><span class="pg-pill pg-pill-no">No — tracking only</span></td></tr>
+                  <tr><td><strong>Sponsored Messaging</strong></td><td style="color:#666;">Paid DM-style ads</td><td><span class="pg-pill pg-pill-warn">Paid ads, not API</span></td></tr>
+                </tbody>
+              </table>
+              <div class="pg-step"><div class="pg-step-num">1</div><div class="pg-step-text">Go to <strong>linkedin.com/developers/apps</strong> → create app → associate with a Company Page.</div></div>
+              <div class="pg-step"><div class="pg-step-num">2</div><div class="pg-step-text">Request <strong>Share on LinkedIn</strong> (<code>w_member_social</code>) and <strong>Sign In with LinkedIn</strong> (<code>r_liteprofile</code>).</div></div>
+              <div class="pg-step"><div class="pg-step-num">3</div><div class="pg-step-text">Generate an OAuth 2.0 access token in the developer portal and set <code>LINKEDIN_ACCESS_TOKEN</code> in Render.</div></div>
+              <div class="pg-tip"><strong>Contacts:</strong> LinkedIn contacts must be added manually or via CSV import (set platform = linkedin). There is no public API to retrieve connections.</div>
+            </div>
+
+            <!-- TWITTER -->
+            <div class="pg-panel" id="pg-twitter">
+              <div class="pg-section-title"><i class="bi bi-twitter-x me-2"></i>Twitter / X</div>
+              <p class="pg-section-sub">Twitter API v2 supports DMs and tweets via Tweepy, but access is gated behind paid tiers since 2023. Free tier is <strong>read-only</strong>. Bulk DMs require Basic tier ($100/month) with strict rate limits.</p>
+              <table class="pg-table">
+                <thead><tr><th>Tier</th><th>Cost</th><th>Post tweets</th><th>Send DMs</th><th>DM limit</th></tr></thead>
+                <tbody>
+                  <tr><td><strong>Free</strong></td><td style="color:#666;">$0/mo</td><td><span class="pg-pill pg-pill-no">No</span></td><td><span class="pg-pill pg-pill-no">No</span></td><td style="color:#666;">Read-only</td></tr>
+                  <tr><td><strong>Basic</strong></td><td style="color:#666;">$100/mo</td><td><span class="pg-pill pg-pill-yes">Yes</span></td><td><span class="pg-pill pg-pill-warn">Limited</span></td><td style="color:#666;">~1,000/day</td></tr>
+                  <tr><td><strong>Pro</strong></td><td style="color:#666;">$5,000/mo</td><td><span class="pg-pill pg-pill-yes">Yes</span></td><td><span class="pg-pill pg-pill-yes">Yes</span></td><td style="color:#666;">Higher</td></tr>
+                </tbody>
+              </table>
+              <div class="pg-note"><strong>DM restriction:</strong> Even on paid tiers, you can only DM users who follow you or have open DMs enabled. You cannot cold-DM arbitrary users.</div>
+              <div class="pg-step"><div class="pg-step-num">1</div><div class="pg-step-text">Go to <strong>developer.twitter.com</strong> → create a project and app. Upgrade to Basic tier for posting/DMs.</div></div>
+              <div class="pg-step"><div class="pg-step-num">2</div><div class="pg-step-text">Under Keys and Tokens, generate: Bearer Token, API Key, API Secret, Access Token, Access Secret.</div></div>
+              <div class="pg-step"><div class="pg-step-num">3</div><div class="pg-step-text">Set all five in Render environment variables (see <button class="btn btn-link p-0" style="font-size:0.78rem;vertical-align:baseline;" onclick="pgSwitch('envvars',null)">Env Vars tab</button>).</div></div>
+              <div class="pg-tip"><strong>Twitter "broadcast" in Magolis</strong> = posting a tweet to your timeline. Individual DMs only work if the recipient follows you and your tier allows it.</div>
+            </div>
+
+            <!-- ENV VARS -->
+            <div class="pg-panel" id="pg-envvars">
+              <div class="pg-section-title"><i class="bi bi-gear-fill me-2" style="color:#D4AF37;"></i>Render Environment Variables</div>
+              <p class="pg-section-sub">Set these under <strong>Render → Your Service → Environment</strong>. All are required for full functionality.</p>
+
+              <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;color:#888;margin:12px 0 6px;">Core</div>
+              <div class="pg-env-row"><span class="pg-env-key">SECRET_KEY</span><span class="pg-env-desc">Flask session secret — use a long random string</span></div>
+              <div class="pg-env-row"><span class="pg-env-key">DATABASE_URL</span><span class="pg-env-desc">PostgreSQL connection string from Render Postgres</span></div>
+
+              <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;color:#888;margin:12px 0 6px;">Facebook &amp; Instagram</div>
+              <div class="pg-env-row"><span class="pg-env-key">FACEBOOK_PAGE_TOKEN</span><span class="pg-env-desc">Page Access Token — used for Messenger and Instagram DMs</span></div>
+              <div class="pg-env-row"><span class="pg-env-key">FACEBOOK_PAGE_ID</span><span class="pg-env-desc">Numeric Facebook Page ID</span></div>
+
+              <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;color:#888;margin:12px 0 6px;">WhatsApp</div>
+              <div class="pg-env-row"><span class="pg-env-key">WHATSAPP_ACCESS_TOKEN</span><span class="pg-env-desc">WhatsApp Cloud API access token from Meta Developer Portal</span></div>
+              <div class="pg-env-row"><span class="pg-env-key">WHATSAPP_PHONE_ID</span><span class="pg-env-desc">Phone Number ID (not the actual phone number)</span></div>
+              <div class="pg-env-row"><span class="pg-env-key">WHATSAPP_VERIFY_TOKEN</span><span class="pg-env-desc">Custom string to verify the webhook (e.g. <code>magolis_whatsapp_verify</code>)</span></div>
+
+              <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;color:#888;margin:12px 0 6px;">Twitter / X</div>
+              <div class="pg-env-row"><span class="pg-env-key">TWITTER_BEARER_TOKEN</span><span class="pg-env-desc">App-only Bearer Token — required for all read operations</span></div>
+              <div class="pg-env-row"><span class="pg-env-key">TWITTER_API_KEY</span><span class="pg-env-desc">Consumer Key (API Key)</span></div>
+              <div class="pg-env-row"><span class="pg-env-key">TWITTER_API_SECRET</span><span class="pg-env-desc">Consumer Secret (API Secret)</span></div>
+              <div class="pg-env-row"><span class="pg-env-key">TWITTER_ACCESS_TOKEN</span><span class="pg-env-desc">User Access Token — required for posting and DMs</span></div>
+              <div class="pg-env-row"><span class="pg-env-key">TWITTER_ACCESS_SECRET</span><span class="pg-env-desc">User Access Token Secret</span></div>
+
+              <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;color:#888;margin:12px 0 6px;">LinkedIn</div>
+              <div class="pg-env-row"><span class="pg-env-key">LINKEDIN_ACCESS_TOKEN</span><span class="pg-env-desc">OAuth 2.0 token with <code>r_liteprofile</code> + <code>w_member_social</code> scopes</span></div>
+            </div>
+
+          </div><!-- end modal-body -->
+        </div>
+      </div>
+    </div>
+    <!-- END PLATFORM GUIDE MODAL -->
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         const socket = io({ transports: ['websocket', 'polling'] });
@@ -568,6 +732,25 @@
         let currentMetaTab = 'facebook';
         
         function toggleSidebar() { document.getElementById('sidebar').classList.toggle('show'); }
+
+        function openPlatformGuide() {
+            new bootstrap.Modal(document.getElementById('platformGuideModal')).show();
+            if(window.innerWidth < 768) document.getElementById('sidebar')?.classList.remove('show');
+        }
+
+        function pgSwitch(section, btn) {
+            document.querySelectorAll('.pg-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.pg-sidebar-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('pg-' + section).classList.add('active');
+            if (btn) btn.classList.add('active');
+            else {
+                // called from link inside a panel (no btn ref) — find by section
+                document.querySelectorAll('.pg-sidebar-btn').forEach(b => {
+                    if (b.getAttribute('onclick')?.includes("'" + section + "'")) b.classList.add('active');
+                });
+                new bootstrap.Modal(document.getElementById('platformGuideModal')).show();
+            }
+        }
         
         const _metaSynced = { facebook: false, instagram: false, whatsapp: false, linkedin: false, twitter: false };
 
