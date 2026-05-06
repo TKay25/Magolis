@@ -787,61 +787,60 @@ def instagram_webhook():
 class InstagramAdapter:
     def __init__(self):
         self.access_token = os.getenv('FACEBOOK_PAGE_TOKEN')
-        self.business_id = os.getenv('INSTAGRAM_BUSINESS_ID')
-        self.is_configured = bool(self.access_token and self.business_id)
+        self.page_id = os.getenv('FACEBOOK_PAGE_ID')
+        self.instagram_business_id = None
+        self.is_configured = bool(self.access_token and self.page_id)
         
-        # Log configuration status
+        # Cache Instagram Business ID on init
         if self.is_configured:
-            logger.info(f"Instagram Adapter: Configured with Business ID: {self.business_id}")
-        else:
-            logger.warning(f"Instagram Adapter: Not configured. Token: {bool(self.access_token)}, Business ID: {bool(self.business_id)}")
+            self._cache_business_id()
+    
+    def _cache_business_id(self):
+        """Get and cache Instagram Business Account ID"""
+        try:
+            url = f"https://graph.facebook.com/v18.0/{self.page_id}"
+            params = {
+                'access_token': self.access_token,
+                'fields': 'instagram_business_account'
+            }
+            response = requests.get(url, params=params)
+            data = response.json()
+            
+            if 'instagram_business_account' in data:
+                self.instagram_business_id = data['instagram_business_account']['id']
+                logger.info(f"Instagram Business ID loaded: {self.instagram_business_id}")
+            else:
+                logger.warning("No Instagram Business Account linked to Facebook Page")
+                self.is_configured = False
+        except Exception as e:
+            logger.error(f"Failed to get Instagram Business ID: {e}")
+            self.is_configured = False
     
     def get_conversations(self, limit=50):
-        """Fetch Instagram DM conversations"""
-        if not self.is_configured:
-            missing = []
-            if not self.access_token:
-                missing.append("FACEBOOK_PAGE_TOKEN")
-            if not self.business_id:
-                missing.append("INSTAGRAM_BUSINESS_ID")
-            return {'success': False, 'error': f'Missing: {", ".join(missing)}'}
+        if not self.is_configured or not self.instagram_business_id:
+            return {'success': False, 'error': 'Instagram not configured - no Business Account'}
         
-        url = f"https://graph.facebook.com/v18.0/{self.business_id}/conversations"
+        url = f"https://graph.facebook.com/v18.0/{self.instagram_business_id}/conversations"
         params = {
             'access_token': self.access_token,
-            'fields': 'participants,updated_time,messages.limit(1){message,created_time}',
+            'fields': 'participants,updated_time,messages.limit(1){text,created_time,from}',
             'limit': limit
         }
-        
-        logger.info(f"Instagram API Request URL: {url}")
         
         try:
             response = requests.get(url, params=params)
             data = response.json()
             
-            # Log the full response for debugging
-            logger.info(f"Instagram API Response Status: {response.status_code}")
-            logger.info(f"Instagram API Response: {json.dumps(data, indent=2)}")
-            
-            if response.status_code != 200:
-                error_msg = data.get('error', {}).get('message', 'Unknown error')
-                error_code = data.get('error', {}).get('code', 0)
-                error_subcode = data.get('error', {}).get('error_subcode', 0)
-                return {
-                    'success': False, 
-                    'error': f"[{error_code}:{error_subcode}] {error_msg}",
-                    'details': data.get('error', {})
-                }
-            
             if 'error' in data:
-                return {'success': False, 'error': data['error']['message']}
+                return {'success': False, 'error': data['error'].get('message')}
             
             conversations = []
             for conv in data.get('data', []):
                 participants = conv.get('participants', {}).get('data', [])
                 user_participant = None
+                
                 for p in participants:
-                    if p.get('id') != self.business_id:
+                    if p.get('id') != self.instagram_business_id and p.get('id') != self.page_id:
                         user_participant = p
                         break
                 
@@ -852,15 +851,71 @@ class InstagramAdapter:
                     conversations.append({
                         'psid': user_participant['id'],
                         'name': user_participant.get('name', 'Instagram User'),
-                        'last_message': last_message.get('message', '') if last_message else None,
+                        'last_message': last_message.get('text', '') if last_message else None,
                         'last_interaction': conv.get('updated_time')
                     })
             
             return {'success': True, 'conversations': conversations}
+            
         except Exception as e:
-            logger.error(f"Instagram API exception: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def get_conversation_history(self, psid, limit=100):
+        if not self.is_configured or not self.instagram_business_id:
+            return []
+        
+        url = f"https://graph.facebook.com/v18.0/{self.instagram_business_id}/conversations"
+        params = {
+            'access_token': self.access_token,
+            'fields': f'messages{{text,created_time,from,id}}',
+            'user_id': psid,
+            'limit': limit
+        }
+        
+        try:
+            response = requests.get(url, params=params)
+            data = response.json()
+            
+            messages = []
+            for conv in data.get('data', []):
+                for msg in conv.get('messages', {}).get('data', []):
+                    messages.append({
+                        'id': msg.get('id'),
+                        'content': msg.get('text', ''),
+                        'timestamp': msg.get('created_time'),
+                        'direction': 'incoming' if msg.get('from', {}).get('id') != self.instagram_business_id else 'outgoing'
+                    })
+            
+            return sorted(messages, key=lambda x: x['timestamp'])
+            
+        except Exception as e:
+            logger.error(f"Conversation history error: {e}")
+            return []
+    
+    def send_message(self, recipient_id, content):
+        if not self.is_configured:
+            return {'success': False, 'error': 'Instagram not configured'}
+        
+        url = f"https://graph.facebook.com/v18.0/{self.page_id}/messages"
+        payload = {
+            "recipient": {"id": recipient_id},
+            "message": {"text": content},
+            "messaging_type": "RESPONSE"
+        }
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json"
+        }
+        
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=30)
+            if response.status_code == 200:
+                return {'success': True, 'platform': 'instagram'}
+            return {'success': False, 'error': f'HTTP {response.status_code}: {response.text}'}
+        except Exception as e:
             return {'success': False, 'error': str(e)}
 
+            
 class LinkedInAdapter:
     def __init__(self):
         self.access_token = os.getenv('LINKEDIN_ACCESS_TOKEN')
