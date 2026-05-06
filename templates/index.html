@@ -614,12 +614,9 @@
                   <tr><td>Magolis 4-tag fallback chain</td><td><span class="pg-pill pg-pill-info">Auto-retry</span></td><td><code>MESSAGE_TAG</code></td></tr>
                 </tbody>
               </table>
-              <div style="font-size:0.78rem;font-weight:700;margin-bottom:10px;">How to unlock bulk messaging permanently</div>
-              <div class="pg-step"><div class="pg-step-num">1</div><div class="pg-step-text">Go to <strong>developers.facebook.com</strong> → your app → App Review → Permissions and Features.</div></div>
-              <div class="pg-step"><div class="pg-step-num">2</div><div class="pg-step-text">Find <code>pages_messaging_subscriptions</code> and click <strong>Request</strong>.</div></div>
-              <div class="pg-step"><div class="pg-step-num">3</div><div class="pg-step-text">Provide a screen recording of your broadcast flow, a privacy policy URL, and a use-case description.</div></div>
-              <div class="pg-step"><div class="pg-step-num">4</div><div class="pg-step-text">Once approved, Magolis automatically uses <code>MESSAGE_TAG</code> with <code>CONFIRMED_EVENT_UPDATE</code>.</div></div>
-              <div class="pg-tip"><strong>Quick workaround:</strong> Ask contacts to send any message to your Page (e.g. "Hi"), then broadcast within 24 hours. The <code>RESPONSE</code> type works immediately.</div>
+              <div style="font-size:0.78rem;font-weight:700;margin-bottom:10px;">Unlocking bulk messaging</div>
+              <p style="font-size:0.77rem;color:#555;line-height:1.65;">Bulk messaging outside the 24-hour window requires <strong>Meta App Review</strong> approval for the <code>pages_messaging_subscriptions</code> permission. Once granted, Magolis handles the messaging logic automatically — no changes needed on your end. Contact your system administrator to initiate the review process.</p>
+              <div class="pg-tip"><strong>Quick workaround:</strong> Ask contacts to send any message to your Page first, then broadcast within 24 hours. No special permissions needed.</div>
             </div>
 
             <!-- INSTAGRAM -->
@@ -642,11 +639,7 @@
             <div class="pg-panel" id="pg-whatsapp">
               <div class="pg-section-title" style="color:#128C7E;"><i class="bi bi-whatsapp me-2"></i>WhatsApp Business</div>
               <p class="pg-section-sub">The most capable bulk channel. Messages go directly to phone numbers. To <strong>initiate</strong> contact you must use a Meta-approved template. Once the contact replies, free-form messages work for 24 hours.</p>
-              <div class="pg-step"><div class="pg-step-num">1</div><div class="pg-step-text">Go to <strong>developers.facebook.com</strong> → create an app → add WhatsApp product.</div></div>
-              <div class="pg-step"><div class="pg-step-num">2</div><div class="pg-step-text">Under <strong>WhatsApp → API Setup</strong>, copy your <code>Access Token</code> and <code>Phone Number ID</code>.</div></div>
-              <div class="pg-step"><div class="pg-step-num">3</div><div class="pg-step-text">Set webhook: <code>https://magolis.onrender.com/webhook/whatsapp</code>. Verify token = <code>WHATSAPP_VERIFY_TOKEN</code>.</div></div>
-              <div class="pg-step"><div class="pg-step-num">4</div><div class="pg-step-text">In <strong>WhatsApp → Message Templates</strong>, create and submit templates for first-contact scenarios.</div></div>
-              <div class="pg-step"><div class="pg-step-num">5</div><div class="pg-step-text">Set <code>WHATSAPP_ACCESS_TOKEN</code>, <code>WHATSAPP_PHONE_ID</code>, and <code>WHATSAPP_VERIFY_TOKEN</code> in Render.</div></div>
+              <p style="font-size:0.77rem;color:#555;line-height:1.65;">WhatsApp Business is pre-configured in this system. The required credentials (<code>Access Token</code>, <code>Phone Number ID</code>, and webhook verification token) are managed by the system administrator via environment variables. Contact your admin to update or rotate credentials.</p>
               <div class="pg-tip"><strong>📱 Auto-contacts:</strong> When someone messages your WhatsApp Business number, the webhook saves them automatically — no manual entry needed.</div>
             </div>
 
@@ -663,9 +656,7 @@
                   <tr><td><strong>Sponsored Messaging</strong></td><td style="color:#666;">Paid DM-style ads</td><td><span class="pg-pill pg-pill-warn">Paid ads, not API</span></td></tr>
                 </tbody>
               </table>
-              <div class="pg-step"><div class="pg-step-num">1</div><div class="pg-step-text">Go to <strong>linkedin.com/developers/apps</strong> → create app → associate with a Company Page.</div></div>
-              <div class="pg-step"><div class="pg-step-num">2</div><div class="pg-step-text">Request <strong>Share on LinkedIn</strong> (<code>w_member_social</code>) and <strong>Sign In with LinkedIn</strong> (<code>r_liteprofile</code>).</div></div>
-              <div class="pg-step"><div class="pg-step-num">3</div><div class="pg-step-text">Generate an OAuth 2.0 access token in the developer portal and set <code>LINKEDIN_ACCESS_TOKEN</code> in Render.</div></div>
+              <p style="font-size:0.77rem;color:#555;line-height:1.65;">LinkedIn integration requires an OAuth 2.0 access token with the appropriate posting permissions. Credentials are managed via environment variables by the system administrator. Broadcasts via LinkedIn publish a post to your organisation's feed — direct messaging is not available through the public API.</p>
               <div class="pg-tip"><strong>Contacts:</strong> LinkedIn contacts must be added manually or via CSV import (set platform = linkedin). There is no public API to retrieve connections.</div>
             </div>
 
@@ -682,16 +673,14 @@
                 </tbody>
               </table>
               <div class="pg-note"><strong>DM restriction:</strong> Even on paid tiers, you can only DM users who follow you or have open DMs enabled. You cannot cold-DM arbitrary users.</div>
-              <div class="pg-step"><div class="pg-step-num">1</div><div class="pg-step-text">Go to <strong>developer.twitter.com</strong> → create a project and app. Upgrade to Basic tier for posting/DMs.</div></div>
-              <div class="pg-step"><div class="pg-step-num">2</div><div class="pg-step-text">Under Keys and Tokens, generate: Bearer Token, API Key, API Secret, Access Token, Access Secret.</div></div>
-              <div class="pg-step"><div class="pg-step-num">3</div><div class="pg-step-text">Set all five in Render environment variables (see <button class="btn btn-link p-0" style="font-size:0.78rem;vertical-align:baseline;" onclick="pgSwitch('envvars',null)">Env Vars tab</button>).</div></div>
+              <p style="font-size:0.77rem;color:#555;line-height:1.65;">Twitter / X credentials are managed by the system administrator. Five tokens are required for full functionality (Bearer Token, API Key, API Secret, Access Token, Access Secret). The appropriate API tier must be active on the developer account. Contact your admin to verify or update the connection.</p>
               <div class="pg-tip"><strong>Twitter "broadcast" in Magolis</strong> = posting a tweet to your timeline. Individual DMs only work if the recipient follows you and your tier allows it.</div>
             </div>
 
             <!-- ENV VARS -->
             <div class="pg-panel" id="pg-envvars">
               <div class="pg-section-title"><i class="bi bi-gear-fill me-2" style="color:#D4AF37;"></i>Render Environment Variables</div>
-              <p class="pg-section-sub">Set these under <strong>Render → Your Service → Environment</strong>. All are required for full functionality.</p>
+              <p class="pg-section-sub">Reference list of environment variables used by this system. These are configured by the system administrator and are not accessible through the application interface.</p>
 
               <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;color:#888;margin:12px 0 6px;">Core</div>
               <div class="pg-env-row"><span class="pg-env-key">SECRET_KEY</span><span class="pg-env-desc">Flask session secret — use a long random string</span></div>
