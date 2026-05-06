@@ -591,6 +591,7 @@
               <button class="pg-sidebar-btn" onclick="pgSwitch('linkedin',this)"><i class="bi bi-linkedin" style="color:#0a66c2;"></i>LinkedIn</button>
               <button class="pg-sidebar-btn" onclick="pgSwitch('twitter',this)"><i class="bi bi-twitter-x"></i>Twitter / X</button>
               <button class="pg-sidebar-btn" onclick="pgSwitch('envvars',this)"><i class="bi bi-gear-fill" style="color:#D4AF37;"></i>Env Vars</button>
+              <button class="pg-sidebar-btn" onclick="pgSwitch('appreview',this)"><i class="bi bi-patch-check-fill" style="color:#e1306c;"></i>App Review</button>
             </div>
 
             <!-- panels -->
@@ -645,6 +646,17 @@
                   <tr><td>Contact must have messaged first</td><td style="color:#666;">API only allows replies to inbound messages</td></tr>
                 </tbody>
               </table>
+              <div style="font-size:0.78rem;font-weight:700;margin:14px 0 6px;">Why contact sync shows an error</div>
+              <p style="font-size:0.77rem;color:#555;line-height:1.65;">The Conversations API requires the <code>instagram_manage_messages</code> permission, which is only active after <strong>Meta App Review</strong> approval. Without it, syncing returns error <code>(#3) Application does not have the capability</code>. Magolis falls back to showing contacts already saved in the local database (those who messaged via webhook) with a yellow warning banner.</p>
+              <table class="pg-table">
+                <thead><tr><th>Scenario</th><th>Contact sync behaviour</th></tr></thead>
+                <tbody>
+                  <tr><td>App <strong>not yet reviewed</strong></td><td>Shows DB contacts only + yellow warning</td></tr>
+                  <tr><td>App <strong>approved</strong></td><td>Full live sync from Instagram API</td></tr>
+                  <tr><td>Someone DMs your Instagram</td><td>Webhook saves them to DB automatically — no review needed</td></tr>
+                </tbody>
+              </table>
+              <div class="pg-tip">See the <button class="btn btn-link p-0" style="font-size:0.78rem;vertical-align:baseline;" onclick="pgSwitch('appreview',null)">App Review guide ›</button> for what to submit to Meta.</div>
             </div>
 
             <!-- WHATSAPP -->
@@ -716,6 +728,62 @@
 
               <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;color:#888;margin:12px 0 6px;">LinkedIn</div>
               <div class="pg-env-row"><span class="pg-env-key">LINKEDIN_ACCESS_TOKEN</span><span class="pg-env-desc">OAuth 2.0 token with <code>r_liteprofile</code> + <code>w_member_social</code> scopes</span></div>
+            </div>
+
+            <!-- APP REVIEW -->
+            <div class="pg-panel" id="pg-appreview">
+              <div class="pg-section-title" style="color:#e1306c;"><i class="bi bi-patch-check-fill me-2"></i>Meta App Review</div>
+              <p class="pg-section-sub">App Review is required before your app can use certain APIs with real users. In development mode, your app only works with the app's own admin and test users.</p>
+
+              <div style="font-size:0.78rem;font-weight:700;margin-bottom:8px;">Permissions that require App Review</div>
+              <table class="pg-table">
+                <thead><tr><th>Permission</th><th>Unlocks</th><th>Platform</th></tr></thead>
+                <tbody>
+                  <tr><td><code>pages_messaging</code></td><td>Send Messenger DMs to any user</td><td style="color:#1877F2;">Facebook</td></tr>
+                  <tr><td><code>pages_messaging_subscriptions</code></td><td>Bulk messaging outside the 24h window</td><td style="color:#1877F2;">Facebook</td></tr>
+                  <tr><td><code>instagram_manage_messages</code></td><td>Conversations API — contact sync + DMs</td><td style="color:#e1306c;">Instagram</td></tr>
+                  <tr><td><code>instagram_basic</code></td><td>Read Instagram account profile info</td><td style="color:#e1306c;">Instagram</td></tr>
+                </tbody>
+              </table>
+
+              <div style="font-size:0.78rem;font-weight:700;margin:14px 0 8px;">What Meta requires in your submission</div>
+              <table class="pg-table">
+                <thead><tr><th>Item</th><th>Notes</th></tr></thead>
+                <tbody>
+                  <tr><td>App description</td><td style="color:#666;">What the app does, who uses it, why each permission is needed</td></tr>
+                  <tr><td>Screen recording</td><td style="color:#666;">Video of the feature in your live app — e.g. broadcast flow, contact sync. Must show the permission being exercised</td></tr>
+                  <tr><td>Privacy Policy URL</td><td style="color:#666;">A live, publicly accessible URL (can be a simple hosted page)</td></tr>
+                  <tr><td>Terms of Service URL</td><td style="color:#666;">Optional but strongly recommended</td></tr>
+                  <tr><td>Test credentials</td><td style="color:#666;">Meta reviewers need a login to test the feature themselves</td></tr>
+                  <tr><td>Business Verification</td><td style="color:#666;">Required for some permissions — submit business registration docs in Meta Business Manager</td></tr>
+                </tbody>
+              </table>
+
+              <div style="font-size:0.78rem;font-weight:700;margin:14px 0 8px;">What works now vs. after approval</div>
+              <table class="pg-table">
+                <thead><tr><th>Feature</th><th>Without review</th><th>After approval</th></tr></thead>
+                <tbody>
+                  <tr><td>Facebook Messenger DM</td><td><span class="pg-pill pg-pill-warn">Test users only</span></td><td><span class="pg-pill pg-pill-yes">All users</span></td></tr>
+                  <tr><td>Facebook bulk outside 24h</td><td><span class="pg-pill pg-pill-no">Blocked</span></td><td><span class="pg-pill pg-pill-yes">MESSAGE_TAG works</span></td></tr>
+                  <tr><td>Instagram contact sync (API)</td><td><span class="pg-pill pg-pill-no">Error #3</span></td><td><span class="pg-pill pg-pill-yes">Full live sync</span></td></tr>
+                  <tr><td>Instagram DM send</td><td><span class="pg-pill pg-pill-warn">Test users only</span></td><td><span class="pg-pill pg-pill-yes">All users</span></td></tr>
+                  <tr><td>Instagram inbound webhook</td><td><span class="pg-pill pg-pill-yes">Works now</span></td><td><span class="pg-pill pg-pill-yes">Works</span></td></tr>
+                  <tr><td>WhatsApp, LinkedIn, Twitter</td><td><span class="pg-pill pg-pill-yes">Unaffected</span></td><td><span class="pg-pill pg-pill-yes">Unaffected</span></td></tr>
+                </tbody>
+              </table>
+
+              <div style="font-size:0.78rem;font-weight:700;margin:14px 0 8px;">Typical review timelines</div>
+              <table class="pg-table">
+                <thead><tr><th>Permission</th><th>Typical wait</th><th>Notes</th></tr></thead>
+                <tbody>
+                  <tr><td><code>pages_messaging</code></td><td style="color:#666;">3–7 business days</td><td style="color:#666;">Straightforward with a clear screen recording</td></tr>
+                  <tr><td><code>instagram_manage_messages</code></td><td style="color:#666;">1–4 weeks</td><td style="color:#666;">May require business verification</td></tr>
+                  <tr><td><code>pages_messaging_subscriptions</code></td><td style="color:#666;">1–3 weeks</td><td style="color:#666;">Must demonstrate a legitimate non-promotional use case</td></tr>
+                </tbody>
+              </table>
+
+              <div class="pg-note"><strong>Workaround while waiting:</strong> Anyone who messages your Instagram or Facebook Page is saved to the local database via webhook — no review needed. The contact sync panel shows those DB contacts with a notice. Broadcasts to those contacts will succeed once the app is approved.</div>
+              <div class="pg-tip"><strong>Submit all permissions at once.</strong> Each review round adds weeks. Record a single end-to-end video showing contact sync, broadcast send, and message history — it covers all the permissions in one go.</div>
             </div>
 
           </div><!-- end modal-body -->
