@@ -1410,9 +1410,84 @@
             } catch(e) { container.innerHTML = `<div class="alert alert-danger m-2 p-1"><i class="bi bi-exclamation-triangle me-1"></i>Error: ${escapeHtml(e.message)}</div>`; showToast('Error', e.message, 'danger'); }
         }
         
+        let activeConversation = null;
+
+        function appendOutgoingBubble(content) {
+            const chat = document.getElementById('chat-scroll');
+            if (!chat) return;
+
+            const placeholder = document.getElementById('chat-empty');
+            if (placeholder) placeholder.remove();
+
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString(undefined, {hour:'2-digit', minute:'2-digit'});
+            const bubble = document.createElement('div');
+            bubble.style.marginBottom = '6px';
+            bubble.innerHTML = `<div style="display:flex;flex-direction:column;align-items:flex-end;">
+                <div style="font-size:0.58rem;color:#888;margin-bottom:2px;padding:0 4px;">You</div>
+                <div style="max-width:80%;padding:7px 12px;font-size:0.8rem;line-height:1.45;word-break:break-word;background:#0d6efd;color:#fff;border-radius:18px 18px 4px 18px;margin-left:auto;">
+                    ${escapeHtml(content)}
+                </div>
+                <div style="font-size:0.55rem;color:#aaa;margin-top:2px;padding:0 4px;">${timeStr}</div>
+            </div>`;
+            chat.appendChild(bubble);
+
+            const body = chat.closest('.modal-body');
+            if (body) body.scrollTop = body.scrollHeight;
+        }
+
+        async function sendConversationMessage() {
+            if (!activeConversation) return;
+
+            const input = document.getElementById('chat-reply-input');
+            const sendBtn = document.getElementById('chat-send-btn');
+            if (!input || !sendBtn) return;
+
+            const content = input.value.trim();
+            if (!content) {
+                showToast('Message', 'Type a message first', 'warning');
+                return;
+            }
+
+            try {
+                sendBtn.disabled = true;
+                sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Sending';
+
+                const res = await fetch('/api/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        platform: activeConversation.platform,
+                        recipient_id: activeConversation.recipient,
+                        message: content,
+                        display_name: activeConversation.name
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    appendOutgoingBubble(content);
+                    input.value = '';
+                    showToast('Sent', `Message sent to ${activeConversation.name}`, 'success');
+                    loadMessageHistory();
+                    loadDashboardStats();
+                } else {
+                    showToast('Send failed', data.error || 'Could not send message', 'danger');
+                }
+            } catch (e) {
+                showToast('Error', 'Failed to send message', 'danger');
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="bi bi-send me-1"></i>Send';
+                input.focus();
+            }
+        }
+
         // platform, psid/id = platform_user_id, name, contactId = DB row id (optional)
         async function viewConversation(platform, psid, name, contactId) {
             const pm = platformMeta[platform] || { icon: 'bi-circle', color: '#888' };
+            const canReply = ['facebook', 'instagram', 'whatsapp', 'twitter'].includes(platform);
+            activeConversation = { platform, recipient: psid, name, contactId };
 
             // Facebook and Instagram have live Graph API history
             const useLiveApi = (platform === 'facebook' || platform === 'instagram');
@@ -1463,15 +1538,65 @@
                         </div>`;
                     }).join('');
 
-                    showModal('', header + `<div id="chat-scroll" style="padding:4px 2px;">${msgs}</div>`, true);
-                    setTimeout(() => { const el = document.getElementById('chat-scroll'); if (el) el.closest('.modal-body').scrollTop = 9999; }, 80);
+                    const composer = canReply
+                        ? `<div style="margin-top:10px;padding-top:8px;border-top:1px solid #e4e6eb;display:flex;gap:8px;align-items:flex-end;">
+                            <textarea id="chat-reply-input" class="form-control form-control-sm" rows="2" placeholder="Type your reply..." style="font-size:0.78rem;resize:none;"></textarea>
+                            <button id="chat-send-btn" class="btn btn-primary btn-sm" onclick="sendConversationMessage()"><i class="bi bi-send me-1"></i>Send</button>
+                        </div>`
+                        : `<div style="margin-top:8px;font-size:0.66rem;color:#888;border-top:1px solid #e4e6eb;padding-top:8px;">Direct reply is not supported for ${platform} in this chat window.</div>`;
+
+                    showModal('', header + `<div id="chat-scroll" style="padding:4px 2px;">${msgs}</div>` + composer, true);
+                    setTimeout(() => {
+                        const chat = document.getElementById('chat-scroll');
+                        if (chat) {
+                            const body = chat.closest('.modal-body');
+                            if (body) body.scrollTop = body.scrollHeight;
+                        }
+                        const input = document.getElementById('chat-reply-input');
+                        if (input) {
+                            input.focus();
+                            input.addEventListener('keydown', (e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    sendConversationMessage();
+                                }
+                            });
+                        }
+                    }, 80);
                 } else {
-                    showModal('', header + '<div style="text-align:center;padding:24px 0;color:#aaa;"><i class="bi bi-chat-dots" style="font-size:2rem;display:block;margin-bottom:8px;"></i>No message history yet.</div>', false);
+                    const composer = canReply
+                        ? `<div style="margin-top:10px;padding-top:8px;border-top:1px solid #e4e6eb;display:flex;gap:8px;align-items:flex-end;">
+                            <textarea id="chat-reply-input" class="form-control form-control-sm" rows="2" placeholder="Type your first reply..." style="font-size:0.78rem;resize:none;"></textarea>
+                            <button id="chat-send-btn" class="btn btn-primary btn-sm" onclick="sendConversationMessage()"><i class="bi bi-send me-1"></i>Send</button>
+                        </div>`
+                        : `<div style="margin-top:8px;font-size:0.66rem;color:#888;border-top:1px solid #e4e6eb;padding-top:8px;">Direct reply is not supported for ${platform} in this chat window.</div>`;
+
+                    showModal('', header + '<div id="chat-scroll" style="padding:4px 2px;"><div id="chat-empty" style="text-align:center;padding:24px 0;color:#aaa;"><i class="bi bi-chat-dots" style="font-size:2rem;display:block;margin-bottom:8px;"></i>No message history yet.</div></div>' + composer, true);
+                    setTimeout(() => {
+                        const input = document.getElementById('chat-reply-input');
+                        if (input) {
+                            input.focus();
+                            input.addEventListener('keydown', (e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    sendConversationMessage();
+                                }
+                            });
+                        }
+                    }, 80);
                 }
             } catch(e) { showToast('Error', 'Failed to load conversation', 'danger'); }
         }
         
         function showModal(title, bodyHtml, tall = false) {
+            const existing = document.getElementById('tempModal');
+            if (existing) {
+                const existingModal = bootstrap.Modal.getInstance(existing);
+                if (existingModal) existingModal.hide();
+                const oldWrapper = existing.closest('div');
+                if (oldWrapper) oldWrapper.remove();
+            }
+
             let modalDiv = document.createElement('div');
             modalDiv.innerHTML = `<div class="modal fade" id="tempModal" tabindex="-1">
                 <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
