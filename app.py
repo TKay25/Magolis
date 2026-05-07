@@ -523,106 +523,126 @@ class FacebookAdapter:
         self.page_id = os.getenv('FACEBOOK_PAGE_ID')
         self.is_configured = bool(self.page_access_token and self.page_id)
     
-    def send_message(self, recipient_id, content):
+    def get_all_conversations(self, limit=200):
+        """Fetch ALL historical conversations - including those before webhook setup"""
         if not self.is_configured:
             return {'success': False, 'error': 'Facebook not configured'}
         
-        url = "https://graph.facebook.com/v18.0/me/messages"
-        headers = {
-            "Authorization": f"Bearer {self.page_access_token}",
-            "Content-Type": "application/json"
-        }
-
-        base_payload = {
-            "recipient": {"id": recipient_id},
-            "message": {"text": content}
-        }
-
-        attempts = [
-            # Works if the user messaged your Page within the last 24 hours
-            {"messaging_type": "RESPONSE"},
-            # Works outside 24h — requires pages_messaging_subscriptions (Meta App Review)
-            {"messaging_type": "MESSAGE_TAG", "tag": "CONFIRMED_EVENT_UPDATE"},
-            {"messaging_type": "MESSAGE_TAG", "tag": "ACCOUNT_UPDATE"},
-            {"messaging_type": "MESSAGE_TAG", "tag": "POST_PURCHASE_UPDATE"},
-        ]
-
-        last_error = None
-        last_code = None
-        try:
-            for attempt in attempts:
-                payload = {**base_payload, **attempt}
-                response = requests.post(url, json=payload, headers=headers, timeout=30)
-                if response.status_code == 200:
-                    return {'success': True, 'platform': 'facebook'}
-                err = response.json().get('error', {})
-                last_error = err.get('message', f'HTTP {response.status_code}')
-                last_code = err.get('code')
-                logger.warning(f"Facebook attempt {attempt} failed (code {last_code}): {last_error}")
-
-            # All attempts exhausted — return a clear, actionable error
-            if last_code == 10:
-                final_error = (
-                    "Outside 24h window & no approved message tags. "
-                    "To fix: (1) Have contacts message your Page first to open the window, OR "
-                    "(2) Submit your Facebook App for Meta App Review to get 'pages_messaging_subscriptions' approved."
-                )
-            else:
-                final_error = last_error or 'Unknown Facebook error'
-            logger.error(f"Facebook send_message all attempts failed (code {last_code}): {final_error} | recipient: {recipient_id}")
-            return {'success': False, 'error': final_error}
-        except Exception as e:
-            logger.error(f"Facebook send_message exception: {e}")
-            return {'success': False, 'error': str(e)}
-
-    
-    def get_page_id(self):
-        return self.page_id
-    
-    def get_conversations(self, limit=50):
-        page_id = self.get_page_id()
-        if not page_id:
-            return {'success': False, 'error': 'Could not get Page ID'}
-        
+        page_id = self.page_id
+        all_conversations = []
         url = f"https://graph.facebook.com/v18.0/{page_id}/conversations"
         params = {
             'access_token': self.page_access_token,
-            'fields': 'participants,updated_time,message_count,messages.limit(1){message,created_time}',
+            'fields': 'participants,updated_time,message_count,messages.limit(5){message,created_time,from}',
             'limit': limit
         }
         
         try:
-            response = requests.get(url, params=params)
+            while url:
+                response = requests.get(url, params=params)
+                data = response.json()
+                
+                if 'error' in data:
+                    logger.error(f"Facebook API error: {data['error']}")
+                    return {'success': False, 'error': data['error']['message']}
+                
+                for conv in data.get('data', []):
+                    participants = conv.get('participants', {}).get('data', [])
+                    user_participant = None
+                    for p in participants:
+                        if p.get('id') != page_id:
+                            user_participant = p
+                            break
+                    
+                    if user_participant:
+                        messages_data = conv.get('messages', {}).get('data', [])
+                        messages = []
+                        for msg in messages_data:
+                            messages.append({
+                                'text': msg.get('message', ''),
+                                'created_time': msg.get('created_time'),
+                                'from_id': msg.get('from', {}).get('id')
+                            })
+                        
+                        all_conversations.append({
+                            'psid': user_participant['id'],
+                            'name': user_participant.get('name', 'Facebook User'),
+                            'last_message': messages[0].get('text', '') if messages else None,
+                            'last_interaction': conv.get('updated_time'),
+                            'message_count': conv.get('message_count', 0),
+                            'messages': messages
+                        })
+                
+                # Handle pagination - get next page
+                url = data.get('paging', {}).get('next')
+                params = None  # Next URL already has token
+            
+            logger.info(f"Fetched {len(all_conversations)} historical conversations")
+            return {'success': True, 'conversations': all_conversations}
+            
+        except Exception as e:
+            logger.error(f"Facebook API error: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def get_conversation_with_user(self, psid, limit=50):
+        """Get full conversation history with a specific user"""
+        if not self.is_configured:
+            return {'success': False, 'error': 'Facebook not configured'}
+        
+        page_id = self.page_id
+        
+        try:
+            # First get the conversation ID
+            conv_url = f"https://graph.facebook.com/v18.0/{page_id}/conversations"
+            params = {
+                'access_token': self.page_access_token,
+                'filter': 'participants',
+                'user_id': psid,
+                'fields': 'id'
+            }
+            
+            response = requests.get(conv_url, params=params)
             data = response.json()
             
-            if 'error' in data:
-                return {'success': False, 'error': data['error']['message']}
+            if not data.get('data'):
+                return {'success': True, 'messages': []}
             
-            conversations = []
-            for conv in data.get('data', []):
-                participants = conv.get('participants', {}).get('data', [])
-                user_participant = None
-                for p in participants:
-                    if p.get('id') != page_id:
-                        user_participant = p
-                        break
+            conversation_id = data['data'][0]['id']
+            
+            # Get all messages from that conversation
+            messages_url = f"https://graph.facebook.com/v18.0/{conversation_id}/messages"
+            msg_params = {
+                'access_token': self.page_access_token,
+                'fields': 'message,created_time,from,id,attachments',
+                'limit': limit
+            }
+            
+            all_messages = []
+            url = messages_url
+            
+            while url:
+                msg_response = requests.get(url, params=msg_params if url == messages_url else None)
+                messages_data = msg_response.json()
                 
-                if user_participant:
-                    messages_data = conv.get('messages', {}).get('data', [])
-                    last_message = messages_data[0] if messages_data else None
-                    
-                    conversations.append({
-                        'psid': user_participant['id'],
-                        'name': user_participant.get('name', 'Facebook User'),
-                        'last_message': last_message.get('message', '') if last_message else None,
-                        'last_interaction': conv.get('updated_time')
+                for msg in messages_data.get('data', []):
+                    all_messages.append({
+                        'id': msg.get('id'),
+                        'content': msg.get('message', ''),
+                        'timestamp': msg.get('created_time'),
+                        'direction': 'incoming' if msg.get('from', {}).get('id') != page_id else 'outgoing',
+                        'sender_name': msg.get('from', {}).get('name', 'Unknown'),
+                        'sender_id': msg.get('from', {}).get('id')
                     })
+                
+                url = messages_data.get('paging', {}).get('next')
+                msg_params = None
             
-            return {'success': True, 'conversations': conversations}
+            return {'success': True, 'messages': all_messages, 'count': len(all_messages)}
+            
         except Exception as e:
+            logger.error(f"Error fetching conversation: {str(e)}")
             return {'success': False, 'error': str(e)}
-
-
+        
 class TwitterAdapter:
     def __init__(self):
         self.bearer_token = os.getenv('TWITTER_BEARER_TOKEN')
@@ -1317,13 +1337,15 @@ def facebook_diagnose():
 @app.route('/api/facebook/sync-contacts', methods=['POST'])
 @login_required
 def sync_facebook_contacts():
+    """Sync ALL historical Facebook contacts - including those who messaged you long ago"""
     try:
         facebook_adapter = adapters['facebook']
         
         if not facebook_adapter.is_configured:
             return jsonify({'success': False, 'error': 'Facebook not configured'}), 400
         
-        result = facebook_adapter.get_conversations(limit=100)
+        # Use the new method that fetches ALL conversations
+        result = facebook_adapter.get_all_conversations(limit=200)
         
         if not result['success']:
             return jsonify({'success': False, 'error': result['error']}), 400
@@ -1342,24 +1364,33 @@ def sync_facebook_contacts():
                 opt_in=True
             )
             
+            # Also save the message history
+            for msg in conv.get('messages', []):
+                if msg.get('text'):
+                    save_message(contact_id, 'facebook', 'incoming', msg['text'])
+            
             synced_count += 1
             new_contacts.append({
                 'id': contact_id,
                 'psid': psid,
                 'name': user_name,
-                'last_message': conv.get('last_message')
+                'last_message': conv.get('last_message'),
+                'last_interaction': conv.get('last_interaction'),
+                'message_count': conv.get('message_count', 0)
             })
         
         return jsonify({
             'success': True,
             'synced': synced_count,
-            'contacts': new_contacts
+            'contacts': new_contacts,
+            'message': f'Successfully synced {synced_count} historical Facebook contacts'
         })
         
     except Exception as e:
         logger.error(f"Sync error: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+        
 @app.route('/api/facebook/conversations/<psid>', methods=['GET'])
 @login_required
 def get_facebook_conversation(psid):

@@ -231,6 +231,78 @@
             body {
                 font-size: 0.75rem;
             }
+            /* push content below hamburger button */
+            .p-2.p-md-3 {
+                padding-top: 52px !important;
+            }
+        }
+
+        /* ── Mobile: Platform/Data Guide modals ── */
+        @media (max-width: 576px) {
+            #platformGuideModal .modal-dialog,
+            #dataGuideModal .modal-dialog {
+                max-width: 100%;
+                margin: 0;
+                height: 100%;
+            }
+            #platformGuideModal .modal-content,
+            #dataGuideModal .modal-content {
+                height: 100%;
+                border-radius: 0;
+            }
+            #platformGuideModal .modal-body,
+            #dataGuideModal .modal-body {
+                flex-direction: column;
+                height: calc(100% - 42px);
+                overflow: hidden;
+            }
+            .pg-sidebar {
+                width: 100%;
+                flex-direction: row;
+                overflow-x: auto;
+                padding: 6px 4px;
+                gap: 2px;
+                flex-shrink: 0;
+                border-bottom: 1px solid rgba(255,255,255,0.1);
+            }
+            .pg-sidebar-btn {
+                flex-shrink: 0;
+                padding: 6px 10px;
+                border-left: none;
+                border-bottom: 3px solid transparent;
+                font-size: 0.68rem;
+                white-space: nowrap;
+            }
+            .pg-sidebar-btn.active {
+                border-left-color: transparent;
+                border-bottom-color: #D4AF37;
+            }
+            .pg-panel {
+                padding: 14px 14px;
+                overflow-y: auto;
+                flex: 1;
+            }
+            .pg-env-key {
+                min-width: 0;
+                word-break: break-all;
+            }
+            .pg-env-row {
+                flex-direction: column;
+                gap: 4px;
+            }
+        }
+
+        /* ── Tables: scroll horizontally on narrow screens ── */
+        .pg-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        @media (max-width: 576px) {
+            .pg-table { min-width: 420px; }
+            .pg-panel { overflow-x: hidden; }
+            .pg-panel > .pg-table,
+            .pg-panel table.pg-table {
+                display: block;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
         }
 
         ::-webkit-scrollbar {
