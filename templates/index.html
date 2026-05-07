@@ -1235,6 +1235,7 @@
                     });
                     container.innerHTML = html;
                     showToast('Synced', `${data.contacts.length} Facebook contacts`, 'success');
+                    loadContacts();
                 } else if(!data.success && data.error) {
                     const _ar = isAppReviewError(data.error);
                     const _arNote = _ar ? `<br><small>This requires <strong>Meta App Review</strong> approval. ${appReviewLink()}</small>` : '';

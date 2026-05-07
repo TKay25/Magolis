@@ -1035,6 +1035,47 @@ adapters = {
     'linkedin': LinkedInAdapter()
 }
 
+# Facebook historical sync guard to avoid expensive API calls on every request.
+_facebook_backfill_lock = threading.Lock()
+_facebook_last_backfill = datetime.min
+
+def maybe_backfill_facebook_contacts(force=False):
+    """Backfill older Facebook contacts from conversation history with cooldown control."""
+    global _facebook_last_backfill
+
+    fb = adapters.get('facebook')
+    if not fb or not fb.is_configured:
+        return {'success': False, 'skipped': True, 'reason': 'facebook-not-configured'}
+
+    cooldown_seconds = int(os.getenv('FACEBOOK_SYNC_COOLDOWN_SECONDS', '900'))
+    now = datetime.now()
+
+    with _facebook_backfill_lock:
+        if not force and (now - _facebook_last_backfill).total_seconds() < cooldown_seconds:
+            return {'success': True, 'skipped': True, 'reason': 'cooldown'}
+
+        result = fb.get_all_conversations(limit=200)
+        if not result.get('success'):
+            return {'success': False, 'error': result.get('error', 'Unknown Facebook sync error')}
+
+        synced_count = 0
+        for conv in result.get('conversations', []):
+            save_contact(
+                platform='facebook',
+                platform_user_id=conv.get('psid'),
+                display_name=conv.get('name'),
+                opt_in=True
+            )
+            synced_count += 1
+
+        _facebook_last_backfill = datetime.now()
+        return {
+            'success': True,
+            'skipped': False,
+            'synced': synced_count,
+            'conversations': result.get('conversations', [])
+        }
+
 # ==================== AUTH ROUTES ====================
 
 def login_required(f):
@@ -1339,41 +1380,18 @@ def facebook_diagnose():
 def sync_facebook_contacts():
     """Sync ALL historical Facebook contacts - including those who messaged you long ago"""
     try:
-        facebook_adapter = adapters['facebook']
-        
-        if not facebook_adapter.is_configured:
+        if not adapters['facebook'].is_configured:
             return jsonify({'success': False, 'error': 'Facebook not configured'}), 400
-        
-        # Use the new method that fetches ALL conversations
-        result = facebook_adapter.get_all_conversations(limit=200)
-        
-        if not result['success']:
-            return jsonify({'success': False, 'error': result['error']}), 400
-        
-        synced_count = 0
+
+        result = maybe_backfill_facebook_contacts(force=True)
+        if not result.get('success'):
+            return jsonify({'success': False, 'error': result.get('error', 'Facebook sync failed')}), 400
+
         new_contacts = []
-        
-        for conv in result['conversations']:
-            psid = conv['psid']
-            user_name = conv['name']
-            
-            contact_id = save_contact(
-                platform='facebook',
-                platform_user_id=psid,
-                display_name=user_name,
-                opt_in=True
-            )
-            
-            # Also save the message history
-            for msg in conv.get('messages', []):
-                if msg.get('text'):
-                    save_message(contact_id, 'facebook', 'incoming', msg['text'])
-            
-            synced_count += 1
+        for conv in result.get('conversations', []):
             new_contacts.append({
-                'id': contact_id,
-                'psid': psid,
-                'name': user_name,
+                'psid': conv.get('psid'),
+                'name': conv.get('name'),
                 'last_message': conv.get('last_message'),
                 'last_interaction': conv.get('last_interaction'),
                 'message_count': conv.get('message_count', 0)
@@ -1381,9 +1399,9 @@ def sync_facebook_contacts():
         
         return jsonify({
             'success': True,
-            'synced': synced_count,
+            'synced': result.get('synced', 0),
             'contacts': new_contacts,
-            'message': f'Successfully synced {synced_count} historical Facebook contacts'
+            'message': f"Successfully synced {result.get('synced', 0)} historical Facebook contacts"
         })
         
     except Exception as e:
@@ -1738,6 +1756,12 @@ def get_contacts():
     platform = request.args.get('platform')
     opt_in_only = request.args.get('opt_in_only', 'false').lower() == 'true'
     search = request.args.get('search', '')
+
+    # Ensure old Facebook contacts are imported even if webhook was added later.
+    if platform in (None, '', 'facebook'):
+        fb_sync = maybe_backfill_facebook_contacts(force=False)
+        if not fb_sync.get('success') and not fb_sync.get('skipped'):
+            logger.warning(f"Facebook backfill skipped due to error: {fb_sync.get('error')}")
     
     contacts = get_all_contacts(platform, opt_in_only, search)
     
