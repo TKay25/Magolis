@@ -1510,6 +1510,13 @@
                 </div>`;
 
                 if (data.success && data.messages?.length) {
+                    // Sort oldest → newest so the chat reads top-to-bottom naturally
+                    data.messages.sort((a, b) => {
+                        const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+                        const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+                        return ta - tb;
+                    });
+
                     let prevDate = '';
                     const msgs = data.messages.map(m => {
                         const out  = m.direction === 'outgoing';
