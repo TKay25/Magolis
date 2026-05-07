@@ -522,6 +522,10 @@ class FacebookAdapter:
         self.page_access_token = os.getenv('FACEBOOK_PAGE_TOKEN')
         self.page_id = os.getenv('FACEBOOK_PAGE_ID')
         self.is_configured = bool(self.page_access_token and self.page_id)
+
+    def get_page_id(self):
+        """Compatibility helper for routes that expect an accessor."""
+        return self.page_id
     
     def get_all_conversations(self, limit=200):
         """Fetch ALL historical conversations - including those before webhook setup"""
