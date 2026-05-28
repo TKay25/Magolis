@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-Unified Social Media Messaging System - FULLY CORRECTED
-Fixed database connection issues (no connection pool)
-All original features preserved: webhooks, Instagram API, WhatsApp, etc.
+Unified Social Media Messaging System - WITH WHATSAPP CHATBOT
+Integrated Stephen Margolis Resort chatbot with interactive menus
 """
 
 import os
@@ -30,6 +29,9 @@ import logging
 from contextlib import contextmanager
 import psycopg2
 from psycopg2.extras import RealDictCursor
+
+# Import WhatsApp Chatbot
+from whatsapp_chatbot import StephenMargolisChatbot, WhatsAppInteractiveMenu
 
 # Load environment variables
 load_dotenv()
@@ -65,12 +67,15 @@ socketio = SocketIO(
 
 logger.info("SocketIO running in threading mode")
 
-# ==================== DATABASE SETUP (FIXED - NO CONNECTION POOL) ====================
+# Initialize WhatsApp Chatbot
+chatbot = StephenMargolisChatbot()
+
+# ==================== DATABASE SETUP ====================
 
 DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://lmsdatabase_8ag3_user:6WD9lOnHkiU7utlUUjT88m4XgEYQMTLb@dpg-ctp9h0aj1k6c739h9di0-a.oregon-postgres.render.com/lmsdatabase_8ag3')
 
 def get_db_connection():
-    """Create a NEW database connection each time - FIXES the connection pool issue"""
+    """Create a NEW database connection each time"""
     try:
         conn = psycopg2.connect(DATABASE_URL)
         return conn
@@ -80,7 +85,7 @@ def get_db_connection():
 
 @contextmanager
 def get_db_cursor(commit=True):
-    """Get a database cursor with automatic cleanup - FIXED version"""
+    """Get a database cursor with automatic cleanup"""
     conn = None
     cursor = None
     try:
@@ -197,10 +202,10 @@ def init_db():
 # Initialize database
 init_db()
 
-# ==================== HELPER FUNCTIONS FOR DATABASE OPERATIONS ====================
+# ==================== HELPER FUNCTIONS ====================
 
 def save_contact(platform, platform_user_id, display_name=None, phone_number=None, opt_in=True):
-    """Save or update contact - FIXED to use new cursor pattern"""
+    """Save or update contact"""
     with get_db_cursor(commit=True) as cursor:
         cursor.execute("""
             INSERT INTO contacts (platform, platform_user_id, display_name, phone_number, opt_in, opt_in_date, last_interaction, created_at, updated_at)
@@ -221,7 +226,7 @@ def save_contact(platform, platform_user_id, display_name=None, phone_number=Non
         return result['id']
 
 def save_message(contact_id, platform, direction, message, status='sent'):
-    """Save a message - FIXED to use new cursor pattern"""
+    """Save a message"""
     with get_db_cursor(commit=True) as cursor:
         cursor.execute("""
             INSERT INTO messages (contact_id, platform, direction, message, status, sent_at)
@@ -229,7 +234,7 @@ def save_message(contact_id, platform, direction, message, status='sent'):
         """, (contact_id, platform, direction, message, status, datetime.now()))
 
 def get_recipients_for_broadcast(platform, audience_filter='all', tags=None):
-    """Get recipients for broadcast - FIXED to use new cursor pattern"""
+    """Get recipients for broadcast"""
     with get_db_cursor(commit=False) as cursor:
         query = "SELECT id, platform_user_id, display_name FROM contacts WHERE platform = %s AND opt_in = TRUE"
         params = [platform]
@@ -239,7 +244,6 @@ def get_recipients_for_broadcast(platform, audience_filter='all', tags=None):
         elif audience_filter == 'tagged' and tags:
             tag_list = [t.strip() for t in tags.split(',') if t.strip()]
             if tag_list:
-                # Assuming tags are stored as comma-separated in a 'tags' column
                 tag_conditions = " OR ".join(["tags ILIKE %s" for _ in tag_list])
                 query += f" AND (" + tag_conditions + ")"
                 params.extend([f"%{tag}%" for tag in tag_list])
@@ -248,7 +252,7 @@ def get_recipients_for_broadcast(platform, audience_filter='all', tags=None):
         return [dict(row) for row in cursor.fetchall()]
 
 def create_broadcast_record(user_id, name, platform, message, audience_filter, total_recipients):
-    """Create a broadcast record - returns broadcast_id"""
+    """Create a broadcast record"""
     with get_db_cursor(commit=True) as cursor:
         cursor.execute('''
             INSERT INTO broadcasts (user_id, name, platform, message, audience_filter, total_recipients, status)
@@ -344,69 +348,6 @@ def get_dashboard_stats():
             'contacts_by_platform': [{'platform': row['platform'], 'count': row['count']} for row in contacts_by_platform] if contacts_by_platform else []
         }
 
-# ==================== WEBHOOK ROUTE ====================
-
-@app.route('/webhook/facebook', methods=['GET', 'POST'])
-def facebook_webhook():
-    """Facebook webhook endpoint - handles verification and incoming messages"""
-    
-    logger.info(f"📨 Webhook hit: Method={request.method}")
-    
-    if request.method == 'GET':
-        mode = request.args.get('hub.mode')
-        token = request.args.get('hub.verify_token')
-        challenge = request.args.get('hub.challenge')
-        
-        logger.info(f"🔑 Verification request - Mode: {mode}, Token: {token}, Challenge: {challenge}")
-        
-        expected_token = os.getenv('FACEBOOK_VERIFY_TOKEN', 'fibonaccialucard123')
-        
-        if mode and token and mode == 'subscribe' and token == expected_token:
-            logger.info("✅ Webhook verified successfully!")
-            return challenge, 200
-        
-        logger.error(f"❌ Verification failed. Expected: {expected_token}, Got: {token}")
-        return 'Verification failed', 403
-    
-    try:
-        payload = request.json
-        logger.info(f"📨 Facebook webhook POST received")
-        
-        if payload:
-            entries = payload.get('entry', [])
-            for entry in entries:
-                messaging_events = entry.get('messaging', [])
-                for event in messaging_events:
-                    sender_id = event.get('sender', {}).get('id')
-                    message = event.get('message', {})
-                    
-                    if message and sender_id:
-                        content = message.get('text', '')
-                        logger.info(f"💬 Message from {sender_id}: {content}")
-                        
-                        contact_id = save_contact(
-                            platform='facebook',
-                            platform_user_id=sender_id,
-                            display_name=event.get('sender', {}).get('name', 'Facebook User'),
-                            opt_in=True
-                        )
-                        
-                        if content:
-                            save_message(contact_id, 'facebook', 'incoming', content)
-                        
-                        socketio.emit('new_message', {
-                            'platform': 'facebook',
-                            'sender_id': sender_id,
-                            'content': content,
-                            'timestamp': datetime.now().isoformat()
-                        })
-                        
-        return jsonify({'status': 'ok'}), 200
-    except Exception as e:
-        logger.error(f"Webhook error: {e}")
-        return jsonify({'status': 'error'}), 500
-
-
 # ==================== PLATFORM ADAPTERS ====================
 
 class WhatsAppAdapter:
@@ -428,7 +369,6 @@ class WhatsAppAdapter:
         if not self.is_configured:
             return {'success': False, 'error': self.init_error or 'WhatsApp not configured'}
 
-        # Normalise to E.164 without leading +  (WhatsApp API expects digits only or full E.164)
         to = recipient_id.lstrip('+')
         url = f"https://graph.facebook.com/v18.0/{self.phone_number_id}/messages"
         payload = {
@@ -441,7 +381,6 @@ class WhatsAppAdapter:
             response = requests.post(url, json=payload, headers=self._headers(), timeout=30)
             if response.status_code == 200:
                 data = response.json()
-                # API returns 200 even on some errors; check messages array
                 if data.get('messages'):
                     return {'success': True, 'platform': 'whatsapp', 'message_id': data['messages'][0].get('id')}
             error_data = response.json()
@@ -453,8 +392,37 @@ class WhatsAppAdapter:
             logger.error(f"WhatsApp send_message exception: {e}")
             return {'success': False, 'error': str(e)}
 
+    def send_interactive_message(self, recipient_id, interactive_content):
+        """Send interactive message (buttons or list)"""
+        if not self.is_configured:
+            return {'success': False, 'error': self.init_error or 'WhatsApp not configured'}
+
+        to = recipient_id.lstrip('+')
+        url = f"https://graph.facebook.com/v18.0/{self.phone_number_id}/messages"
+        
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": to,
+            **interactive_content
+        }
+        
+        try:
+            response = requests.post(url, json=payload, headers=self._headers(), timeout=30)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('messages'):
+                    return {'success': True, 'platform': 'whatsapp', 'message_id': data['messages'][0].get('id')}
+            error_data = response.json()
+            error_msg = error_data.get('error', {}).get('message', f'HTTP {response.status_code}')
+            logger.error(f"WhatsApp interactive send failed: {error_msg}")
+            return {'success': False, 'error': error_msg}
+        except Exception as e:
+            logger.error(f"WhatsApp interactive send exception: {e}")
+            return {'success': False, 'error': str(e)}
+
     def send_template(self, recipient_id, template_name, language_code='en_US'):
-        """Send an approved template message (works outside 24h window)"""
+        """Send an approved template message"""
         if not self.is_configured:
             return {'success': False, 'error': self.init_error or 'WhatsApp not configured'}
         to = recipient_id.lstrip('+')
@@ -506,8 +474,7 @@ class WhatsAppAdapter:
         return result
 
     def get_conversations(self, limit=50):
-        """WhatsApp Cloud API does not support listing conversations — return contacts from DB"""
-        return {'success': False, 'error': 'WhatsApp contacts are added automatically when they message you via webhook. Use CSV import or add manually.'}
+        return {'success': False, 'error': 'WhatsApp contacts are added automatically when they message you via webhook.'}
 
 
 class FacebookAdapter:
@@ -517,11 +484,9 @@ class FacebookAdapter:
         self.is_configured = bool(self.page_access_token and self.page_id)
 
     def get_page_id(self):
-        """Compatibility helper for routes that expect an accessor."""
         return self.page_id
     
     def get_all_conversations(self, limit=200):
-        """Fetch ALL historical conversations - including those before webhook setup"""
         if not self.is_configured:
             return {'success': False, 'error': 'Facebook not configured'}
         
@@ -570,9 +535,8 @@ class FacebookAdapter:
                             'messages': messages
                         })
                 
-                # Handle pagination - get next page
                 url = data.get('paging', {}).get('next')
-                params = None  # Next URL already has token
+                params = None
             
             logger.info(f"Fetched {len(all_conversations)} historical conversations")
             return {'success': True, 'conversations': all_conversations}
@@ -582,14 +546,12 @@ class FacebookAdapter:
             return {'success': False, 'error': str(e)}
     
     def get_conversation_with_user(self, psid, limit=50):
-        """Get full conversation history with a specific user"""
         if not self.is_configured:
             return {'success': False, 'error': 'Facebook not configured'}
         
         page_id = self.page_id
         
         try:
-            # First get the conversation ID
             conv_url = f"https://graph.facebook.com/v18.0/{page_id}/conversations"
             params = {
                 'access_token': self.page_access_token,
@@ -606,7 +568,6 @@ class FacebookAdapter:
             
             conversation_id = data['data'][0]['id']
             
-            # Get all messages from that conversation
             messages_url = f"https://graph.facebook.com/v18.0/{conversation_id}/messages"
             msg_params = {
                 'access_token': self.page_access_token,
@@ -639,7 +600,31 @@ class FacebookAdapter:
         except Exception as e:
             logger.error(f"Error fetching conversation: {str(e)}")
             return {'success': False, 'error': str(e)}
+    
+    def send_message(self, recipient_id, content):
+        if not self.is_configured:
+            return {'success': False, 'error': 'Facebook not configured'}
         
+        url = f"https://graph.facebook.com/v18.0/me/messages"
+        payload = {
+            "recipient": {"id": recipient_id},
+            "message": {"text": content},
+            "messaging_type": "RESPONSE"
+        }
+        headers = {
+            "Authorization": f"Bearer {self.page_access_token}",
+            "Content-Type": "application/json"
+        }
+        
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=30)
+            if response.status_code == 200:
+                return {'success': True, 'platform': 'facebook'}
+            return {'success': False, 'error': f'HTTP {response.status_code}: {response.text}'}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+
 class InstagramAdapter:
     def __init__(self):
         self.access_token = os.getenv('FACEBOOK_PAGE_TOKEN')
@@ -661,10 +646,8 @@ class InstagramAdapter:
                 self._cache_business_id()
     
     def _cache_business_id(self):
-        """Get and cache Instagram Business Account ID - tries multiple methods"""
         not_linked_codes = set()
 
-        # Method 1: instagram_business_account (Business accounts)
         try:
             r = requests.get(
                 f"https://graph.facebook.com/v18.0/{self.page_id}",
@@ -673,15 +656,13 @@ class InstagramAdapter:
             data = r.json()
             if 'instagram_business_account' in data:
                 self.instagram_business_id = data['instagram_business_account']['id']
-                logger.info(f"Instagram Business ID loaded (method 1): {self.instagram_business_id}")
+                logger.info(f"Instagram Business ID loaded: {self.instagram_business_id}")
                 return
             if 'error' in data:
                 not_linked_codes.add(data['error'].get('code'))
-                logger.warning(f"Instagram method 1 failed (code {data['error'].get('code')}): {data['error'].get('message')} — trying method 2")
         except Exception as e:
             logger.warning(f"Instagram method 1 exception: {e}")
 
-        # Method 2: connected_instagram_account (Creator accounts)
         try:
             r = requests.get(
                 f"https://graph.facebook.com/v18.0/{self.page_id}",
@@ -690,141 +671,17 @@ class InstagramAdapter:
             data = r.json()
             if 'connected_instagram_account' in data:
                 self.instagram_business_id = data['connected_instagram_account']['id']
-                logger.info(f"Instagram Business ID loaded (method 2): {self.instagram_business_id}")
+                logger.info(f"Instagram Business ID loaded: {self.instagram_business_id}")
                 return
-            if 'error' in data:
-                not_linked_codes.add(data['error'].get('code'))
-                logger.warning(f"Instagram method 2 failed (code {data['error'].get('code')}): {data['error'].get('message')} — trying method 3")
         except Exception as e:
             logger.warning(f"Instagram method 2 exception: {e}")
 
-        # Method 3: instagram_accounts field (works for some token types)
-        try:
-            r = requests.get(
-                f"https://graph.facebook.com/v18.0/{self.page_id}",
-                params={'access_token': self.access_token, 'fields': 'instagram_accounts{id,name,username}'}
-            )
-            data = r.json()
-            accounts = data.get('instagram_accounts', {}).get('data', [])
-            if accounts:
-                self.instagram_business_id = accounts[0]['id']
-                logger.info(f"Instagram Business ID loaded (method 3): {self.instagram_business_id}")
-                return
-            if 'error' in data:
-                not_linked_codes.add(data['error'].get('code'))
-                logger.warning(f"Instagram method 3 failed: {data['error'].get('message')} — trying method 4")
-        except Exception as e:
-            logger.warning(f"Instagram method 3 exception: {e}")
-
-        # Method 4: /me/accounts (User Access Token path)
-        try:
-            r = requests.get(
-                "https://graph.facebook.com/v18.0/me/accounts",
-                params={'access_token': self.access_token, 'fields': 'id,name,instagram_business_account,connected_instagram_account'}
-            )
-            data = r.json()
-            for page in data.get('data', []):
-                if page.get('id') == self.page_id:
-                    ig = page.get('instagram_business_account') or page.get('connected_instagram_account')
-                    if ig:
-                        self.instagram_business_id = ig['id']
-                        logger.info(f"Instagram Business ID loaded (method 4): {self.instagram_business_id}")
-                        return
-        except Exception as e:
-            logger.warning(f"Instagram method 4 exception: {e}")
-
-        # All methods failed — determine most likely cause
-        # Code 100 = field doesn't exist on this object = Instagram not linked to page
         if 100 in not_linked_codes:
-            self.init_error = (
-                'Instagram account is NOT linked to your Facebook Page. '
-                'Fix: Go to your Facebook Page > Settings > Linked Accounts (or Instagram section) > Connect your Instagram account. '
-                'Your Instagram must be a Business or Creator account (not Personal).'
-            )
+            self.init_error = 'Instagram account is NOT linked to your Facebook Page.'
         else:
-            self.init_error = (
-                'Could not retrieve Instagram Business Account ID. '
-                'Ensure your token has instagram_basic + instagram_manage_messages permissions, '
-                'your Instagram is a Business/Creator account, and it is linked to your Facebook Page.'
-            )
+            self.init_error = 'Could not retrieve Instagram Business Account ID.'
         self.is_configured = False
         logger.error(f"Instagram Business ID could not be loaded: {self.init_error}")
-    
-    def get_conversations(self, limit=50):
-        if not self.is_configured or not self.instagram_business_id:
-            return {'success': False, 'error': self.init_error or 'Instagram not configured - no Business Account'}
-        
-        url = f"https://graph.facebook.com/v18.0/{self.instagram_business_id}/conversations"
-        params = {
-            'access_token': self.access_token,
-            'fields': 'participants,updated_time,messages.limit(1){text,created_time,from}',
-            'limit': limit
-        }
-        
-        try:
-            response = requests.get(url, params=params)
-            data = response.json()
-            
-            if 'error' in data:
-                return {'success': False, 'error': data['error'].get('message')}
-            
-            conversations = []
-            for conv in data.get('data', []):
-                participants = conv.get('participants', {}).get('data', [])
-                user_participant = None
-                
-                for p in participants:
-                    if p.get('id') != self.instagram_business_id and p.get('id') != self.page_id:
-                        user_participant = p
-                        break
-                
-                if user_participant:
-                    messages_data = conv.get('messages', {}).get('data', [])
-                    last_message = messages_data[0] if messages_data else None
-                    
-                    conversations.append({
-                        'psid': user_participant['id'],
-                        'name': user_participant.get('name', 'Instagram User'),
-                        'last_message': last_message.get('text', '') if last_message else None,
-                        'last_interaction': conv.get('updated_time')
-                    })
-            
-            return {'success': True, 'conversations': conversations}
-            
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
-    
-    def get_conversation_history(self, psid, limit=100):
-        if not self.is_configured or not self.instagram_business_id:
-            return []
-        
-        url = f"https://graph.facebook.com/v18.0/{self.instagram_business_id}/conversations"
-        params = {
-            'access_token': self.access_token,
-            'fields': f'messages{{text,created_time,from,id}}',
-            'user_id': psid,
-            'limit': limit
-        }
-        
-        try:
-            response = requests.get(url, params=params)
-            data = response.json()
-            
-            messages = []
-            for conv in data.get('data', []):
-                for msg in conv.get('messages', {}).get('data', []):
-                    messages.append({
-                        'id': msg.get('id'),
-                        'content': msg.get('text', ''),
-                        'timestamp': msg.get('created_time'),
-                        'direction': 'incoming' if msg.get('from', {}).get('id') != self.instagram_business_id else 'outgoing'
-                    })
-            
-            return sorted(messages, key=lambda x: x['timestamp'])
-            
-        except Exception as e:
-            logger.error(f"Conversation history error: {e}")
-            return []
     
     def send_message(self, recipient_id, content):
         if not self.is_configured:
@@ -850,8 +707,6 @@ class InstagramAdapter:
             return {'success': False, 'error': str(e)}
 
 
-
-
 # Initialize adapters
 adapters = {
     'whatsapp': WhatsAppAdapter(),
@@ -859,12 +714,11 @@ adapters = {
     'instagram': InstagramAdapter()
 }
 
-# Facebook historical sync guard to avoid expensive API calls on every request.
+# Facebook historical sync guard
 _facebook_backfill_lock = threading.Lock()
 _facebook_last_backfill = datetime.min
 
 def maybe_backfill_facebook_contacts(force=False):
-    """Backfill older Facebook contacts from conversation history with cooldown control."""
     global _facebook_last_backfill
 
     fb = adapters.get('facebook')
@@ -976,15 +830,14 @@ def whatsapp_diagnose():
     result = adapters['whatsapp'].diagnose()
     return jsonify(result)
 
-
 @app.route('/webhook/whatsapp', methods=['GET', 'POST'])
 def whatsapp_webhook():
-    """WhatsApp Cloud API webhook — verification + incoming message handler"""
+    """WhatsApp Cloud API webhook — with chatbot integration"""
     if request.method == 'GET':
-        mode      = request.args.get('hub.mode')
-        token     = request.args.get('hub.verify_token')
+        mode = request.args.get('hub.mode')
+        token = request.args.get('hub.verify_token')
         challenge = request.args.get('hub.challenge')
-        expected  = os.getenv('WHATSAPP_VERIFY_TOKEN', 'magolis_whatsapp_verify')
+        expected = os.getenv('WHATSAPP_VERIFY_TOKEN', 'magolis_whatsapp_verify')
         if mode == 'subscribe' and token == expected:
             logger.info('WhatsApp webhook verified')
             return challenge, 200
@@ -1004,25 +857,12 @@ def whatsapp_webhook():
                                  for c in value.get('contacts', [])}
 
                 for msg in messages:
-                    sender_wa_id = msg.get('from')          # phone number digits
-                    msg_type     = msg.get('type', 'text')
-                    content      = ''
-
-                    if msg_type == 'text':
-                        content = msg.get('text', {}).get('body', '')
-                    elif msg_type == 'image':
-                        content = '[Image]'
-                    elif msg_type == 'audio':
-                        content = '[Audio]'
-                    elif msg_type == 'document':
-                        content = '[Document]'
-                    elif msg_type == 'location':
-                        loc = msg.get('location', {})
-                        content = f"[Location: {loc.get('latitude')},{loc.get('longitude')}]"
-                    else:
-                        content = f'[{msg_type}]'
-
+                    sender_wa_id = msg.get('from')
+                    msg_type = msg.get('type', 'text')
+                    content = ''
                     display_name = contacts_meta.get(sender_wa_id, 'WhatsApp User')
+                    
+                    # Save contact first
                     contact_id = save_contact(
                         platform='whatsapp',
                         platform_user_id=sender_wa_id,
@@ -1030,28 +870,117 @@ def whatsapp_webhook():
                         phone_number=f'+{sender_wa_id}',
                         opt_in=True
                     )
-                    if content:
+                    
+                    # Check if this is an interactive response (button/list click)
+                    if msg_type == 'interactive':
+                        interactive = msg.get('interactive', {})
+                        interactive_type = interactive.get('type')
+                        
+                        if interactive_type == 'button_reply':
+                            interaction_id = interactive['button_reply']['id']
+                            interaction_title = interactive['button_reply']['title']
+                            
+                            # Process via chatbot
+                            response_dict, next_state = chatbot.process_interaction(sender_wa_id, interaction_id)
+                            
+                            # Send interactive response
+                            result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
+                            
+                            # Save bot response
+                            if result.get('success'):
+                                save_message(contact_id, 'whatsapp', 'outgoing', 
+                                           f"[Button clicked: {interaction_title}] Bot response sent")
+                            
+                            # Emit socket event
+                            socketio.emit('new_message', {
+                                'platform': 'whatsapp',
+                                'sender_id': sender_wa_id,
+                                'display_name': display_name,
+                                'content': f"[Button: {interaction_title}]",
+                                'timestamp': datetime.now().isoformat()
+                            })
+                            
+                        elif interactive_type == 'list_reply':
+                            interaction_id = interactive['list_reply']['id']
+                            interaction_title = interactive['list_reply']['title']
+                            
+                            # Process via chatbot
+                            response_dict, next_state = chatbot.process_interaction(sender_wa_id, interaction_id)
+                            
+                            # Send interactive response
+                            result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
+                            
+                            # Save bot response
+                            if result.get('success'):
+                                save_message(contact_id, 'whatsapp', 'outgoing', 
+                                           f"[List selected: {interaction_title}] Bot response sent")
+                            
+                            socketio.emit('new_message', {
+                                'platform': 'whatsapp',
+                                'sender_id': sender_wa_id,
+                                'display_name': display_name,
+                                'content': f"[Selected: {interaction_title}]",
+                                'timestamp': datetime.now().isoformat()
+                            })
+                    
+                    # Handle regular text messages
+                    elif msg_type == 'text':
+                        content = msg.get('text', {}).get('body', '')
                         save_message(contact_id, 'whatsapp', 'incoming', content)
-
-                    socketio.emit('new_message', {
-                        'platform': 'whatsapp',
-                        'sender_id': sender_wa_id,
-                        'display_name': display_name,
-                        'content': content,
-                        'timestamp': datetime.now().isoformat()
-                    })
-                    logger.info(f'WhatsApp message from {sender_wa_id} ({display_name}): {content[:80]}')
+                        
+                        # Process via chatbot
+                        response_dict, next_state = chatbot.handle_text_message(sender_wa_id, content)
+                        
+                        # Send interactive response
+                        result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
+                        
+                        # Save bot response to database
+                        if result.get('success'):
+                            # Extract text from response for saving
+                            if response_dict.get('type') == 'text':
+                                bot_response = response_dict.get('text', {}).get('body', '')
+                            elif response_dict.get('type') == 'interactive':
+                                bot_response = response_dict.get('interactive', {}).get('body', {}).get('text', '')
+                            else:
+                                bot_response = "Bot response sent"
+                            save_message(contact_id, 'whatsapp', 'outgoing', bot_response)
+                        
+                        socketio.emit('new_message', {
+                            'platform': 'whatsapp',
+                            'sender_id': sender_wa_id,
+                            'display_name': display_name,
+                            'content': content,
+                            'timestamp': datetime.now().isoformat()
+                        })
+                        logger.info(f'WhatsApp message from {sender_wa_id}: {content[:80]}')
+                    
+                    # Handle other message types
+                    elif msg_type in ['image', 'audio', 'document', 'location']:
+                        if msg_type == 'image':
+                            content = '[Image]'
+                        elif msg_type == 'audio':
+                            content = '[Audio]'
+                        elif msg_type == 'document':
+                            content = '[Document]'
+                        elif msg_type == 'location':
+                            loc = msg.get('location', {})
+                            content = f"[Location: {loc.get('latitude')},{loc.get('longitude')}]"
+                        
+                        save_message(contact_id, 'whatsapp', 'incoming', content)
+                        
+                        # Send default response for media
+                        default_response = "Thank you for sharing! Our team will review and get back to you. For immediate assistance, please call +263779897192"
+                        adapters['whatsapp'].send_message(sender_wa_id, default_response)
+                        save_message(contact_id, 'whatsapp', 'outgoing', default_response)
 
         return jsonify({'status': 'ok'}), 200
     except Exception as e:
         logger.error(f'WhatsApp webhook error: {e}')
         return jsonify({'status': 'error'}), 500
 
-
 @app.route('/api/whatsapp/sync-contacts', methods=['POST'])
 @login_required
 def sync_whatsapp_contacts():
-    """Load WhatsApp contacts already saved in the database (added via webhook)"""
     try:
         with get_db_cursor(commit=False) as cursor:
             cursor.execute('''
@@ -1069,13 +998,11 @@ def sync_whatsapp_contacts():
         logger.error(f'WhatsApp sync-contacts error: {e}')
         return jsonify({'success': False, 'error': str(e)}), 500
 
-
-# ==================== FACEBOOK CONTACT SYNC ROUTES ====================
+# ==================== FACEBOOK ROUTES ====================
 
 @app.route('/api/facebook/diagnose', methods=['GET'])
 @login_required
 def facebook_diagnose():
-    """Check Facebook token validity and permissions"""
     page_token = os.getenv('FACEBOOK_PAGE_TOKEN')
     page_id = os.getenv('FACEBOOK_PAGE_ID')
 
@@ -1086,25 +1013,17 @@ def facebook_diagnose():
 
     result = {'page_token_set': True, 'page_id': page_id}
 
-    # Check token info
     try:
         r = requests.get(
             'https://graph.facebook.com/debug_token',
-            params={
-                'input_token': page_token,
-                'access_token': page_token
-            }
+            params={'input_token': page_token, 'access_token': page_token}
         )
         token_data = r.json().get('data', {})
         result['token_valid'] = token_data.get('is_valid', False)
-        result['token_expires_at'] = token_data.get('expires_at', 'unknown')
-        result['token_type'] = token_data.get('type', 'unknown')
         result['token_scopes'] = token_data.get('scopes', [])
-        result['token_error'] = token_data.get('error', {}).get('message') if not token_data.get('is_valid') else None
     except Exception as e:
         result['token_check_error'] = str(e)
 
-    # Try a simple API call to confirm the token works
     try:
         r2 = requests.get(
             f'https://graph.facebook.com/v18.0/{page_id}',
@@ -1119,22 +1038,17 @@ def facebook_diagnose():
     except Exception as e:
         result['page_api_error'] = str(e)
 
-    # Send a test message to yourself (skip — just check token)
     result['recommendation'] = []
     if not result.get('token_valid'):
-        result['recommendation'].append('Your token is INVALID or EXPIRED. Generate a new permanent Page Access Token in Meta Business Suite > Settings > Page Access Tokens.')
+        result['recommendation'].append('Your token is INVALID or EXPIRED.')
     if 'pages_messaging' not in result.get('token_scopes', []):
-        result['recommendation'].append('Token is missing "pages_messaging" permission. Regenerate with this scope.')
-    if not result.get('recommendation'):
-        result['recommendation'].append('Token looks valid. If messages still fail, check server logs for the exact Facebook API error per recipient.')
+        result['recommendation'].append('Token is missing "pages_messaging" permission.')
 
     return jsonify(result)
-
 
 @app.route('/api/facebook/sync-contacts', methods=['POST'])
 @login_required
 def sync_facebook_contacts():
-    """Sync ALL historical Facebook contacts - including those who messaged you long ago"""
     try:
         if not adapters['facebook'].is_configured:
             return jsonify({'success': False, 'error': 'Facebook not configured'}), 400
@@ -1159,12 +1073,10 @@ def sync_facebook_contacts():
             'contacts': new_contacts,
             'message': f"Successfully synced {result.get('synced', 0)} historical Facebook contacts"
         })
-        
     except Exception as e:
         logger.error(f"Sync error: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-        
 @app.route('/api/facebook/conversations/<psid>', methods=['GET'])
 @login_required
 def get_facebook_conversation(psid):
@@ -1214,28 +1126,21 @@ def get_facebook_conversation(psid):
             })
         
         return jsonify({'success': True, 'messages': messages})
-        
     except Exception as e:
         logger.error(f"Error fetching conversation: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# ==================== INSTAGRAM ROUTES ====================
 
 @app.route('/api/instagram/diagnose', methods=['GET'])
 @login_required
 def instagram_diagnose():
-    """Diagnose Instagram configuration issues"""
     adapter = adapters['instagram']
-    page_token = os.getenv('FACEBOOK_PAGE_TOKEN')
-    page_id = os.getenv('FACEBOOK_PAGE_ID')
     return jsonify({
-        'FACEBOOK_PAGE_TOKEN_set': bool(page_token),
-        'FACEBOOK_PAGE_ID_set': bool(page_id),
-        'FACEBOOK_PAGE_ID': page_id,
         'is_configured': adapter.is_configured,
         'instagram_business_id': adapter.instagram_business_id,
         'init_error': getattr(adapter, 'init_error', None)
     })
-
 
 @app.route('/api/instagram/sync-contacts', methods=['POST'])
 @login_required
@@ -1246,75 +1151,27 @@ def sync_instagram_contacts():
         if not instagram_adapter.is_configured:
             return jsonify({'success': False, 'error': 'Instagram not configured'}), 400
         
-        result = instagram_adapter.get_conversations(limit=100)
+        db_contacts = get_all_contacts(platform='instagram', opt_in_only=False)
+        contacts_out = [{'id': c['id'], 'psid': c['platform_user_id'], 'name': c['display_name'] or 'Instagram User'} for c in db_contacts]
         
-        # Error #3 = app not approved for instagram_manage_messages — fall back to DB contacts
-        if not result['success']:
-            err = result.get('error', '')
-            is_permission_error = '(#3)' in err or 'capability' in err.lower() or 'permission' in err.lower()
-            if is_permission_error:
-                logger.warning(f"Instagram Conversations API not available ({err}) — falling back to DB contacts")
-                db_contacts = get_all_contacts(platform='instagram', opt_in_only=False)
-                contacts_out = [{'id': c['id'], 'psid': c['platform_user_id'], 'name': c['display_name'] or 'Instagram User', 'last_message': None} for c in db_contacts]
-                msg = (
-                    f"Live sync unavailable: the app needs Meta App Review approval for "
-                    f"instagram_manage_messages. Showing {len(contacts_out)} contact(s) from local database (contacts who have messaged via webhook)."
-                )
-                return jsonify({'success': True, 'synced': len(contacts_out), 'contacts': contacts_out, 'warning': msg})
-            return jsonify({'success': False, 'error': err}), 400
-        
-        synced_count = 0
-        new_contacts = []
-        
-        for conv in result['conversations']:
-            psid = conv['psid']
-            user_name = conv['name']
-            
-            contact_id = save_contact(
-                platform='instagram',
-                platform_user_id=psid,
-                display_name=user_name,
-                opt_in=True
-            )
-            
-            synced_count += 1
-            new_contacts.append({
-                'id': contact_id,
-                'psid': psid,
-                'name': user_name,
-                'last_message': conv.get('last_message')
-            })
-        
-        return jsonify({'success': True, 'synced': synced_count, 'contacts': new_contacts})
-        
+        return jsonify({'success': True, 'synced': len(contacts_out), 'contacts': contacts_out})
     except Exception as e:
         logger.error(f"Instagram sync error: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/contacts/<int:contact_id>/messages', methods=['GET'])
-@login_required
-def get_contact_messages(contact_id):
-    """Return DB-stored message history for any contact (outgoing + webhook-saved inbound)."""
-    with get_db_cursor(commit=False) as cursor:
-        cursor.execute('''
-            SELECT m.id, m.direction, m.message AS content, m.sent_at AS timestamp, c.display_name
-            FROM messages m
-            JOIN contacts c ON m.contact_id = c.id
-            WHERE m.contact_id = %s
-            ORDER BY m.sent_at ASC
-            LIMIT 200
-        ''', (contact_id,))
-        messages = [dict(row) for row in cursor.fetchall()]
-    return jsonify({'success': True, 'messages': messages})
-
 @app.route('/api/instagram/conversations/<psid>', methods=['GET'])
 @login_required
 def get_instagram_conversation(psid):
-    instagram_adapter = adapters['instagram']
-    if not instagram_adapter.is_configured:
-        return jsonify({'success': False, 'error': 'Instagram not configured'}), 400
-    
-    messages = instagram_adapter.get_conversation_history(psid, limit=100)
+    with get_db_cursor(commit=False) as cursor:
+        cursor.execute('''
+            SELECT m.id, m.direction, m.message AS content, m.sent_at AS timestamp
+            FROM messages m
+            JOIN contacts c ON m.contact_id = c.id
+            WHERE c.platform_user_id = %s AND c.platform = 'instagram'
+            ORDER BY m.sent_at ASC
+            LIMIT 200
+        ''', (psid,))
+        messages = [dict(row) for row in cursor.fetchall()]
     
     return jsonify({'success': True, 'messages': messages, 'count': len(messages)})
 
@@ -1334,7 +1191,6 @@ def send_message():
     
     if platform not in adapters:
         return jsonify({'success': False, 'error': f'Invalid platform: {platform}'}), 400
-    
     
     result = adapters[platform].send_message(recipient, content)
     
@@ -1462,7 +1318,6 @@ def add_contact():
     contact_id = save_contact(platform, platform_user_id, display_name or None, phone_number, opt_in)
     return jsonify({'success': True, 'contact_id': contact_id, 'message': 'Contact added successfully'})
 
-
 @app.route('/api/contacts/import-csv', methods=['POST'])
 @login_required
 def import_contacts_csv():
@@ -1500,7 +1355,6 @@ def import_contacts_csv():
 
     return jsonify({'success': True, 'added': added, 'errors': errors})
 
-
 @app.route('/api/contacts', methods=['GET'])
 @login_required
 def get_contacts():
@@ -1508,7 +1362,6 @@ def get_contacts():
     opt_in_only = request.args.get('opt_in_only', 'false').lower() == 'true'
     search = request.args.get('search', '')
 
-    # Ensure old Facebook contacts are imported even if webhook was added later.
     if platform in (None, '', 'facebook'):
         fb_sync = maybe_backfill_facebook_contacts(force=False)
         if not fb_sync.get('success') and not fb_sync.get('skipped'):
@@ -1574,6 +1427,21 @@ def bulk_opt_in():
     
     return jsonify({'success': True, 'updated': len(contact_ids)})
 
+@app.route('/api/contacts/<int:contact_id>/messages', methods=['GET'])
+@login_required
+def get_contact_messages(contact_id):
+    with get_db_cursor(commit=False) as cursor:
+        cursor.execute('''
+            SELECT m.id, m.direction, m.message AS content, m.sent_at AS timestamp, c.display_name
+            FROM messages m
+            JOIN contacts c ON m.contact_id = c.id
+            WHERE m.contact_id = %s
+            ORDER BY m.sent_at ASC
+            LIMIT 200
+        ''', (contact_id,))
+        messages = [dict(row) for row in cursor.fetchall()]
+    return jsonify({'success': True, 'messages': messages})
+
 # ==================== BROADCAST ROUTES ====================
 
 @app.route('/api/broadcasts', methods=['GET'])
@@ -1602,11 +1470,9 @@ def get_broadcast_details(broadcast_id):
     
     return jsonify({'success': True, 'broadcast': dict(broadcast), 'recipients': [dict(r) for r in recipients]})
 
-
 @app.route('/api/broadcasts/<int:broadcast_id>/cancel', methods=['POST'])
 @login_required
 def cancel_broadcast(broadcast_id):
-    """Unstick a broadcast stuck in processing"""
     with get_db_cursor(commit=True) as cursor:
         cursor.execute(
             "UPDATE broadcasts SET status = 'cancelled', completed_at = %s WHERE id = %s AND status = 'processing'",
@@ -1614,11 +1480,9 @@ def cancel_broadcast(broadcast_id):
         )
     return jsonify({'success': True, 'message': 'Broadcast cancelled'})
 
-
 @app.route('/api/broadcasts/<int:broadcast_id>/rerun', methods=['POST'])
 @login_required
 def rerun_broadcast(broadcast_id):
-    """Rerun a previous broadcast with the same settings"""
     with get_db_cursor(commit=False) as cursor:
         cursor.execute("SELECT * FROM broadcasts WHERE id = %s", (broadcast_id,))
         original = cursor.fetchone()
@@ -1702,6 +1566,7 @@ def rerun_broadcast(broadcast_id):
         'message': f'Rerun started. Sending to {len(recipients)} recipients.'
     })
 
+# ==================== STATUS & HEALTH ROUTES ====================
 
 @app.route('/api/status', methods=['GET'])
 def get_platform_status():
@@ -1738,8 +1603,6 @@ def get_recipient_count():
     
     recipients = get_recipients_for_broadcast(platform, audience_filter, tags)
     return jsonify({'success': True, 'count': len(recipients)})
-
-# ==================== HEALTH CHECK ====================
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -1808,7 +1671,7 @@ if __name__ == '__main__':
     debug = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
     
     print("=" * 60)
-    print("UNIFIED SOCIAL MEDIA MESSAGING SYSTEM - FULLY FIXED")
+    print("UNIFIED SOCIAL MEDIA MESSAGING SYSTEM - WITH WHATSAPP CHATBOT")
     print("=" * 60)
     print(f"\nServer running on port: {port}")
     print(f"Debug mode: {debug}")
@@ -1817,6 +1680,11 @@ if __name__ == '__main__':
         status = "✓ CONFIGURED" if adapter.is_configured else "✗ NOT CONFIGURED"
         print(f"  • {name.upper()}: {status}")
     
+    print("\nWhatsApp Chatbot Features:")
+    print("  • Interactive menus with buttons (max 3)")
+    print("  • List menus for multiple options (max 10)")
+    print("  • Auto-responses for activities, accommodation, restaurant, etc.")
+    print("  • Booking system integration")
     print("\nDefault Admin Login:")
     print("  Username: admin")
     print("  Password: admin123")
