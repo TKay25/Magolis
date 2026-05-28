@@ -354,7 +354,7 @@ class WhatsAppAdapter:
     def __init__(self):
         self.access_token = os.getenv('WHATSAPP_ACCESS_TOKEN')
         self.phone_number_id = os.getenv('WHATSAPP_PHONE_ID')
-        self.verify_token = os.getenv('WHATSAPP_VERIFY_TOKEN', 'magolis_whatsapp_verify')
+        self.verify_token = os.getenv('WHATSAPP_VERIFY_TOKEN', '1122583909768342 ')
         self.is_configured = bool(self.access_token and self.phone_number_id)
         self.init_error = None
         if not self.access_token:
