@@ -2,7 +2,7 @@
 """
 Unified Social Media Messaging System - FULLY CORRECTED
 Fixed database connection issues (no connection pool)
-All original features preserved: webhooks, Instagram API, Twitter, WhatsApp, etc.
+All original features preserved: webhooks, Instagram API, WhatsApp, etc.
 """
 
 import os
@@ -25,13 +25,6 @@ from flask_socketio import SocketIO, emit
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 import requests
-
-# Fix tweepy import for Python 3.11+
-try:
-    import tweepy
-except ImportError:
-    tweepy = None
-    print("Warning: tweepy not installed")
 
 import logging
 from contextlib import contextmanager
@@ -647,77 +640,6 @@ class FacebookAdapter:
             logger.error(f"Error fetching conversation: {str(e)}")
             return {'success': False, 'error': str(e)}
         
-class TwitterAdapter:
-    def __init__(self):
-        self.bearer_token = os.getenv('TWITTER_BEARER_TOKEN')
-        self.api_key = os.getenv('TWITTER_API_KEY')
-        self.api_secret = os.getenv('TWITTER_API_SECRET')
-        self.access_token = os.getenv('TWITTER_ACCESS_TOKEN')
-        self.access_secret = os.getenv('TWITTER_ACCESS_SECRET')
-        self.is_configured = bool(self.bearer_token) and tweepy is not None
-        self.client = None
-        
-        if self.is_configured and tweepy:
-            try:
-                self.client = tweepy.Client(
-                    bearer_token=self.bearer_token,
-                    consumer_key=self.api_key,
-                    consumer_secret=self.api_secret,
-                    access_token=self.access_token,
-                    access_token_secret=self.access_secret
-                )
-            except Exception as e:
-                logger.error(f"Twitter init error: {e}")
-                self.is_configured = False
-    
-    def send_message(self, recipient_id, content):
-        if not self.is_configured or not self.client:
-            return {'success': False, 'error': 'Twitter not configured'}
-        
-        try:
-            response = self.client.send_direct_message(participant_id=recipient_id, text=content)
-            if response and response.data:
-                return {'success': True, 'platform': 'twitter'}
-            return {'success': False, 'error': 'Failed to send DM'}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
-    
-    def get_user_id(self, username):
-        if not self.client:
-            return None
-        try:
-            user = self.client.get_user(username=username.lstrip('@'))
-            return user.data.id if user and user.data else None
-        except:
-            return None
-
-    def diagnose(self):
-        result = {
-            'bearer_token_set': bool(self.bearer_token),
-            'is_configured': self.is_configured,
-        }
-        if not self.bearer_token:
-            result['error'] = 'TWITTER_BEARER_TOKEN env var is not set'
-            return result
-        if not self.client:
-            result['error'] = 'Twitter client failed to initialise (tweepy not installed or bad token)'
-            result['api_ok'] = False
-            return result
-        try:
-            me = self.client.get_me()
-            if me and me.data:
-                result['username'] = me.data.username
-                result['name']     = me.data.name
-                result['api_ok']   = True
-            else:
-                result['api_error'] = 'No user data returned'
-                result['api_ok']    = False
-        except Exception as e:
-            result['api_error'] = str(e)
-            result['api_ok']    = False
-        return result
-
-
 class InstagramAdapter:
     def __init__(self):
         self.access_token = os.getenv('FACEBOOK_PAGE_TOKEN')
@@ -928,115 +850,13 @@ class InstagramAdapter:
             return {'success': False, 'error': str(e)}
 
 
-class LinkedInAdapter:
-    """
-    LinkedIn API v2 — for posting to the member's feed.
-    NOTE: LinkedIn has no public DM API. 'Broadcasting' = publishing a post/share.
-    Contacts must be added manually or via CSV.
-    Requires: LINKEDIN_ACCESS_TOKEN (OAuth 2.0 token)
-    Token needs scopes: r_liteprofile, w_member_social
-    """
-    BASE = 'https://api.linkedin.com/v2'
-
-    def __init__(self):
-        self.access_token  = os.getenv('LINKEDIN_ACCESS_TOKEN')
-        self.is_configured = bool(self.access_token)
-        self.init_error    = None
-        self._person_urn   = None  # cached urn:li:person:{id}
-        if not self.access_token:
-            self.init_error = 'LINKEDIN_ACCESS_TOKEN env var is not set'
-
-    def _headers(self):
-        return {
-            'Authorization': f'Bearer {self.access_token}',
-            'Content-Type': 'application/json',
-            'X-Restli-Protocol-Version': '2.0.0'
-        }
-
-    def _get_person_urn(self):
-        if self._person_urn:
-            return self._person_urn
-        try:
-            r = requests.get(f'{self.BASE}/me', headers=self._headers(), timeout=10)
-            data = r.json()
-            if 'id' in data:
-                self._person_urn = f'urn:li:person:{data["id"]}'
-        except Exception:
-            pass
-        return self._person_urn
-
-    def diagnose(self):
-        result = {
-            'access_token_set': bool(self.access_token),
-            'is_configured': self.is_configured,
-        }
-        if not self.is_configured:
-            result['error'] = self.init_error
-            return result
-        try:
-            r = requests.get(
-                f'{self.BASE}/me',
-                headers=self._headers(),
-                params={'fields': 'id,firstName,lastName,vanityName'},
-                timeout=10
-            )
-            data = r.json()
-            if r.status_code >= 400 or 'serviceErrorCode' in data:
-                result['api_error'] = data.get('message', f'HTTP {r.status_code}')
-                result['api_ok'] = False
-            else:
-                first = list((data.get('firstName', {}).get('localized') or {}).values() or [''])[0]
-                last  = list((data.get('lastName',  {}).get('localized') or {}).values() or [''])[0]
-                result['name']   = f'{first} {last}'.strip()
-                result['vanity'] = data.get('vanityName')
-                result['api_ok'] = True
-        except Exception as e:
-            result['api_error'] = str(e)
-            result['api_ok'] = False
-        return result
-
-    def publish_post(self, text):
-        """Publish a text post to the member's LinkedIn feed."""
-        if not self.is_configured:
-            return {'success': False, 'error': self.init_error}
-        try:
-            person_urn = self._get_person_urn()
-            if not person_urn:
-                return {'success': False, 'error': 'Could not retrieve LinkedIn person URN — check token'}
-            payload = {
-                'author': person_urn,
-                'lifecycleState': 'PUBLISHED',
-                'specificContent': {
-                    'com.linkedin.ugc.ShareContent': {
-                        'shareCommentary': {'text': text},
-                        'shareMediaCategory': 'NONE'
-                    }
-                },
-                'visibility': {
-                    'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC'
-                }
-            }
-            r = requests.post(f'{self.BASE}/ugcPosts', headers=self._headers(), json=payload, timeout=30)
-            if r.status_code in (200, 201):
-                post_id = r.headers.get('X-RestLi-Id') or (r.json().get('id') if r.content else None)
-                return {'success': True, 'post_id': post_id, 'platform': 'linkedin'}
-            data = r.json()
-            return {'success': False, 'error': data.get('message', f'HTTP {r.status_code}')}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
-
-    def send_message(self, recipient_id, content):
-        """Broadcast compatibility — publishes as a LinkedIn post (no DM API)."""
-        return self.publish_post(content)
 
 
 # Initialize adapters
 adapters = {
     'whatsapp': WhatsAppAdapter(),
     'facebook': FacebookAdapter(),
-    'twitter': TwitterAdapter(),
-    'instagram': InstagramAdapter(),
-    'linkedin': LinkedInAdapter()
+    'instagram': InstagramAdapter()
 }
 
 # Facebook historical sync guard to avoid expensive API calls on every request.
@@ -1147,74 +967,6 @@ def check_auth():
             }
         })
     return jsonify({'authenticated': False}), 401
-
-# ==================== TWITTER ROUTES ====================
-
-@app.route('/api/twitter/diagnose', methods=['GET'])
-@login_required
-def twitter_diagnose():
-    return jsonify(adapters['twitter'].diagnose())
-
-
-@app.route('/api/twitter/sync-contacts', methods=['POST'])
-@login_required
-def sync_twitter_contacts():
-    """Return contacts with platform='twitter' from DB (Twitter DM contacts API requires Elevated access)."""
-    try:
-        with get_db_cursor(commit=False) as cursor:
-            cursor.execute("""
-                SELECT id, platform_user_id, display_name, opt_in
-                FROM contacts WHERE platform = 'twitter' ORDER BY created_at DESC LIMIT 100
-            """)
-            rows = cursor.fetchall()
-        contacts = [{'id': r[0], 'platform_user_id': r[1], 'display_name': r[2], 'opt_in': r[3]} for r in rows]
-        return jsonify({'success': True, 'contacts': contacts})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-# ==================== LINKEDIN ROUTES ====================
-
-@app.route('/api/linkedin/diagnose', methods=['GET'])
-@login_required
-def linkedin_diagnose():
-    return jsonify(adapters['linkedin'].diagnose())
-
-
-@app.route('/api/linkedin/sync-contacts', methods=['POST'])
-@login_required
-def sync_linkedin_contacts():
-    """Return contacts with platform='linkedin' from DB (LinkedIn has no public contacts API)."""
-    try:
-        with get_db_cursor(commit=False) as cursor:
-            cursor.execute("""
-                SELECT id, platform_user_id, display_name, opt_in
-                FROM contacts WHERE platform = 'linkedin' ORDER BY created_at DESC LIMIT 100
-            """)
-            rows = cursor.fetchall()
-        contacts = [{'id': r[0], 'platform_user_id': r[1], 'display_name': r[2], 'opt_in': r[3]} for r in rows]
-        return jsonify({'success': True, 'contacts': contacts})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/linkedin/publish', methods=['POST'])
-@login_required
-def publish_linkedin_post():
-    """Publish a post to LinkedIn (broadcast equivalent)."""
-    data = request.json
-    text = (data.get('text') or '').strip()
-    if not text:
-        return jsonify({'success': False, 'error': 'Text is required'}), 400
-    result = adapters['linkedin'].publish_post(text)
-    if result.get('success'):
-        socketio.emit('message_sent', {
-            'platform': 'linkedin',
-            'content': text[:100],
-            'timestamp': datetime.now().isoformat()
-        })
-    return jsonify(result)
-
 
 # ==================== WHATSAPP ROUTES ====================
 
@@ -1583,11 +1335,6 @@ def send_message():
     if platform not in adapters:
         return jsonify({'success': False, 'error': f'Invalid platform: {platform}'}), 400
     
-    if platform == 'twitter' and not recipient.isdigit():
-        user_id = adapters['twitter'].get_user_id(recipient)
-        if not user_id:
-            return jsonify({'success': False, 'error': 'Could not find Twitter user'}), 400
-        recipient = user_id
     
     result = adapters[platform].send_message(recipient, content)
     

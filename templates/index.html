@@ -110,9 +110,7 @@
             gap: 4px;
         }
         .platform-whatsapp { background: #E6F4EA; color: #075E54; }
-        .platform-facebook { background: #E9F0FA; color: #1877F2; }
-        .platform-twitter { background: #E8F0FE; color: #1DA1F2; }
-        .platform-instagram { background: #FCEAF0; color: #C13584; }
+        .platform-facebook { background: #E9F0FA; color: #1877F2; }        .platform-instagram { background: #FCEAF0; color: #C13584; }
 
         .status-badge {
             display: inline-block;
@@ -487,7 +485,7 @@
                                         <div class="card-header-modern"><i class="bi bi-megaphone me-1"></i> Create Campaign</div>
                                         <div class="card-body p-3">
                                             <div class="mb-2"><label class="form-label">Campaign Name</label><input type="text" id="broadcast-name" class="form-control" placeholder="e.g., Weekly Digest"></div>
-                                            <div class="mb-2"><label class="form-label">Platform</label><select id="broadcast-platform" class="form-select" onchange="updateRecipientCount(); updatePlatformHint()"><option value="whatsapp">WhatsApp</option><option value="facebook">Facebook Messenger</option><option value="twitter">Twitter DM</option><option value="instagram">Instagram DM</option><option value="linkedin">LinkedIn</option></select></div>
+                                            <div class="mb-2"><label class="form-label">Platform</label><select id="broadcast-platform" class="form-select" onchange="updateRecipientCount(); updatePlatformHint()"><option value="whatsapp">WhatsApp</option><option value="facebook">Facebook Messenger</option><option value="instagram">Instagram DM</option></select></div>
                                             <div id="platform-hint" class="mb-2"></div>
                                             <div class="mb-2"><label class="form-label">Audience</label><select id="broadcast-audience" class="form-select" onchange="toggleTagFilter(); updateRecipientCount();"><option value="all">All opted-in contacts</option><option value="active">Active (last 30 days)</option><option value="tagged">Tagged contacts</option></select></div>
                                             <div class="mb-2" id="tag-filter-container" style="display: none;"><label class="form-label">Tags (comma)</label><input type="text" id="broadcast-tags" class="form-control" placeholder="vip,newsletter" oninput="updateRecipientCount()"></div>
@@ -544,15 +542,11 @@
                                         <button class="sync-platform-btn spb-fb active" id="sync-tab-facebook"  onclick="switchMetaTab('facebook')"><i class="bi bi-facebook me-1"></i>Facebook</button>
                                         <button class="sync-platform-btn spb-ig"        id="sync-tab-instagram" onclick="switchMetaTab('instagram')"><i class="bi bi-instagram me-1"></i>Instagram</button>
                                         <button class="sync-platform-btn spb-wa"        id="sync-tab-whatsapp"  onclick="switchMetaTab('whatsapp')"><i class="bi bi-whatsapp me-1"></i>WhatsApp</button>
-                                        <button class="sync-platform-btn spb-li"        id="sync-tab-linkedin"  onclick="switchMetaTab('linkedin')"><i class="bi bi-linkedin me-1"></i>LinkedIn</button>
-                                        <button class="sync-platform-btn spb-tw"        id="sync-tab-twitter"   onclick="switchMetaTab('twitter')"><i class="bi bi-twitter-x me-1"></i>Twitter</button>
-                                    </div>
+                                        </div>
                                     <div style="max-height:220px;overflow-y:auto;">
                                         <div id="facebook-contacts-list"><div class="text-center p-2 text-muted" style="font-size:0.7rem;"><i class="bi bi-arrow-repeat me-1"></i>Click Refresh to sync Facebook contacts</div></div>
                                         <div id="instagram-contacts-list" style="display:none"><div class="text-center p-2 text-muted" style="font-size:0.7rem;"><i class="bi bi-arrow-repeat me-1"></i>Click Refresh to sync Instagram contacts</div></div>
                                         <div id="whatsapp-contacts-list"  style="display:none"><div class="text-center p-2 text-muted" style="font-size:0.7rem;"><i class="bi bi-arrow-repeat me-1"></i>Click Refresh to sync WhatsApp contacts</div></div>
-                                        <div id="linkedin-contacts-list"  style="display:none"><div class="text-center p-2 text-muted" style="font-size:0.7rem;"><i class="bi bi-arrow-repeat me-1"></i>Click Refresh to sync LinkedIn contacts</div></div>
-                                        <div id="twitter-contacts-list"   style="display:none"><div class="text-center p-2 text-muted" style="font-size:0.7rem;"><i class="bi bi-arrow-repeat me-1"></i>Click Refresh to sync Twitter contacts</div></div>
                                     </div>
                                 </div>
                             </div>
@@ -564,7 +558,7 @@
                                         <div class="card-header-modern"><i class="bi bi-person-plus me-1"></i> Add Contact Manually</div>
                                         <div class="card-body p-2">
                                             <div class="row g-1">
-                                                <div class="col-6"><select id="add-contact-platform" class="form-select form-select-sm"><option value="whatsapp">WhatsApp</option><option value="facebook">Facebook</option><option value="instagram">Instagram</option><option value="twitter">Twitter</option><option value="linkedin">LinkedIn</option></select></div>
+                                                <div class="col-6"><select id="add-contact-platform" class="form-select form-select-sm"><option value="whatsapp">WhatsApp</option><option value="facebook">Facebook</option><option value="instagram">Instagram</option></select></div>
                                                 <div class="col-6"><input type="text" id="add-contact-userid" class="form-control form-control-sm" placeholder="User ID / Phone *"></div>
                                                 <div class="col-6"><input type="text" id="add-contact-name" class="form-control form-control-sm" placeholder="Display Name"></div>
                                                 <div class="col-6"><input type="text" id="add-contact-phone" class="form-control form-control-sm" placeholder="Phone Number"></div>
@@ -600,7 +594,6 @@
                                             <option value="">All Platforms</option>
                                             <option value="whatsapp">WhatsApp</option>
                                             <option value="facebook">Facebook</option>
-                                            <option value="twitter">Twitter</option>
                                             <option value="instagram">Instagram</option>
                                         </select>
                                         <input type="text" id="contact-search" class="form-control form-control-sm" style="font-size:0.65rem;" placeholder="Search..." onkeyup="loadContacts()">
@@ -622,7 +615,6 @@
                                         <option value="">All Platforms</option>
                                         <option value="whatsapp">WhatsApp</option>
                                         <option value="facebook">Facebook</option>
-                                        <option value="twitter">Twitter</option>
                                         <option value="instagram">Instagram</option>
                                     </select>
                                 </div>
@@ -660,8 +652,6 @@
               <button class="pg-sidebar-btn" onclick="pgSwitch('facebook',this)"><i class="bi bi-facebook" style="color:#1877F2;"></i>Facebook</button>
               <button class="pg-sidebar-btn" onclick="pgSwitch('instagram',this)"><i class="bi bi-instagram" style="color:#e1306c;"></i>Instagram</button>
               <button class="pg-sidebar-btn" onclick="pgSwitch('whatsapp',this)"><i class="bi bi-whatsapp" style="color:#25D366;"></i>WhatsApp</button>
-              <button class="pg-sidebar-btn" onclick="pgSwitch('linkedin',this)"><i class="bi bi-linkedin" style="color:#0a66c2;"></i>LinkedIn</button>
-              <button class="pg-sidebar-btn" onclick="pgSwitch('twitter',this)"><i class="bi bi-twitter-x"></i>Twitter / X</button>
               <button class="pg-sidebar-btn" onclick="pgSwitch('envvars',this)"><i class="bi bi-gear-fill" style="color:#D4AF37;"></i>Env Vars</button>
               <button class="pg-sidebar-btn" onclick="pgSwitch('appreview',this)"><i class="bi bi-patch-check-fill" style="color:#e1306c;"></i>App Review</button>
             </div>
@@ -673,14 +663,14 @@
               <div class="pg-section-title">Platform Capabilities at a Glance</div>
               <p class="pg-section-sub">What each platform supports via its public API as of 2026.</p>
               <table class="pg-table">
-                <thead><tr><th>Feature</th><th>FB</th><th>IG</th><th>WA</th><th>LinkedIn</th><th>Twitter</th></tr></thead>
+                <thead><tr><th>Feature</th><th>FB</th><th>IG</th><th>WA</th></tr></thead>
                 <tbody>
-                  <tr><td>Send DMs via API</td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-no">✗ No</span></td><td><span class="pg-pill pg-pill-warn">Paid</span></td></tr>
-                  <tr><td>Bulk broadcast</td><td><span class="pg-pill pg-pill-warn">Review needed</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-info">Feed post</span></td><td><span class="pg-pill pg-pill-info">Tweet</span></td></tr>
-                  <tr><td>Contacts API</td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-warn">Inbound only</span></td><td><span class="pg-pill pg-pill-no">✗ No</span></td><td><span class="pg-pill pg-pill-no">✗ No</span></td></tr>
-                  <tr><td>Free tier</td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-no">Read-only</span></td></tr>
-                  <tr><td>Inbound webhook</td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-no">✗ No</span></td><td><span class="pg-pill pg-pill-no">✗ No</span></td></tr>
-                  <tr><td>Magolis method</td><td style="color:#666;">Messenger DM</td><td style="color:#666;">Instagram DM</td><td style="color:#666;">Cloud API</td><td style="color:#666;">UGC post</td><td style="color:#666;">Tweet</td></tr>
+                  <tr><td>Send DMs via API</td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td></tr>
+                  <tr><td>Bulk broadcast</td><td><span class="pg-pill pg-pill-warn">Review needed</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td></tr>
+                  <tr><td>Contacts API</td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-warn">Inbound only</span></td></tr>
+                  <tr><td>Free tier</td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td></tr>
+                  <tr><td>Inbound webhook</td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td><td><span class="pg-pill pg-pill-yes">✓ Yes</span></td></tr>
+                  <tr><td>Magolis method</td><td style="color:#666;">Messenger DM</td><td style="color:#666;">Instagram DM</td><td style="color:#666;">Cloud API</td></tr>
                 </tbody>
               </table>
               <div class="pg-tip"><strong>💡 Best for bulk DMs:</strong> WhatsApp (direct to number, no 24h window for templates) and Instagram (business account required). Facebook requires Meta App Review for unrestricted bulk messaging.</div>
@@ -739,40 +729,6 @@
               <div class="pg-tip"><strong>📱 Auto-contacts:</strong> When someone messages your WhatsApp Business number, the webhook saves them automatically — no manual entry needed.</div>
             </div>
 
-            <!-- LINKEDIN -->
-            <div class="pg-panel" id="pg-linkedin">
-              <div class="pg-section-title" style="color:#0a66c2;"><i class="bi bi-linkedin me-2"></i>LinkedIn</div>
-              <p class="pg-section-sub">LinkedIn's public API has no DM endpoint. The Messaging API is only available to approved CRM partners. The Conversions API is a <strong>tracking-only tool</strong> — it cannot send messages. Magolis broadcasts = posting to your feed.</p>
-              <table class="pg-table">
-                <thead><tr><th>LinkedIn API</th><th>Purpose</th><th>Sends messages?</th></tr></thead>
-                <tbody>
-                  <tr><td><strong>UGC Posts</strong> (<code>/v2/ugcPosts</code>)</td><td style="color:#666;">Post to LinkedIn feed</td><td><span class="pg-pill pg-pill-info">Feed post only</span></td></tr>
-                  <tr><td><strong>Messaging API</strong></td><td style="color:#666;">Send DMs</td><td><span class="pg-pill pg-pill-no">Partner access only</span></td></tr>
-                  <tr><td><strong>Conversions API</strong></td><td style="color:#666;">Ad attribution tracking</td><td><span class="pg-pill pg-pill-no">No — tracking only</span></td></tr>
-                  <tr><td><strong>Sponsored Messaging</strong></td><td style="color:#666;">Paid DM-style ads</td><td><span class="pg-pill pg-pill-warn">Paid ads, not API</span></td></tr>
-                </tbody>
-              </table>
-              <p style="font-size:0.77rem;color:#555;line-height:1.65;">LinkedIn integration requires an OAuth 2.0 access token with the appropriate posting permissions. Credentials are managed via environment variables by the system administrator. Broadcasts via LinkedIn publish a post to your organisation's feed — direct messaging is not available through the public API.</p>
-              <div class="pg-tip"><strong>Contacts:</strong> LinkedIn contacts must be added manually or via CSV import (set platform = linkedin). There is no public API to retrieve connections.</div>
-            </div>
-
-            <!-- TWITTER -->
-            <div class="pg-panel" id="pg-twitter">
-              <div class="pg-section-title"><i class="bi bi-twitter-x me-2"></i>Twitter / X</div>
-              <p class="pg-section-sub">Twitter API v2 supports DMs and tweets via Tweepy, but access is gated behind paid tiers since 2023. Free tier is <strong>read-only</strong>. Bulk DMs require Basic tier ($100/month) with strict rate limits.</p>
-              <table class="pg-table">
-                <thead><tr><th>Tier</th><th>Cost</th><th>Post tweets</th><th>Send DMs</th><th>DM limit</th></tr></thead>
-                <tbody>
-                  <tr><td><strong>Free</strong></td><td style="color:#666;">$0/mo</td><td><span class="pg-pill pg-pill-no">No</span></td><td><span class="pg-pill pg-pill-no">No</span></td><td style="color:#666;">Read-only</td></tr>
-                  <tr><td><strong>Basic</strong></td><td style="color:#666;">$100/mo</td><td><span class="pg-pill pg-pill-yes">Yes</span></td><td><span class="pg-pill pg-pill-warn">Limited</span></td><td style="color:#666;">~1,000/day</td></tr>
-                  <tr><td><strong>Pro</strong></td><td style="color:#666;">$5,000/mo</td><td><span class="pg-pill pg-pill-yes">Yes</span></td><td><span class="pg-pill pg-pill-yes">Yes</span></td><td style="color:#666;">Higher</td></tr>
-                </tbody>
-              </table>
-              <div class="pg-note"><strong>DM restriction:</strong> Even on paid tiers, you can only DM users who follow you or have open DMs enabled. You cannot cold-DM arbitrary users.</div>
-              <p style="font-size:0.77rem;color:#555;line-height:1.65;">Twitter / X credentials are managed by the system administrator. Five tokens are required for full functionality (Bearer Token, API Key, API Secret, Access Token, Access Secret). The appropriate API tier must be active on the developer account. Contact your admin to verify or update the connection.</p>
-              <div class="pg-tip"><strong>Twitter "broadcast" in Magolis</strong> = posting a tweet to your timeline. Individual DMs only work if the recipient follows you and your tier allows it.</div>
-            </div>
-
             <!-- ENV VARS -->
             <div class="pg-panel" id="pg-envvars">
               <div class="pg-section-title"><i class="bi bi-gear-fill me-2" style="color:#D4AF37;"></i>Render Environment Variables</div>
@@ -791,15 +747,7 @@
               <div class="pg-env-row"><span class="pg-env-key">WHATSAPP_PHONE_ID</span><span class="pg-env-desc">Phone Number ID (not the actual phone number)</span></div>
               <div class="pg-env-row"><span class="pg-env-key">WHATSAPP_VERIFY_TOKEN</span><span class="pg-env-desc">Custom string to verify the webhook (e.g. <code>magolis_whatsapp_verify</code>)</span></div>
 
-              <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;color:#888;margin:12px 0 6px;">Twitter / X</div>
-              <div class="pg-env-row"><span class="pg-env-key">TWITTER_BEARER_TOKEN</span><span class="pg-env-desc">App-only Bearer Token — required for all read operations</span></div>
-              <div class="pg-env-row"><span class="pg-env-key">TWITTER_API_KEY</span><span class="pg-env-desc">Consumer Key (API Key)</span></div>
-              <div class="pg-env-row"><span class="pg-env-key">TWITTER_API_SECRET</span><span class="pg-env-desc">Consumer Secret (API Secret)</span></div>
-              <div class="pg-env-row"><span class="pg-env-key">TWITTER_ACCESS_TOKEN</span><span class="pg-env-desc">User Access Token — required for posting and DMs</span></div>
-              <div class="pg-env-row"><span class="pg-env-key">TWITTER_ACCESS_SECRET</span><span class="pg-env-desc">User Access Token Secret</span></div>
-
-              <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;color:#888;margin:12px 0 6px;">LinkedIn</div>
-              <div class="pg-env-row"><span class="pg-env-key">LINKEDIN_ACCESS_TOKEN</span><span class="pg-env-desc">OAuth 2.0 token with <code>r_liteprofile</code> + <code>w_member_social</code> scopes</span></div>
+              </div>
             </div>
 
             <!-- APP REVIEW -->
@@ -840,7 +788,7 @@
                   <tr><td>Instagram contact sync (API)</td><td><span class="pg-pill pg-pill-no">Error #3</span></td><td><span class="pg-pill pg-pill-yes">Full live sync</span></td></tr>
                   <tr><td>Instagram DM send</td><td><span class="pg-pill pg-pill-warn">Test users only</span></td><td><span class="pg-pill pg-pill-yes">All users</span></td></tr>
                   <tr><td>Instagram inbound webhook</td><td><span class="pg-pill pg-pill-yes">Works now</span></td><td><span class="pg-pill pg-pill-yes">Works</span></td></tr>
-                  <tr><td>WhatsApp, LinkedIn, Twitter</td><td><span class="pg-pill pg-pill-yes">Unaffected</span></td><td><span class="pg-pill pg-pill-yes">Unaffected</span></td></tr>
+                  <tr><td>WhatsApp</td><td><span class="pg-pill pg-pill-yes">Unaffected</span></td><td><span class="pg-pill pg-pill-yes">Unaffected</span></td></tr>
                 </tbody>
               </table>
 
@@ -918,25 +866,15 @@
                 </table>
                 <div class="pg-tip"><strong>WhatsApp is the most automatic:</strong> Every inbound message from a new number creates a contact and saves the message — no sync needed.</div>
 
-                <div style="font-size:0.78rem;font-weight:700;margin:14px 0 8px;color:#0a66c2;"><i class="bi bi-linkedin me-1"></i>LinkedIn &amp; <i class="bi bi-twitter-x ms-1 me-1"></i>Twitter</div>
-                <table class="pg-table">
-                  <thead><tr><th>Event</th><th>What gets saved</th></tr></thead>
-                  <tbody>
-                    <tr><td>You send a broadcast (tweet / LinkedIn post)</td><td>Outbound message saved to DB</td></tr>
-                    <tr><td>No webhook / no inbound API</td><td><span class="pg-pill pg-pill-no">Contacts NOT auto-saved</span> — must be added manually or via CSV</td></tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <!-- MANUAL ADD -->
+                <!-- MANUAL ADD -->
               <div class="pg-panel" id="dg-manual">
                 <div class="pg-section-title"><i class="bi bi-person-plus me-2" style="color:#0d6efd;"></i>Manual Add</div>
                 <p class="pg-section-sub">Use the <strong>Add Contact Manually</strong> form in the Contacts tab to add a single contact for any platform.</p>
                 <table class="pg-table">
                   <thead><tr><th>Field</th><th>Required?</th><th>Notes</th></tr></thead>
                   <tbody>
-                    <tr><td><code>Platform</code></td><td><span class="pg-pill pg-pill-yes">Required</span></td><td>whatsapp, facebook, instagram, twitter, linkedin</td></tr>
-                    <tr><td><code>User ID / Phone</code></td><td><span class="pg-pill pg-pill-yes">Required</span></td><td>Phone number for WhatsApp; PSID for FB/IG; username for Twitter/LinkedIn</td></tr>
+                    <tr><td><code>Platform</code></td><td><span class="pg-pill pg-pill-yes">Required</span></td><td>whatsapp, facebook, instagram</td></tr>
+                    <tr><td><code>User ID / Phone</code></td><td><span class="pg-pill pg-pill-yes">Required</span></td><td>Phone number for WhatsApp; PSID for FB/IG; username for supported platforms</td></tr>
                     <tr><td><code>Display Name</code></td><td><span class="pg-pill pg-pill-warn">Optional</span></td><td>Human-readable name shown in contact lists</td></tr>
                     <tr><td><code>Phone Number</code></td><td><span class="pg-pill pg-pill-warn">Optional</span></td><td>Only relevant for WhatsApp contacts</td></tr>
                     <tr><td><code>Opted In</code></td><td><span class="pg-pill pg-pill-warn">Optional</span></td><td>Defaults to <strong>true</strong>. Only opted-in contacts receive broadcasts.</td></tr>
@@ -967,10 +905,7 @@
                 <div style="background:#1e2a3e;color:#a8d8a8;font-family:monospace;font-size:0.72rem;padding:10px 14px;border-radius:8px;line-height:1.8;">
                   platform,platform_user_id,display_name,phone_number,opt_in<br>
                   whatsapp,263771234567,Tinashe Moyo,263771234567,true<br>
-                  whatsapp,263772345678,Rumbidzai Dube,,true<br>
-                  linkedin,john-smith-123,John Smith,,true<br>
-                  twitter,janedoe_handle,Jane Doe,,false
-                </div>
+                  whatsapp,263772345678,Rumbidzai Dube,,true<br></div>
 
                 <div class="pg-note" style="margin-top:12px;"><strong>Encoding:</strong> Save your file as UTF-8 (with or without BOM). Excel's default CSV export works. Column names are case-insensitive and whitespace-trimmed.</div>
                 <div class="pg-tip"><strong>Opt-out rows:</strong> Setting <code>opt_in=false</code> adds the contact to the database but excludes them from all broadcasts. Useful for maintaining a suppression list.</div>
@@ -1000,7 +935,7 @@
                     <tr><td>Individual DM send</td><td><code>outgoing</code></td><td>all platforms</td></tr>
                   </tbody>
                 </table>
-                <div class="pg-note"><strong>Live conversations (FB/IG):</strong> When you open a chat for Facebook or Instagram, the conversation is fetched live from the Graph API — it is NOT read from the local <code>messages</code> table. WhatsApp, Twitter, and LinkedIn chats are read from the local DB.</div>
+                <div class="pg-note"><strong>Live conversations (FB/IG):</strong> When you open a chat for Facebook or Instagram, the conversation is fetched live from the Graph API — it is NOT read from the local <code>messages</code> table. WhatsApp chats are read from the local DB.</div>
               </div>
 
               <!-- DB SCHEMA -->
@@ -1013,7 +948,7 @@
                   <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
                   <tbody>
                     <tr><td><code>id</code></td><td>SERIAL PK</td><td>Auto-increment primary key</td></tr>
-                    <tr><td><code>platform</code></td><td>VARCHAR</td><td>whatsapp / facebook / instagram / twitter / linkedin</td></tr>
+                    <tr><td><code>platform</code></td><td>VARCHAR</td><td>whatsapp / facebook / instagram</td></tr>
                     <tr><td><code>platform_user_id</code></td><td>VARCHAR</td><td>Unique per platform — phone / PSID / handle</td></tr>
                     <tr><td><code>display_name</code></td><td>VARCHAR</td><td>Human-readable name (nullable)</td></tr>
                     <tr><td><code>phone_number</code></td><td>VARCHAR</td><td>WhatsApp only (nullable)</td></tr>
@@ -1166,30 +1101,25 @@
             if (btn) btn.classList.add('active');
         }
         
-        const _metaSynced = { facebook: false, instagram: false, whatsapp: false, linkedin: false, twitter: false };
+        const _metaSynced = { facebook: false, instagram: false, whatsapp: false };
 
         function switchMetaTab(tab) {
             currentMetaTab = tab;
             // Update pill button active states
-            ['facebook','instagram','whatsapp','linkedin','twitter'].forEach(p => {
+            ['facebook','instagram','whatsapp'].forEach(p => {
                 const btn = document.getElementById('sync-tab-' + p);
                 if (btn) btn.classList.toggle('active', p === tab);
             });
             // Show only the selected list
             document.getElementById('facebook-contacts-list').style.display  = tab === 'facebook'  ? 'block' : 'none';
             document.getElementById('instagram-contacts-list').style.display = tab === 'instagram' ? 'block' : 'none';
-            document.getElementById('whatsapp-contacts-list').style.display  = tab === 'whatsapp'  ? 'block' : 'none';
-            document.getElementById('linkedin-contacts-list').style.display  = tab === 'linkedin'  ? 'block' : 'none';
-            document.getElementById('twitter-contacts-list').style.display   = tab === 'twitter'   ? 'block' : 'none';
-            // Auto-sync once per tab per page load
+            document.getElementById('whatsapp-contacts-list').style.display  = tab === 'whatsapp'  ? 'block' : 'none';            // Auto-sync once per tab per page load
             if (!_metaSynced[tab]) {
                 _metaSynced[tab] = true;
                 if (tab === 'facebook')  syncFacebookContacts();
                 if (tab === 'instagram') syncInstagramContacts();
                 if (tab === 'whatsapp')  syncWhatsAppContacts();
-                if (tab === 'linkedin')  syncLinkedInContacts();
-                if (tab === 'twitter')   syncTwitterContacts();
-            }
+                }
         }
 
         function resyncCurrentMetaTab() {
@@ -1197,9 +1127,7 @@
             if (currentMetaTab === 'facebook')  syncFacebookContacts();
             if (currentMetaTab === 'instagram') syncInstagramContacts();
             if (currentMetaTab === 'whatsapp')  syncWhatsAppContacts();
-            if (currentMetaTab === 'linkedin')  syncLinkedInContacts();
-            if (currentMetaTab === 'twitter')   syncTwitterContacts();
-        }
+            }
         
         function showTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
@@ -1207,7 +1135,7 @@
             document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
             if(event && event.target) event.target.closest('.nav-link').classList.add('active');
             if(tabName === 'dashboard') { loadDashboardStats(); loadPlatformStatus(); loadDashboardRecentBroadcasts(); }
-            if(tabName === 'contacts') { loadContacts(); if(!_metaSynced[currentMetaTab]){ _metaSynced[currentMetaTab]=true; if(currentMetaTab==='facebook') syncFacebookContacts(); else if(currentMetaTab==='instagram') syncInstagramContacts(); else if(currentMetaTab==='whatsapp') syncWhatsAppContacts(); else if(currentMetaTab==='linkedin') syncLinkedInContacts(); else if(currentMetaTab==='twitter') syncTwitterContacts(); } }
+            if(tabName === 'contacts') { loadContacts(); if(!_metaSynced[currentMetaTab]){ _metaSynced[currentMetaTab]=true; if(currentMetaTab==='facebook') syncFacebookContacts(); else if(currentMetaTab==='instagram') syncInstagramContacts(); else if(currentMetaTab==='whatsapp') syncWhatsAppContacts();} }
             if(tabName === 'history') loadMessageHistory();
             if(tabName === 'broadcast') { loadBroadcasts(); updateRecipientCount(); updatePlatformHint(); }
             if(tabName === 'status') loadPlatformStatusCards();
@@ -1291,88 +1219,6 @@
                     container.innerHTML = '<div class="text-center p-3 text-muted"><i class="bi bi-whatsapp fs-4 text-success"></i><p class="mb-1 mt-2">No WhatsApp contacts yet.</p><small class="d-block">When someone messages your WhatsApp Business number, they\'ll appear here automatically via webhook.</small><small>Or use CSV Import / Add Contact Manually in the Contacts tab.</small></div>';
                 }
             } catch(e) { container.innerHTML = `<div class="alert alert-danger m-2 p-1">${escapeHtml(e.message)}</div>`; showToast('Error', e.message, 'danger'); }
-        }
-
-        async function syncTwitterContacts() {
-            const container = document.getElementById('twitter-contacts-list');
-            container.innerHTML = '<div class="text-center p-2"><div class="spinner-border spinner-border-sm"></div><p class="mt-1" style="font-size:0.7rem;">Loading Twitter contacts...</p></div>';
-            try {
-                const diagRes = await fetch('/api/twitter/diagnose');
-                const diag = await diagRes.json();
-                if (!diag.is_configured) {
-                    container.innerHTML = `<div class="alert alert-warning m-2 p-2" style="font-size:0.7rem;"><i class="bi bi-exclamation-triangle me-1"></i><strong>Twitter not configured:</strong><br>${escapeHtml(diag.error || 'Set TWITTER_BEARER_TOKEN in Render environment variables.')}</div>`;
-                    return;
-                }
-                if (diag.api_ok) showToast('Twitter', `Connected as @${diag.username}`, 'success');
-                else if (diag.api_error) { container.innerHTML = `<div class="alert alert-danger m-2 p-2" style="font-size:0.7rem;">${escapeHtml(diag.api_error)}</div>`; return; }
-            } catch(e) {}
-
-            try {
-                const res = await fetch('/api/twitter/sync-contacts', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
-                const data = await res.json();
-                if (data.success && data.contacts?.length) {
-                    let html = '';
-                    data.contacts.forEach(c => {
-                        const initials = (c.display_name||'?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
-                        html += `<div class="contact-item" style="cursor:pointer;" onclick="viewConversation('twitter','${c.platform_user_id}','${escapeHtml(c.display_name||c.platform_user_id)}',${c.id||'null'})">
-                            <div class="ci-avatar" style="background:#000;">${initials}</div>
-                            <div class="ci-body">
-                                <div class="ci-name">${escapeHtml(c.display_name || c.platform_user_id)}</div>
-                                <div class="ci-sub">@${escapeHtml(c.platform_user_id)}</div>
-                            </div>
-                            <span class="ci-badge ${c.opt_in ? 'bg-success text-white' : 'bg-light text-muted border'}">${c.opt_in ? 'In' : 'Out'}</span>
-                            <i class="bi bi-chevron-right text-muted ms-1" style="font-size:0.6rem;"></i>
-                        </div>`;
-                    });
-                    container.innerHTML = html;
-                    showToast('Twitter', `${data.contacts.length} contacts loaded`, 'success');
-                } else if (!data.success) {
-                    container.innerHTML = `<div class="alert alert-danger m-2 p-2" style="font-size:0.7rem;">${escapeHtml(data.error)}</div>`;
-                } else {
-                    container.innerHTML = '<div class="text-center p-3 text-muted" style="font-size:0.7rem;"><i class="bi bi-twitter-x fs-4"></i><p class="mt-2 mb-1">No Twitter contacts yet.</p><small class="d-block">Add contacts manually or via CSV Import (set platform to Twitter).</small></div>';
-                }
-            } catch(e) { container.innerHTML = `<div class="alert alert-danger m-2 p-1" style="font-size:0.7rem;">${escapeHtml(e.message)}</div>`; }
-        }
-
-        async function syncLinkedInContacts() {
-            const container = document.getElementById('linkedin-contacts-list');
-            container.innerHTML = '<div class="text-center p-2"><div class="spinner-border spinner-border-sm" style="color:#0a66c2;"></div><p class="mt-1" style="font-size:0.7rem;">Loading LinkedIn contacts...</p></div>';
-            try {
-                const diagRes = await fetch('/api/linkedin/diagnose');
-                const diag = await diagRes.json();
-                if (!diag.is_configured) {
-                    container.innerHTML = `<div class="alert alert-warning m-2 p-2" style="font-size:0.7rem;"><i class="bi bi-exclamation-triangle me-1"></i><strong>LinkedIn not configured:</strong><br>${escapeHtml(diag.error || 'Set LINKEDIN_ACCESS_TOKEN in Render environment variables.')}</div>`;
-                    return;
-                }
-                if (diag.api_ok) showToast('LinkedIn', `Connected as ${diag.name || diag.vanity || 'OK'}`, 'success');
-                else if (diag.api_error) { container.innerHTML = `<div class="alert alert-danger m-2 p-2" style="font-size:0.7rem;">${escapeHtml(diag.api_error)}</div>`; return; }
-            } catch(e) {}
-
-            try {
-                const res = await fetch('/api/linkedin/sync-contacts', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
-                const data = await res.json();
-                if (data.success && data.contacts?.length) {
-                    let html = '';
-                    data.contacts.forEach(c => {
-                        const initials = (c.display_name||'?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
-                        html += `<div class="contact-item" style="cursor:pointer;" onclick="viewConversation('linkedin','${c.platform_user_id}','${escapeHtml(c.display_name||c.platform_user_id)}',${c.id||'null'})">
-                            <div class="ci-avatar" style="background:#0a66c2;">${initials}</div>
-                            <div class="ci-body">
-                                <div class="ci-name">${escapeHtml(c.display_name || c.platform_user_id)}</div>
-                                <div class="ci-sub">${escapeHtml(c.platform_user_id)}</div>
-                            </div>
-                            <span class="ci-badge ${c.opt_in ? 'bg-success text-white' : 'bg-light text-muted border'}">${c.opt_in ? 'In' : 'Out'}</span>
-                            <i class="bi bi-chevron-right text-muted ms-1" style="font-size:0.6rem;"></i>
-                        </div>`;
-                    });
-                    container.innerHTML = html;
-                    showToast('LinkedIn', `${data.contacts.length} contacts loaded`, 'success');
-                } else if (!data.success) {
-                    container.innerHTML = `<div class="alert alert-danger m-2 p-2" style="font-size:0.7rem;">${escapeHtml(data.error)}</div>`;
-                } else {
-                    container.innerHTML = '<div class="text-center p-3 text-muted" style="font-size:0.7rem;"><i class="bi bi-linkedin fs-4" style="color:#0a66c2;"></i><p class="mt-2 mb-1">No LinkedIn contacts yet.</p><small class="d-block">Add contacts manually or via CSV Import in the Contacts tab (set platform to LinkedIn).</small></div>';
-                }
-            } catch(e) { container.innerHTML = `<div class="alert alert-danger m-2 p-1" style="font-size:0.7rem;">${escapeHtml(e.message)}</div>`; }
         }
 
         async function syncInstagramContacts() {
@@ -1486,7 +1332,7 @@
         // platform, psid/id = platform_user_id, name, contactId = DB row id (optional)
         async function viewConversation(platform, psid, name, contactId) {
             const pm = platformMeta[platform] || { icon: 'bi-circle', color: '#888' };
-            const canReply = ['facebook', 'instagram', 'whatsapp', 'twitter'].includes(platform);
+            const canReply = ['facebook', 'instagram', 'whatsapp'].includes(platform);
             activeConversation = { platform, recipient: psid, name, contactId };
 
             // Facebook and Instagram have live Graph API history
@@ -1625,9 +1471,7 @@
             facebook:  { icon: 'bi-facebook',  color: '#1877F2' },
             instagram: { icon: 'bi-instagram',  color: '#e1306c' },
             whatsapp:  { icon: 'bi-whatsapp',   color: '#25D366' },
-            linkedin:  { icon: 'bi-linkedin',   color: '#0a66c2' },
-            twitter:   { icon: 'bi-twitter-x',  color: '#000'    },
-        };
+            };
 
         async function loadDashboardStats() {
             try {
@@ -1692,9 +1536,9 @@
             } catch(e) { el.innerHTML = '<div class="text-center py-2 text-muted" style="font-size:0.75rem;">Could not load</div>'; }
         }
         
-        async function loadPlatformStatus(){ try { let r=await fetch('/api/status'); let s=await r.json(); let html=''; for(let [k,v] of Object.entries(s)) if(k!=='linkedin') html+=`<div class="d-flex justify-content-between align-items-center p-1 border-bottom"><div><i class="bi bi-${k} me-1"></i><strong>${k.charAt(0).toUpperCase()+k.slice(1)}</strong></div><span class="status-badge ${v.configured?'status-configured':'status-not-configured'}">${v.configured?'✓ Connected':'✗ Not set'}</span></div>`; document.getElementById('platform-status-list').innerHTML=html||'<div class="text-center p-2">No data</div>'; } catch(e){} }
+        async function loadPlatformStatus(){ try { let r=await fetch('/api/status'); let s=await r.json(); let html=''; for(let [k,v] of Object.entries(s)) if(k==='facebook'||k==='instagram'||k==='whatsapp') html+=`<div class="d-flex justify-content-between align-items-center p-1 border-bottom"><div><i class="bi bi-${k} me-1"></i><strong>${k.charAt(0).toUpperCase()+k.slice(1)}</strong></div><span class="status-badge ${v.configured?'status-configured':'status-not-configured'}">${v.configured?'✓ Connected':'✗ Not set'}</span></div>`; document.getElementById('platform-status-list').innerHTML=html||'<div class="text-center p-2">No data</div>'; } catch(e){} }
         
-        async function loadPlatformStatusCards(){ try { let r=await fetch('/api/status'); let s=await r.json(); let html=''; for(let [k,v] of Object.entries(s)) if(k!=='linkedin') html+=`<div class="col-md-6 col-lg-4"><div class="card-modern"><div class="card-body p-2"><div class="d-flex justify-content-between"><div><i class="bi bi-${k}" style="font-size:1rem;"></i><h6 class="mt-1 mb-0" style="font-size:0.75rem;">${k}</h6></div><span class="status-badge ${v.configured?'status-configured':'status-not-configured'}">${v.configured?'Active':'Inactive'}</span></div><p class="small text-secondary mt-1 mb-0">${v.configured?'Ready to broadcast':'Configure API keys'}</p></div></div></div>`; document.getElementById('platform-status-cards').innerHTML=html; } catch(e){} }
+        async function loadPlatformStatusCards(){ try { let r=await fetch('/api/status'); let s=await r.json(); let html=''; for(let [k,v] of Object.entries(s)) if(k==='facebook'||k==='instagram'||k==='whatsapp') html+=`<div class="col-md-6 col-lg-4"><div class="card-modern"><div class="card-body p-2"><div class="d-flex justify-content-between"><div><i class="bi bi-${k}" style="font-size:1rem;"></i><h6 class="mt-1 mb-0" style="font-size:0.75rem;">${k}</h6></div><span class="status-badge ${v.configured?'status-configured':'status-not-configured'}">${v.configured?'Active':'Inactive'}</span></div><p class="small text-secondary mt-1 mb-0">${v.configured?'Ready to broadcast':'Configure API keys'}</p></div></div></div>`; document.getElementById('platform-status-cards').innerHTML=html; } catch(e){} }
         
         async function updateRecipientCount(){ 
             let platform = document.getElementById('broadcast-platform').value; 
@@ -1742,20 +1586,6 @@
                     tip: 'Your Instagram must be a Business or Creator account linked to your Facebook Page. Contacts must have messaged you first.',
                     section: 'instagram'
                 },
-                linkedin: {
-                    color: '#0a66c2', icon: 'bi-linkedin', label: 'LinkedIn',
-                    method: 'Feed post (not DM)',
-                    badges: [['#0dcaf0','Posts to your feed'], ['#dc3545','No DM API available']],
-                    tip: 'LinkedIn\'s public API does not support sending DMs. Broadcasts publish a post to your LinkedIn feed.',
-                    section: 'linkedin'
-                },
-                twitter: {
-                    color: '#000000', icon: 'bi-twitter-x', label: 'Twitter / X',
-                    method: 'Tweet (timeline post)',
-                    badges: [['#ffc107','Basic tier $100/mo'], ['#dc3545','Free tier = read-only']],
-                    tip: 'Broadcasting posts a tweet to your timeline. DMs only work on paid tiers and only to users who follow you.',
-                    section: 'twitter'
-                }
             };
             const h = hints[platform];
             if (!h) return;
@@ -1937,7 +1767,7 @@
                 let data = await res.json(); 
                 if(data.success && data.contacts.length){ 
                     let html = `<div class="table-responsive"><table class="table table-hover mb-0" style="font-size:0.78rem;"><thead class="table-light"><tr><th>Platform</th><th>Name</th><th>ID</th><th>Last Interaction</th><th></th></tr></thead><tbody>${data.contacts.map(c => { 
-                        const canChat = ['facebook','instagram','whatsapp','twitter','linkedin'].includes(c.platform); 
+                        const canChat = ['facebook','instagram','whatsapp'].includes(c.platform); 
                         const chatBtn = canChat ? `<button class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size:0.6rem;" onclick="viewConversation('${c.platform}','${c.platform_user_id}','${escapeHtml(c.display_name||c.platform_user_id)}',${c.id})"><i class="bi bi-chat-dots"></i></button>` : ''; 
                         return `<tr><td><span class="platform-badge platform-${c.platform}">${c.platform}</span></td><td>${escapeHtml(c.display_name || '—')}</td><td><span class="text-muted">${c.platform_user_id?.substring(0,15)}</span></td><td>${c.last_interaction ? new Date(c.last_interaction).toLocaleDateString() : 'never'}</td><td>${chatBtn}</td></tr>`; 
                     }).join('')}</tbody></table></div>`; 

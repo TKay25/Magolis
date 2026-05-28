@@ -509,7 +509,7 @@
 
   <h1 class="page-title">Social Platform<br/><span>Messaging Capabilities</span></h1>
   <p class="page-subtitle">
-    A complete reference covering what each platform's API can and cannot do, Facebook's 24-hour messaging policy, WhatsApp Business setup, Twitter/X API tiers, and LinkedIn's posting model — plus all environment variables needed for Magolis on Render.
+    A complete reference covering what each platform's API can and cannot do, Facebook's 24-hour messaging policy, WhatsApp Business setup, and Instagram capabilities — plus all environment variables needed for Magolis on Render.
   </p>
 
   <!-- ══════════════════════════════════════════════ -->
@@ -548,23 +548,7 @@
       <div class="pc-row"><span class="pc-row-label">Contacts</span><span class="tag-yes">✓ Via webhook (inbound)</span></div>
     </div>
 
-    <div class="platform-card pc-li">
-      <div class="pc-logo">💼</div>
-      <div class="pc-name">LinkedIn</div>
-      <div class="pc-row"><span class="pc-row-label">Bulk DMs</span><span class="tag-no">✗ No public DM API</span></div>
-      <div class="pc-row"><span class="pc-row-label">Broadcast</span><span class="tag-post">⬡ Feed post only</span></div>
-      <div class="pc-row"><span class="pc-row-label">Contacts API</span><span class="tag-no">✗ None (manual/CSV)</span></div>
-      <div class="pc-row"><span class="pc-row-label">Conversions API</span><span class="tag-no">✗ Tracking only</span></div>
-    </div>
 
-    <div class="platform-card pc-tw">
-      <div class="pc-logo">𝕏</div>
-      <div class="pc-name">Twitter / X</div>
-      <div class="pc-row"><span class="pc-row-label">Bulk DMs</span><span class="tag-paid">⚠ Paid + restricted</span></div>
-      <div class="pc-row"><span class="pc-row-label">Broadcast</span><span class="tag-post">⬡ Tweet / feed post</span></div>
-      <div class="pc-row"><span class="pc-row-label">Free tier DMs</span><span class="tag-no">✗ Read-only</span></div>
-      <div class="pc-row"><span class="pc-row-label">Basic tier ($100/mo)</span><span class="tag-paid">⚠ ~1,000 DMs/day</span></div>
-    </div>
 
   </div>
 
@@ -577,8 +561,6 @@
           <th>Facebook</th>
           <th>Instagram</th>
           <th>WhatsApp</th>
-          <th>LinkedIn</th>
-          <th>Twitter/X</th>
         </tr>
       </thead>
       <tbody>
@@ -587,56 +569,42 @@
           <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
           <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
           <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
-          <td><span class="pill pill-danger"><span class="pill-dot"></span>No</span></td>
-          <td><span class="pill pill-warn"><span class="pill-dot"></span>Paid</span></td>
         </tr>
         <tr>
           <td>Bulk/broadcast messaging</td>
           <td><span class="pill pill-warn"><span class="pill-dot"></span>Needs review</span></td>
           <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
           <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
-          <td><span class="pill pill-info"><span class="pill-dot"></span>Feed post</span></td>
-          <td><span class="pill pill-info"><span class="pill-dot"></span>Tweet</span></td>
         </tr>
         <tr>
           <td>Contacts API (fetch recipients)</td>
           <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
           <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
           <td><span class="pill pill-warn"><span class="pill-dot"></span>Inbound only</span></td>
-          <td><span class="pill pill-danger"><span class="pill-dot"></span>No</span></td>
-          <td><span class="pill pill-danger"><span class="pill-dot"></span>No</span></td>
         </tr>
         <tr>
           <td>Free tier available</td>
           <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
           <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
           <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
-          <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
-          <td><span class="pill pill-danger"><span class="pill-dot"></span>Read-only</span></td>
         </tr>
         <tr>
           <td>Requires Meta App Review</td>
           <td><span class="pill pill-warn"><span class="pill-dot"></span>For bulk tags</span></td>
           <td><span class="pill pill-warn"><span class="pill-dot"></span>For some features</span></td>
           <td><span class="pill pill-danger"><span class="pill-dot"></span>No (verified number)</span></td>
-          <td><span class="pill pill-danger"><span class="pill-dot"></span>Not applicable</span></td>
-          <td><span class="pill pill-danger"><span class="pill-dot"></span>Not applicable</span></td>
         </tr>
         <tr>
           <td>Inbound webhook</td>
           <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
           <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
           <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
-          <td><span class="pill pill-danger"><span class="pill-dot"></span>No</span></td>
-          <td><span class="pill pill-danger"><span class="pill-dot"></span>No</span></td>
         </tr>
         <tr>
           <td>Magolis broadcast method</td>
           <td class="dim">Messenger DM</td>
           <td class="dim">Instagram DM</td>
           <td class="dim">Cloud API message</td>
-          <td class="dim">UGC post to feed</td>
-          <td class="dim">Tweet to timeline</td>
         </tr>
       </tbody>
     </table>
@@ -809,163 +777,6 @@
   <hr class="divider"/>
 
   <!-- ══════════════════════════════════════════════ -->
-  <!-- SECTION 5: LinkedIn                            -->
-  <!-- ══════════════════════════════════════════════ -->
-  <p class="section-label">Section 5 — LinkedIn</p>
-  <h2 class="section-title">💼 LinkedIn API</h2>
-  <p class="section-desc">
-    LinkedIn's public API does not expose a DM or messaging endpoint. The Messaging API exists but is only available to approved CRM partners (HubSpot, Salesforce, etc.) — not to developers generally. The Conversions API is a <strong>tracking-only tool</strong> that sends event data back to LinkedIn for ad measurement; it cannot send any message to users.
-  </p>
-
-  <div class="table-card">
-    <table>
-      <thead>
-        <tr>
-          <th>LinkedIn API</th>
-          <th>Purpose</th>
-          <th>Can send messages?</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>UGC Posts API</strong> (<code>/v2/ugcPosts</code>)</td>
-          <td class="dim">Publish posts to your LinkedIn feed</td>
-          <td><span class="pill pill-info"><span class="pill-dot"></span>Feed post (public)</span></td>
-        </tr>
-        <tr>
-          <td><strong>Messaging API</strong></td>
-          <td class="dim">Send DMs to connections</td>
-          <td><span class="pill pill-danger"><span class="pill-dot"></span>Partner access only</span></td>
-        </tr>
-        <tr>
-          <td><strong>Conversions API</strong></td>
-          <td class="dim">Send conversion event data to LinkedIn for ad attribution</td>
-          <td><span class="pill pill-danger"><span class="pill-dot"></span>No — tracking only</span></td>
-        </tr>
-        <tr>
-          <td><strong>Sponsored Messaging</strong></td>
-          <td class="dim">Paid DM-style ads via Campaign Manager</td>
-          <td><span class="pill pill-warn"><span class="pill-dot"></span">Paid ads — not an API</span></span></td>
-        </tr>
-        <tr>
-          <td><strong>InMail</strong></td>
-          <td class="dim">Outreach to non-connections</td>
-          <td><span class="pill pill-warn"><span class="pill-dot"></span>Manual only, credit-based</span></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="fix-card">
-    <h3>LinkedIn setup in Magolis <span class="fix-badge li-badge">UGC Posts API</span></h3>
-    <div class="steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <div class="step-text">Go to <a href="https://www.linkedin.com/developers/apps" target="_blank">linkedin.com/developers/apps</a> → create an app → associate it with a LinkedIn Company Page.</div>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-text">Under <strong>Products</strong>, request access to <strong>Share on LinkedIn</strong> (grants <code>w_member_social</code>) and <strong>Sign In with LinkedIn</strong> (grants <code>r_liteprofile</code>).</div>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <div class="step-text">Generate an <strong>OAuth 2.0 access token</strong> via the OAuth 2.0 token generator in the developer portal. Copy the token.</div>
-      </div>
-      <div class="step">
-        <div class="step-num">4</div>
-        <div class="step-text">Set <code>LINKEDIN_ACCESS_TOKEN</code> in Render environment variables. Magolis will verify and display your LinkedIn profile name on connect.</div>
-      </div>
-    </div>
-    <div class="tip">
-      <div class="tip-icon">💡</div>
-      <div class="tip-text"><strong>Contacts:</strong> LinkedIn contacts must be added to Magolis manually or via CSV import (set platform = linkedin). There is no public API to retrieve your connections or followers as a contact list.</div>
-    </div>
-  </div>
-
-  <hr class="divider"/>
-
-  <!-- ══════════════════════════════════════════════ -->
-  <!-- SECTION 6: Twitter / X                         -->
-  <!-- ══════════════════════════════════════════════ -->
-  <p class="section-label">Section 6 — Twitter / X</p>
-  <h2 class="section-title">𝕏 Twitter / X API</h2>
-  <p class="section-desc">
-    The Twitter API v2 supports DMs and tweets through Tweepy, but access is gated behind paid tiers since 2023. The free tier is read-only — no DMs, no posting. Bulk DMs require Elevated access which starts at $100/month (Basic tier) with strict rate limits.
-  </p>
-
-  <div class="table-card">
-    <table>
-      <thead>
-        <tr>
-          <th>Twitter API Tier</th>
-          <th>Cost</th>
-          <th>Post tweets</th>
-          <th>Send DMs</th>
-          <th>DM limit</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>Free</strong></td>
-          <td class="dim">$0/month</td>
-          <td><span class="pill pill-danger"><span class="pill-dot"></span>No</span></td>
-          <td><span class="pill pill-danger"><span class="pill-dot"></span>No</span></td>
-          <td class="dim">Read-only</td>
-        </tr>
-        <tr>
-          <td><strong>Basic</strong></td>
-          <td class="dim">$100/month</td>
-          <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
-          <td><span class="pill pill-warn"><span class="pill-dot"></span>Limited</span></td>
-          <td class="dim">~1,000 DMs/day</td>
-        </tr>
-        <tr>
-          <td><strong>Pro</strong></td>
-          <td class="dim">$5,000/month</td>
-          <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
-          <td><span class="pill pill-success"><span class="pill-dot"></span>Yes</span></td>
-          <td class="dim">Higher limits</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="info-note">
-    <div class="info-note-icon">⚠️</div>
-    <div class="info-note-text">
-      <strong>DM restriction:</strong> Even on paid tiers, you can only send DMs to users who <strong>follow you</strong> or have <strong>open DMs</strong> enabled in their privacy settings. You cannot cold-DM arbitrary users even with a paid API key.
-    </div>
-  </div>
-
-  <div class="fix-card">
-    <h3>Twitter setup in Magolis <span class="fix-badge tw-badge">API v2</span></h3>
-    <div class="steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <div class="step-text">Go to <a href="https://developer.twitter.com/en/portal/dashboard" target="_blank">developer.twitter.com</a> → create a project and app. Upgrade to Basic tier ($100/month) if you need to send DMs or post tweets.</div>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-text">Under <strong>Keys and Tokens</strong>, generate: <strong>Bearer Token</strong>, <strong>API Key</strong>, <strong>API Secret</strong>, <strong>Access Token</strong>, <strong>Access Secret</strong>.</div>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <div class="step-text">Set all five in Render: <code>TWITTER_BEARER_TOKEN</code>, <code>TWITTER_API_KEY</code>, <code>TWITTER_API_SECRET</code>, <code>TWITTER_ACCESS_TOKEN</code>, <code>TWITTER_ACCESS_SECRET</code>.</div>
-      </div>
-      <div class="step">
-        <div class="step-num">4</div>
-        <div class="step-text">Magolis verifies the connection by calling <code>GET /2/users/me</code> and displays your Twitter username in the platform status panel.</div>
-      </div>
-    </div>
-    <div class="tip">
-      <div class="tip-icon">💡</div>
-      <div class="tip-text"><strong>Twitter "broadcast" in Magolis</strong> = posting a tweet to your timeline (reaches all followers). Individual DMs only work if the recipient follows you and the API tier allows it. Contacts must be added manually/CSV.</div>
-    </div>
-  </div>
-
-  <hr class="divider"/>
-
-  <!-- ══════════════════════════════════════════════ -->
   <!-- SECTION 7: Environment variables reference     -->
   <!-- ══════════════════════════════════════════════ -->
   <p class="section-label">Section 7 — Configuration reference</p>
@@ -991,18 +802,6 @@
     <div class="env-row"><span class="env-key">WHATSAPP_VERIFY_TOKEN</span><span class="env-desc">Custom string used to verify the webhook (e.g. <code>magolis_whatsapp_verify</code>)</span></div>
   </div>
 
-  <p style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">Twitter / X</p>
-  <div class="env-grid" style="margin-bottom:28px;">
-    <div class="env-row"><span class="env-key">TWITTER_BEARER_TOKEN</span><span class="env-desc">App-only Bearer Token — required for all read operations and diagnose</span></div>
-    <div class="env-row"><span class="env-key">TWITTER_API_KEY</span><span class="env-desc">Consumer Key (API Key)</span></div>
-    <div class="env-row"><span class="env-key">TWITTER_API_SECRET</span><span class="env-desc">Consumer Secret (API Secret)</span></div>
-    <div class="env-row"><span class="env-key">TWITTER_ACCESS_TOKEN</span><span class="env-desc">User Access Token — required for posting and DMs</span></div>
-    <div class="env-row"><span class="env-key">TWITTER_ACCESS_SECRET</span><span class="env-desc">User Access Token Secret</span></div>
-  </div>
-
-  <p style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">LinkedIn</p>
-  <div class="env-grid" style="margin-bottom:28px;">
-    <div class="env-row"><span class="env-key">LINKEDIN_ACCESS_TOKEN</span><span class="env-desc">OAuth 2.0 token with <code>r_liteprofile</code> + <code>w_member_social</code> scopes</span></div>
   </div>
 
   <hr class="divider"/>
@@ -1043,13 +842,11 @@
           <td class="dim">Free (1,000 convos/month free)</td>
         </tr>
         <tr>
-          <td>💼 LinkedIn</td>
           <td class="dim">Post via <code>/v2/ugcPosts</code></td>
           <td class="dim">Manual / CSV import only</td>
           <td class="dim">Free</td>
         </tr>
         <tr>
-          <td>𝕏 Twitter / X</td>
           <td class="dim">Tweet via Tweepy v2</td>
           <td class="dim">Manual / CSV import only</td>
           <td class="dim">$100/month minimum for posting</td>

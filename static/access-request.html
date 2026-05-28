@@ -1,647 +1,329 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Facebook Access Request — Magolis System</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --blue:   #1877F2;
-      --green:  #00C853;
-      --red:    #FF3D57;
-      --yellow: #FFB300;
-      --dark:   #0D1117;
-      --card:   #161B22;
-      --border: rgba(255,255,255,0.07);
-      --text:   #E6EDF3;
-      --muted:  #8B949E;
-    }
-
-    body {
-      background: var(--dark);
-      color: var(--text);
-      font-family: 'Inter', sans-serif;
-      min-height: 100vh;
-      padding: 60px 24px 100px;
-    }
-
-    /* ── Page wrapper ── */
-    .page {
-      max-width: 820px;
-      margin: 30px auto;
-      background: #fff;
-      box-shadow: 0 4px 32px rgba(0,0,0,0.10);
-      border-radius: 6px;
-      overflow: hidden;
-    }
-
-    /* ── Header / Cover band ── */
-    .header {
-      background: linear-gradient(135deg, #0B2B4F 0%, #1565c0 100%);
-      color: #fff;
-      padding: 32px 40px 24px;
-    }
-    .header-top {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-    .header h1 {
-      font-size: 18pt;
-      font-weight: 700;
-      letter-spacing: 0.3px;
-      margin-bottom: 4px;
-    }
-    .header .sub {
-      font-size: 9.5pt;
-      opacity: 0.82;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-    }
-    .doc-meta {
-      text-align: right;
-      font-size: 8.5pt;
-      opacity: 0.85;
-      min-width: 160px;
-    }
-    .doc-meta strong { display: block; font-size: 9pt; margin-bottom: 4px; opacity: 1; }
-
-    .status-badge {
-      display: inline-block;
-      margin-top: 14px;
-      background: rgba(255,255,255,0.15);
-      border: 1px solid rgba(255,255,255,0.35);
-      border-radius: 20px;
-      padding: 4px 14px;
-      font-size: 8.5pt;
-      letter-spacing: 0.6px;
-      text-transform: uppercase;
-    }
-
-    /* ── Body padding ── */
-    .body { padding: 32px 40px 40px; }
-
-    /* ── Section headings ── */
-    .section { margin-bottom: 28px; }
-    .section-title {
-      font-size: 10pt;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: #0B2B4F;
-      border-bottom: 2px solid #1565c0;
-      padding-bottom: 5px;
-      margin-bottom: 14px;
-    }
-
-    /* ── Info grid (key-value pairs) ── */
-    .info-grid {
-      display: grid;
-      grid-template-columns: 200px 1fr;
-      row-gap: 8px;
-      column-gap: 12px;
-    }
-    .info-label {
-      font-weight: 600;
-      color: #444;
-      font-size: 9.5pt;
-    }
-    .info-value {
-      color: #1a1a2e;
-      font-size: 9.5pt;
-    }
-
-    /* ── Platform cards ── */
-    .platforms { display: flex; flex-direction: column; gap: 16px; }
-
-    .platform-card {
-      border: 1px solid #e0e7f0;
-      border-radius: 6px;
-      overflow: hidden;
-    }
-    .platform-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 16px;
-      font-weight: 700;
-      font-size: 10pt;
-      color: #fff;
-    }
-    .platform-header .icon {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.22);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-    }
-    .ph-facebook { background: #1877f2; }
-    .ph-instagram { background: linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045); }
-    .ph-whatsapp { background: #25d366; }
-
-    .platform-body { padding: 14px 16px; background: #fafbfd; }
-
-    .access-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 9pt;
-    }
-    .access-table th {
-      background: #eef2fa;
-      color: #0B2B4F;
-      font-weight: 700;
-      padding: 7px 10px;
-      text-align: left;
-      border: 1px solid #dce5f0;
-    }
-    .access-table td {
-      padding: 7px 10px;
-      border: 1px solid #dce5f0;
-      vertical-align: top;
-    }
-    .access-table tr:nth-child(even) td { background: #f4f7fc; }
-
-    .badge {
-      display: inline-block;
-      border-radius: 3px;
-      padding: 2px 8px;
-      font-size: 7.5pt;
-      font-weight: 700;
-      letter-spacing: 0.4px;
-      text-transform: uppercase;
-    }
-    .badge-required { background: #fde8e8; color: #c0392b; }
-    .badge-optional { background: #e8f4e8; color: #27ae60; }
-    .badge-existing { background: #e8eefa; color: #1565c0; }
-
-    /* ── Notice box ── */
-    .notice {
-      border-left: 4px solid #1565c0;
-      background: #eef4ff;
-      border-radius: 0 4px 4px 0;
-      padding: 12px 16px;
-      font-size: 9pt;
-      color: #1a1a2e;
-      margin-bottom: 0;
-    }
-    .notice.warn {
-      border-color: #e67e22;
-      background: #fef6ec;
-    }
-    .notice strong { display: block; margin-bottom: 4px; font-size: 9.5pt; }
-
-    /* ── Checklist ── */
-    .checklist { list-style: none; padding: 0; }
-    .checklist li {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      padding: 5px 0;
-      font-size: 9.5pt;
-      border-bottom: 1px dotted #e0e7f0;
-    }
-    .checklist li:last-child { border-bottom: none; }
-    .check-box {
-      width: 16px;
-      height: 16px;
-      min-width: 16px;
-      border: 2px solid #1565c0;
-      border-radius: 3px;
-      margin-top: 2px;
-    }
-
-    /* ── Signature block ── */
-    .sig-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 24px;
-      margin-top: 8px;
-    }
-    .sig-block { border-top: 1px solid #999; padding-top: 6px; }
-    .sig-label { font-size: 8pt; color: #666; }
-    .sig-name { font-weight: 700; font-size: 9.5pt; margin-top: 28px; }
-
-    /* ── Footer ── */
-    .footer {
-      background: #f0f4fa;
-      border-top: 1px solid #dce5f0;
-      padding: 12px 40px;
-      font-size: 8pt;
-      color: #666;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-    .footer span { color: #1565c0; font-weight: 600; }
-
-    /* ── Print styles ── */
-    @media print {
-      body { background: #fff; font-size: 9.5pt; }
-      .page { box-shadow: none; border-radius: 0; margin: 0; max-width: 100%; }
-      .no-print { display: none !important; }
-      .platform-card { break-inside: avoid; }
-      .section { break-inside: avoid; }
-      .footer { position: fixed; bottom: 0; left: 0; right: 0; }
-    }
-
-    /* ── Print button ── */
-    .print-btn {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: #1565c0;
-      color: #fff;
-      border: none;
-      padding: 10px 22px;
-      border-radius: 25px;
-      font-size: 9.5pt;
-      font-weight: 600;
-      cursor: pointer;
-      box-shadow: 0 3px 12px rgba(21,101,192,0.4);
-      letter-spacing: 0.3px;
-      z-index: 100;
-    }
-    .print-btn:hover { background: #0d47a1; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Request | Stephen Margolis Resort - Facebook API Integration</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #eef2f5;
+            padding: 2rem 1rem;
+            color: #1a2c3e;
+        }
+        .document-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+        .document-header {
+            background: #0B2B4F;
+            color: white;
+            padding: 1.8rem 2rem;
+            border-bottom: 4px solid #D4AF37;
+        }
+        .badge-doc {
+            background: rgba(255,255,255,0.12);
+            padding: 0.2rem 1rem;
+            border-radius: 30px;
+            font-size: 0.7rem;
+            display: inline-block;
+        }
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #0B2B4F;
+            border-left: 4px solid #D4AF37;
+            padding-left: 0.8rem;
+            margin: 1.2rem 0 0.8rem 0;
+        }
+        .info-card {
+            background: #F8FAFE;
+            border-radius: 14px;
+            border: 1px solid #e9edf2;
+            padding: 1rem;
+            margin-bottom: 0.8rem;
+        }
+        .warning-note {
+            background: #FEF9E3;
+            border-left: 4px solid #D4AF37;
+            padding: 0.6rem 1rem;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            margin: 0.8rem 0;
+        }
+        .info-note {
+            background: #E3F2FD;
+            border-left: 4px solid #2196F3;
+            padding: 0.6rem 1rem;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            margin: 0.8rem 0;
+        }
+        .footer-note {
+            background: #F9FBFD;
+            border-top: 1px solid #e9edf2;
+            font-size: 0.7rem;
+            padding: 0.8rem;
+            text-align: center;
+        }
+        @media print {
+            body { background: white; padding: 0; }
+            .document-container { box-shadow: none; border-radius: 0; max-width: 100%; }
+            .btn-print, .no-print { display: none !important; }
+            .document-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+        .sign-line {
+            border-bottom: 1px solid #0B2B4F;
+            min-width: 180px;
+            height: 35px;
+        }
+        .company-name { font-weight: 700; color: #0B2B4F; }
+        .toc-link { text-decoration: none; color: #1a2c3e; font-size: 0.8rem; display: block; padding: 4px 0; }
+        .toc-link:hover { color: #0B2B4F; text-decoration: underline; }
+        .toc-column { column-count: 2; column-gap: 2rem; }
+        @media (max-width: 768px) { .toc-column { column-count: 1; } }
+    </style>
 </head>
 <body>
-
-<button class="print-btn no-print" onclick="window.print()">&#128438; Print / Save PDF</button>
-
-<div class="page">
-
-  <!-- ══ HEADER ══ -->
-  <div class="header">
-    <div class="header-top">
-      <div>
-        <div class="sub">Official Document — IT / Digital Systems</div>
-        <h1>Social Media Platform Access Request</h1>
-        <div style="font-size:9pt; opacity:0.78; margin-top:5px;">
-          Magolis Unified Social Media Messaging System
-        </div>
-        <div class="status-badge">Pending Authorisation</div>
-      </div>
-      <div class="doc-meta">
-        <strong>Document Reference</strong>
-        MAG-AR-2026-001<br/>
-        Date Raised: 07 May 2026<br/>
-        Revision: 1.0<br/>
-        Classification: Internal
-      </div>
-    </div>
-  </div>
-
-  <!-- ══ BODY ══ -->
-  <div class="body">
-
-    <!-- 1. Purpose -->
-    <div class="section">
-      <div class="section-title">1. Purpose</div>
-      <p style="font-size:9.5pt; color:#333;">
-        This document formally requests the minimum necessary access permissions for the
-        <strong>Magolis Unified Social Media Messaging System</strong> to operate against
-        the organisation's Facebook Page, Instagram Business account, and WhatsApp Business
-        number. The system consolidates inbound and outbound customer communications across
-        all three platforms into a single, auditable dashboard. This request is submitted to
-        obtain written authorisation from the relevant IT and business stakeholders prior
-        to any integration being activated.
-      </p>
-    </div>
-
-    <!-- 2. Requestor & System Details -->
-    <div class="section">
-      <div class="section-title">2. Requestor &amp; System Details</div>
-      <div class="info-grid">
-        <span class="info-label">System Name</span>
-        <span class="info-value">Magolis — Unified Social Media Messaging System</span>
-
-        <span class="info-label">Developer / Requestor</span>
-        <span class="info-value">__________________________ &nbsp;|&nbsp; Role: System Developer</span>
-
-        <span class="info-label">Requesting Department</span>
-        <span class="info-value">__________________________</span>
-
-        <span class="info-label">System Hosting</span>
-        <span class="info-value">Render.com (cloud-hosted) — <em>https://magolis.onrender.com</em></span>
-
-        <span class="info-label">System Purpose</span>
-        <span class="info-value">Receive, manage, and respond to customer messages from Facebook, Instagram &amp; WhatsApp in one unified inbox</span>
-
-        <span class="info-label">Deployment PC</span>
-        <span class="info-value">One (1) designated company workstation, already authenticated to the organisation's Facebook account — no new Facebook login credentials are required</span>
-
-        <span class="info-label">Admin Rights Requested?</span>
-        <span class="info-value"><strong>No.</strong> The developer will NOT be granted admin rights to any Facebook, Instagram, or WhatsApp account. All access is scoped strictly to the permissions listed below.</span>
-
-        <span class="info-label">Date of Request</span>
-        <span class="info-value">07 May 2026</span>
-      </div>
-    </div>
-
-    <!-- 3. Scope of Access -->
-    <div class="section">
-      <div class="section-title">3. Scope of Access — Per Platform</div>
-      <div class="platforms">
-
-        <!-- FACEBOOK -->
-        <div class="platform-card">
-          <div class="platform-header ph-facebook">
-            <div class="icon">f</div>
-            Facebook — Page Messaging Integration
-          </div>
-          <div class="platform-body">
-            <p style="font-size:8.5pt; color:#555; margin-bottom:10px;">
-              The system connects to the organisation's existing Facebook Page via the
-              <strong>Meta Graph API (Webhooks)</strong>. The designated company workstation
-              is already logged in to the Facebook account that owns the Page — no additional
-              login is required from the developer.
-            </p>
-            <table class="access-table">
-              <thead>
-                <tr>
-                  <th>Permission / Token</th>
-                  <th>What It Allows</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>pages_messaging</strong></td>
-                  <td>Send and receive messages on behalf of the Facebook Page</td>
-                  <td><span class="badge badge-required">Required</span></td>
-                </tr>
-                <tr>
-                  <td><strong>pages_read_engagement</strong></td>
-                  <td>Read Page posts and engagement data for the inbox feed</td>
-                  <td><span class="badge badge-required">Required</span></td>
-                </tr>
-                <tr>
-                  <td><strong>Page Access Token</strong></td>
-                  <td>Long-lived token scoped to the Page only (not the personal account)</td>
-                  <td><span class="badge badge-required">Required</span></td>
-                </tr>
-                <tr>
-                  <td><strong>Webhook Subscription</strong></td>
-                  <td>Real-time push of incoming messages to the Magolis server endpoint</td>
-                  <td><span class="badge badge-required">Required</span></td>
-                </tr>
-                <tr>
-                  <td><strong>pages_manage_metadata</strong></td>
-                  <td>Subscribe to webhook fields on the Page</td>
-                  <td><span class="badge badge-required">Required</span></td>
-                </tr>
-                <tr>
-                  <td>Personal Facebook Account Access</td>
-                  <td>Not required — system does not access personal accounts</td>
-                  <td><span class="badge badge-existing">Not Requested</span></td>
-                </tr>
-                <tr>
-                  <td>Page Admin / Editor Role</td>
-                  <td>Not required — developer does not need admin rights to the Page</td>
-                  <td><span class="badge badge-existing">Not Requested</span></td>
-                </tr>
-              </tbody>
-            </table>
-            <div class="notice" style="margin-top:12px;">
-              <strong>How the token is obtained</strong>
-              A staff member with existing Page access (on the designated workstation) generates
-              the Page Access Token via Meta's Graph API Explorer or the Magolis setup screen.
-              The developer never handles the Facebook login credentials directly.
+<div class="document-container">
+    <!-- Header -->
+    <div class="document-header">
+        <div class="d-flex justify-content-between align-items-start flex-wrap">
+            <div>
+                <div class="badge-doc mb-2">CONFIDENTIAL · ACCESS REQUEST</div>
+                <h1 class="display-6 fw-bold">Facebook API & Developer Account Access Request</h1>
+                <p class="lead mb-0 opacity-75">For Stephen Margolis Resort – Bulk Messaging System</p>
             </div>
-          </div>
-        </div>
-
-        <!-- INSTAGRAM -->
-        <div class="platform-card">
-          <div class="platform-header ph-instagram">
-            <div class="icon">&#9642;</div>
-            Instagram — Business Account Messaging
-          </div>
-          <div class="platform-body">
-            <p style="font-size:8.5pt; color:#555; margin-bottom:10px;">
-              Instagram Business messaging is delivered through the same <strong>Meta Graph API</strong>
-              as Facebook. The Instagram Business account must be linked to the organisation's
-              Facebook Page. No separate Instagram login is required.
-            </p>
-            <table class="access-table">
-              <thead>
-                <tr>
-                  <th>Permission / Token</th>
-                  <th>What It Allows</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>instagram_basic</strong></td>
-                  <td>Read basic profile information and confirm account linkage to Page</td>
-                  <td><span class="badge badge-required">Required</span></td>
-                </tr>
-                <tr>
-                  <td><strong>instagram_manage_messages</strong></td>
-                  <td>Read and send direct messages via the Instagram Business inbox</td>
-                  <td><span class="badge badge-required">Required</span></td>
-                </tr>
-                <tr>
-                  <td><strong>Webhook — instagram field</strong></td>
-                  <td>Real-time push of incoming Instagram DMs to the Magolis server</td>
-                  <td><span class="badge badge-required">Required</span></td>
-                </tr>
-                <tr>
-                  <td>Instagram Personal Account Access</td>
-                  <td>Not applicable — only Business accounts are supported</td>
-                  <td><span class="badge badge-existing">Not Requested</span></td>
-                </tr>
-                <tr>
-                  <td>Instagram Admin / Password</td>
-                  <td>Not required — access is via Page Access Token (see Facebook above)</td>
-                  <td><span class="badge badge-existing">Not Requested</span></td>
-                </tr>
-              </tbody>
-            </table>
-            <div class="notice" style="margin-top:12px;">
-              <strong>Pre-requisite (action by company)</strong>
-              The organisation's Instagram Business account must be connected to the Facebook
-              Page via <em>Facebook Page Settings → Instagram</em> before integration can be
-              activated. This is a one-time step performed by a staff member — not the developer.
+            <div class="text-end mt-2 mt-sm-0">
+                <div class="small opacity-75">Document #: SMR-FB-2026-001</div>
+                <div class="small opacity-75">Date: May 07, 2026</div>
             </div>
-          </div>
         </div>
-
-        <!-- WHATSAPP -->
-        <div class="platform-card">
-          <div class="platform-header ph-whatsapp">
-            <div class="icon">&#9658;</div>
-            WhatsApp — Business API
-          </div>
-          <div class="platform-body">
-            <p style="font-size:8.5pt; color:#555; margin-bottom:10px;">
-              WhatsApp integration uses the official <strong>WhatsApp Business Cloud API</strong>
-              (Meta), which requires a registered WhatsApp Business number linked to a
-              Meta Business Manager account. The developer requires only the API credentials
-              — not access to the WhatsApp application itself.
-            </p>
-            <table class="access-table">
-              <thead>
-                <tr>
-                  <th>Credential / Permission</th>
-                  <th>What It Allows</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>WhatsApp Business Phone Number ID</strong></td>
-                  <td>Identifies the registered business number to send/receive messages from</td>
-                  <td><span class="badge badge-required">Required</span></td>
-                </tr>
-                <tr>
-                  <td><strong>WhatsApp Access Token</strong></td>
-                  <td>Authenticates API calls to send messages and receive webhook payloads</td>
-                  <td><span class="badge badge-required">Required</span></td>
-                </tr>
-                <tr>
-                  <td><strong>Webhook — messages field</strong></td>
-                  <td>Real-time delivery of inbound WhatsApp messages to the Magolis server</td>
-                  <td><span class="badge badge-required">Required</span></td>
-                </tr>
-                <tr>
-                  <td><strong>whatsapp_business_messaging</strong></td>
-                  <td>Send template and free-form messages via the Cloud API</td>
-                  <td><span class="badge badge-required">Required</span></td>
-                </tr>
-                <tr>
-                  <td>WhatsApp App Login / Password</td>
-                  <td>Not required — API-based integration only</td>
-                  <td><span class="badge badge-existing">Not Requested</span></td>
-                </tr>
-                <tr>
-                  <td>WhatsApp Business Manager Admin</td>
-                  <td>Not required from the developer — setup performed by authorised staff</td>
-                  <td><span class="badge badge-existing">Not Requested</span></td>
-                </tr>
-              </tbody>
-            </table>
-            <div class="notice warn" style="margin-top:12px;">
-              <strong>Note on WhatsApp Business Account registration</strong>
-              If the organisation does not yet have a WhatsApp Business Cloud API account, one
-              must be created and verified through Meta Business Manager by a company
-              representative before the Magolis integration can be configured. The developer
-              will provide technical guidance but cannot complete account registration on behalf
-              of the company.
+        <hr class="my-3 opacity-25">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="small opacity-75">Prepared For:</div>
+                <div class="fw-semibold">Stephen Margolis Resort Pvt Ltd</div>
+                <div class="small opacity-75">Facebook Page: Stephen Margolis Resort</div>
             </div>
-          </div>
+            <div class="col-md-6 text-md-end">
+                <div class="small opacity-75">Prepared By:</div>
+                <div class="fw-semibold">Echelon Digital Solutions</div>
+                <div class="small opacity-75">Lead Developer: Takudzwa Zvakasikwa</div>
+                <div class="small opacity-75">Email: echelonequipmentimports@gmail.com</div>
+            </div>
         </div>
-
-      </div><!-- /platforms -->
     </div>
 
-    <!-- 4. What the Developer Will NOT Access -->
-    <div class="section">
-      <div class="section-title">4. What the Developer Will NOT Access</div>
-      <ul class="checklist">
-        <li><div class="check-box"></div>Personal Facebook, Instagram, or WhatsApp accounts belonging to any staff member</li>
-        <li><div class="check-box"></div>Admin or ownership roles on the Facebook Page, Instagram account, or WhatsApp Business account</li>
-        <li><div class="check-box"></div>Facebook Business Manager settings, billing, or ad accounts</li>
-        <li><div class="check-box"></div>Company login credentials (username/password) for any social media platform</li>
-        <li><div class="check-box"></div>The ability to post content, run ads, or make structural changes to any Page or account</li>
-        <li><div class="check-box"></div>Any data beyond messages directed to the organisation's Page/business number</li>
-      </ul>
-    </div>
-
-    <!-- 5. Data Handling -->
-    <div class="section">
-      <div class="section-title">5. Data Handling &amp; Security</div>
-      <div class="info-grid">
-        <span class="info-label">API Tokens Storage</span>
-        <span class="info-value">Stored as encrypted environment variables on the server — never hard-coded or exposed in source code</span>
-
-        <span class="info-label">Message Data</span>
-        <span class="info-value">Stored in a PostgreSQL database (Render.com) accessible only to the system; not shared with third parties</span>
-
-        <span class="info-label">Webhook Verification</span>
-        <span class="info-value">All webhook payloads from Meta are verified using a shared secret token before processing</span>
-
-        <span class="info-label">Token Rotation</span>
-        <span class="info-value">Access tokens can be revoked and rotated at any time by the company's Facebook Page admin without developer involvement</span>
-
-        <span class="info-label">Access Revocation</span>
-        <span class="info-value">The company retains full ability to revoke system access at any time via Meta Business Manager or the Facebook Page settings</span>
-      </div>
-    </div>
-
-    <!-- 6. Actions Required -->
-    <div class="section">
-      <div class="section-title">6. Actions Required from the Company</div>
-      <ul class="checklist">
-        <li><div class="check-box"></div><span><strong>Facebook:</strong> Generate a long-lived Page Access Token for the designated Page on the company workstation and provide it to the developer for system configuration</span></li>
-        <li><div class="check-box"></div><span><strong>Facebook:</strong> Configure the Webhook URL (<code>https://magolis.onrender.com/webhook</code>) and Verify Token in the Meta App Dashboard</span></li>
-        <li><div class="check-box"></div><span><strong>Instagram:</strong> Confirm that the Instagram Business account is linked to the Facebook Page (Page Settings → Instagram)</span></li>
-        <li><div class="check-box"></div><span><strong>WhatsApp:</strong> Provide the WhatsApp Business Phone Number ID and Access Token (obtained from Meta Business Manager)</span></li>
-        <li><div class="check-box"></div><span><strong>WhatsApp:</strong> Register the Webhook URL in the WhatsApp product settings within Meta App Dashboard</span></li>
-        <li><div class="check-box"></div>Designate an internal point of contact responsible for token management and platform-level decisions</li>
-      </ul>
-    </div>
-
-    <!-- 7. Authorisation -->
-    <div class="section">
-      <div class="section-title">7. Authorisation &amp; Sign-off</div>
-      <p style="font-size:9pt; color:#555; margin-bottom:18px;">
-        By signing below, the authorising parties confirm they have read and understood the scope
-        of access requested and grant permission for the Magolis system to be integrated with the
-        platforms listed in this document under the stated permissions only.
-      </p>
-      <div class="sig-grid">
-        <div>
-          <div class="sig-name">__________________________________</div>
-          <div class="sig-block">
-            <div class="sig-label">Requestor (Developer) — Name &amp; Signature</div>
-          </div>
-          <div style="margin-top:10px; font-size:8.5pt; color:#555;">Date: ____________________</div>
+    <!-- Main Content -->
+    <div class="p-4 p-md-5">
+        
+        <!-- Table of Contents -->
+        <div class="section-title">📑 Table of Contents</div>
+        <div class="info-card">
+            <div class="toc-column">
+                <a href="#purpose" class="toc-link">1. Purpose of This Request</a>
+                <a href="#what-we-need" class="toc-link">2. What We Need From You</a>
+                <a href="#scenarios" class="toc-link">3. Two Possible Scenarios</a>
+                <a href="#permissions" class="toc-link">4. Permissions We Request</a>
+                <a href="#revoke" class="toc-link">5. Your Right to Revoke</a>
+                <a href="#security" class="toc-link">6. Security Principle (On-Device Only)</a>
+                <a href="#documents" class="toc-link">7. Documents You Provide (On Your Laptop)</a>
+                <a href="#commitment" class="toc-link">8. Our Commitment to You</a>
+                <a href="#authorization" class="toc-link">9. Authorization</a>
+            </div>
         </div>
-        <div>
-          <div class="sig-name">__________________________________</div>
-          <div class="sig-block">
-            <div class="sig-label">IT Manager / Authorising Officer — Name &amp; Signature</div>
-          </div>
-          <div style="margin-top:10px; font-size:8.5pt; color:#555;">Date: ____________________</div>
+
+        <!-- 1. Purpose -->
+        <div id="purpose" class="section-title">1. Purpose of This Request</div>
+        <div class="info-card">
+            <p class="mb-0">To integrate <strong>Stephen Margolis Resort's</strong> Facebook Page with our <strong>Bulk Messaging System</strong>. This enables:</p>
+            <ul class="mt-2 mb-0">
+                <li>✓ Bulk messages to guests who messaged your Page</li>
+                <li>✓ Central conversation management</li>
+                <li>✓ Marketing campaigns via Messenger</li>
+                <li>✓ Opt-in contact database</li>
+            </ul>
         </div>
-        <div style="margin-top:18px;">
-          <div class="sig-name">__________________________________</div>
-          <div class="sig-block">
-            <div class="sig-label">Department Head / Business Owner — Name &amp; Signature</div>
-          </div>
-          <div style="margin-top:10px; font-size:8.5pt; color:#555;">Date: ____________________</div>
+
+        <!-- 2. Security Principle -->
+         <br>
+         <br>
+         <br>
+         <br>
+        <div id="security" class="section-title">2. Security Principle – On-Device Only</div>
+        <div class="info-card">
+            <div class="warning-note mb-0">
+                <i class="bi bi-laptop-fill me-2"></i>
+                <strong>Everything happens on your work laptop.</strong> We never ask for passwords, tokens, or codes. You remain in control at all times. We work alongside you on your equipment.
+            </div>
         </div>
-        <div style="margin-top:18px;">
-          <div class="sig-name">__________________________________</div>
-          <div class="sig-block">
-            <div class="sig-label">Social Media / Page Administrator — Name &amp; Signature</div>
-          </div>
-          <div style="margin-top:10px; font-size:8.5pt; color:#555;">Date: ____________________</div>
+
+        <!-- 3. What We Need From You -->
+        <div id="what-we-need" class="section-title">3. What We Need From You</div>
+        <div class="info-card">
+            <ul class="mb-0">
+                <li><i class="bi bi-laptop-fill text-primary me-2"></i> <strong>One work laptop</strong> already logged into your Facebook account (that owns your Page)</li>
+                <li><i class="bi bi-clock-history text-primary me-2"></i> <strong>30–45 minutes</strong> of supervised time</li>
+            </ul>
         </div>
-      </div>
+
+        <!-- 4. Documents You Provide -->
+        <div id="documents" class="section-title">4. Documents You Provide (Uploaded from Your Laptop)</div>
+        <div class="info-card">
+            <p class="mb-1">For Developer Account verification (if needed):</p>
+            <ul class="mb-0">
+                <li><i class="bi bi-building-fill text-primary me-2"></i> Business registration certificate</li>
+                <li><i class="bi bi-person-badge-fill text-primary me-2"></i> Government ID of authorized representative</li>
+                <li><i class="bi bi-envelope-fill text-primary me-2"></i> Business email address</li>
+            </ul>
+            <div class="info-note mt-2 mb-0">
+                <i class="bi bi-shield-lock me-2"></i> Documents are uploaded directly to Meta from your laptop. We never take copies.
+            </div>
+        </div>
+
+        <!-- 5. Two Scenarios -->
+        <div id="scenarios" class="section-title">5. Two Possible Scenarios</div>
+        <div class="row g-2">
+            <div class="col-md-6">
+                <div class="info-card" style="height: 100%;">
+                    <i class="bi bi-check-circle-fill text-success"></i>
+                    <h6 class="mt-1 mb-1">Scenario A: You Have a Developer Account</h6>
+                    <p class="small mb-0">We log into your existing account (on your laptop) and configure access. Fast – 1 day.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="info-card" style="height: 100%;">
+                    <i class="bi bi-plus-circle-fill text-primary"></i>
+                    <h6 class="mt-1 mb-1">Scenario B: We Create a New Account</h6>
+                    <p class="small mb-0">We create and verify a Developer Account <strong>on your laptop</strong>. You own it permanently. Takes 3-5 days for approval response from Meta.</p>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- 7. Permissions -->
+        <div id="permissions" class="section-title">7. Permissions We Request</div>
+        <div class="info-card">
+            <div class="row">
+                <div class="col-md-6">
+                    <p class="fw-bold mb-1">Facebook Messenger (core)</p>
+                    <ul class="small mb-0">
+                        <li><code>pages_messaging</code> – send/receive messages</li>
+                        <li><code>pages_read_engagement</code> – read conversation history</li>
+                        <li><code>read_page_mailboxes</code> – access inbox</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <p class="fw-bold mb-1">Temporary Admin (for future Instagram/WhatsApp)</p>
+                    <ul class="small mb-0">
+                        <li>Standard Page Admin role</li>
+                        <li>Used only to submit App Review</li>
+                        <li>Revoked after approval</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- 8. Our Commitment -->
+         <br>
+        <div id="commitment" class="section-title">8. Our Commitment to You</div>
+        <div class="info-card">
+            <ul class="mb-0">
+                <li>✓ We work only on your authorised Facebook Page</li>
+                <li>✓ We never store your documents or credentials</li>
+                <li>✓ <strong>Your Developer account is yours permanently</strong> – you own it</li>
+                <li>✓ We will remove admin access immediately after App Review</li>
+                <li>✓ All data is encrypted in our systems</li>
+            </ul>
+        </div>
+
+        <!-- 9. Your Right to Revoke -->
+        <div id="revoke" class="section-title">9. Your Right to Revoke Access</div>
+        <div class="info-card">
+            <ul class="mb-0">
+                <li>🔹 <strong>Revoke token anytime:</strong> Meta Business Suite → Settings → Advanced Messaging → Page Access Tokens</li>
+                <li>🔹 <strong>Remove our admin role:</strong> Page Settings → Page Roles</li>
+                <li>🔹 Once revoked, our system cannot send messages on your behalf</li>
+            </ul>
+        </div>
+
+        <!-- 10. Authorization -->
+        <div id="authorization" class="section-title">10. Authorization</div>
+        <div class="border rounded-3 p-3 bg-light">
+            <p class="small mb-2">By signing below, Stephen Margolis Resort authorises Echelon Digital Solutions to:</p>
+            <ul class="small mb-3">
+                <li>Set up a Facebook Developer Account on your behalf (if needed) <strong>using your work laptop</strong></li>
+                <li>Generate a Page Access Token <strong>on your work laptop</strong> for the Bulk Messaging System</li>
+                <li>Use temporary Admin rights solely for Instagram/WhatsApp App Review (if added later)</li>
+            </ul>
+            <div class="row">
+                <div class="col-6">
+                    <div class="small fw-bold">Client Signature</div>
+                    <div class="sign-line mb-1"></div>
+                    <div class="small">Stephen Margolis Resort Representative</div>
+                </div>
+                <div class="col-6">
+                    <div class="small fw-bold">Date</div>
+                    <div class="sign-line mb-1"></div>
+                    <div class="small">mm/dd/yyyy</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Our Signature -->
+        <div class="mt-3 pt-2 border-top">
+            <div class="row">
+                <div class="col-6">
+                    <div class="small fw-bold">Echelon Digital Solutions</div>
+                    <div class="sign-line mb-1"></div>
+                    <div class="small">Takudzwa Zvakasikwa - Lead Developer</div>
+                </div>
+                <div class="col-6">
+                    <div class="small fw-bold">Date</div>
+                    <div class="sign-line mb-1"></div>
+                    <div class="small">05/07/2026</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Print Button -->
+        <div class="text-center mt-4 no-print">
+            <button class="btn btn-primary px-4" onclick="window.print();">
+                <i class="bi bi-printer me-2"></i> Print / Save as PDF
+            </button>
+        </div>
+
+        <div class="footer-note mt-3">
+            <i class="bi bi-c-circle"></i> 2026 Echelon Digital Solutions — Confidential Access Request<br>
+            All work performed on resort-owned laptop. You retain full control of all accounts and credentials.
+        </div>
     </div>
+</div>
 
-  </div><!-- /body -->
-
-  <!-- ══ FOOTER ══ -->
-  <div class="footer">
-    <span>MAG-AR-2026-001</span>
-    <span>Magolis Unified Messaging System — Social Media Access Request</span>
-    <span>Page 1 of 1 &nbsp;|&nbsp; Confidential — Internal Use Only</span>
-  </div>
-
-</div><!-- /page -->
+<script>
+    // Smooth scroll for anchor links
+    document.querySelectorAll('.toc-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+    });
+    window.onbeforeprint = function() { };
+</script>
 </body>
 </html>
