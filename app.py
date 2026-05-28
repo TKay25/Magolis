@@ -1007,8 +1007,9 @@ def whatsapp_webhook_magolis():
                     })
                     
                     # Process with chatbot based on message type
+                    # Process with chatbot based on message type
                     print(f"\n   🤖 Processing with chatbot...")
-                    
+
                     if msg_type == 'interactive':
                         # Handle interactive responses
                         interactive = msg.get('interactive', {})
@@ -1019,19 +1020,23 @@ def whatsapp_webhook_magolis():
                             response_dict, next_state = chatbot.process_interaction(sender_wa_id, interaction_id)
                             print(f"   🎯 Button clicked: {interaction_id}")
                             print(f"   Next state: {next_state}")
+                            print(f"   Response type: {type(response_dict)}")
                             
                         elif interactive_type == 'list_reply':
                             interaction_id = interactive['list_reply']['id']
                             response_dict, next_state = chatbot.process_interaction(sender_wa_id, interaction_id)
                             print(f"   📋 List selected: {interaction_id}")
                             print(f"   Next state: {next_state}")
+                            print(f"   Response type: {type(response_dict)}")
                         else:
                             response_dict, next_state = chatbot.handle_text_message(sender_wa_id, content)
+                            print(f"   Response type: {type(response_dict)}")
                             
                     elif msg_type == 'text':
                         response_dict, next_state = chatbot.handle_text_message(sender_wa_id, content)
                         print(f"   💬 Text message processed")
                         print(f"   Next state: {next_state}")
+                        print(f"   Response type: {type(response_dict)}")
                         
                     else:
                         # Default response for non-text messages
@@ -1039,40 +1044,48 @@ def whatsapp_webhook_magolis():
                         response_dict = WhatsAppInteractiveMenu.create_text_message(default_response)
                         next_state = 'main'
                         print(f"   📎 Media/other message type - using default response")
-                    
+                        print(f"   Response type: {type(response_dict)}")
+
                     # Send response
                     print(f"\n   📤 Sending response to {sender_wa_id}...")
-                    print(f"   Response Type: {response_dict.get('type', 'unknown')}")
-                    
-                    if response_dict.get('type') == 'text':
-                        print(f"   Response Text: {response_dict.get('text', {}).get('body', '')[:200]}...")
-                    elif response_dict.get('type') == 'interactive':
-                        interactive_response = response_dict.get('interactive', {})
-                        print(f"   Interactive Type: {interactive_response.get('type')}")
-                        print(f"   Response Body: {interactive_response.get('body', {}).get('text', '')[:200]}...")
-                    
+
+                    # Safely print response details
+                    if isinstance(response_dict, dict):
+                        print(f"   Response Type: {response_dict.get('type', 'unknown')}")
+                        if response_dict.get('type') == 'text':
+                            print(f"   Response Text: {response_dict.get('text', {}).get('body', '')[:200]}...")
+                        elif response_dict.get('type') == 'interactive':
+                            interactive_response = response_dict.get('interactive', {})
+                            print(f"   Interactive Type: {interactive_response.get('type')}")
+                            print(f"   Response Body: {interactive_response.get('body', {}).get('text', '')[:200]}...")
+                    else:
+                        print(f"   ⚠️ Warning: response_dict is {type(response_dict)}, not a dict!")
+                        print(f"   Response value: {response_dict}")
+
+                    # Send the message
                     result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
-                    
+
                     print(f"   Send Result: {json.dumps(result, indent=2, default=str)}")
-                    
+
                     # Save bot response to database
                     if result.get('success'):
-                        if response_dict.get('type') == 'text':
-                            bot_response = response_dict.get('text', {}).get('body', '')
-                        elif response_dict.get('type') == 'interactive':
-                            bot_response = response_dict.get('interactive', {}).get('body', {}).get('text', '')
+                        if isinstance(response_dict, dict):
+                            if response_dict.get('type') == 'text':
+                                bot_response = response_dict.get('text', {}).get('body', '')
+                            elif response_dict.get('type') == 'interactive':
+                                bot_response = response_dict.get('interactive', {}).get('body', {}).get('text', '')
+                            else:
+                                bot_response = "Bot response sent"
                         else:
-                            bot_response = "Bot response sent"
+                            bot_response = "Bot response sent (non-dict response)"
                         
                         save_message(contact_id, 'whatsapp', 'outgoing', bot_response)
                         print(f"   ✅ Bot response saved to database")
                         print(f"   Message ID from Meta: {result.get('message_id')}")
                     else:
                         print(f"   ❌ Failed to send: {result.get('error')}")
-                    
-                    print("-"*60)
-                    logger.info(f'WhatsApp message from {sender_wa_id} ({display_name}): {content[:80]}')
-        
+
+
         print("\n" + "="*80)
         print("✅ WEBHOOK PROCESSING COMPLETE")
         print("="*80 + "\n")
