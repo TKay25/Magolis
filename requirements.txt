@@ -10,3 +10,4 @@ Werkzeug==2.3.7
 psycopg2==2.9.9  # Changed from psycopg2-binary to psycopg2
 SQLAlchemy==2.0.20
 Flask-SQLAlchemy==3.0.5
+traceback

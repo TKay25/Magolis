@@ -12,7 +12,7 @@ import threading
 import warnings
 import csv
 import io
-
+import traceback
 # Suppress deprecation warnings
 warnings.filterwarnings("ignore", category=SyntaxWarning)
 
@@ -832,21 +832,42 @@ def whatsapp_diagnose():
 
 @app.route('/webhook/whatsapp', methods=['GET', 'POST'])
 def whatsapp_webhook():
-    """WhatsApp Cloud API webhook — with chatbot integration"""
+    """WhatsApp Cloud API webhook — with full metadata logging"""
     if request.method == 'GET':
         mode = request.args.get('hub.mode')
         token = request.args.get('hub.verify_token')
         challenge = request.args.get('hub.challenge')
         expected = os.getenv('WHATSAPP_VERIFY_TOKEN', 'magolis_whatsapp_verify')
+        
+        print("\n" + "="*80)
+        print("📞 WEBHOOK VERIFICATION REQUEST")
+        print("="*80)
+        print(f"Mode: {mode}")
+        print(f"Token received: {token}")
+        print(f"Token expected: {expected}")
+        print(f"Challenge: {challenge}")
+        print("="*80 + "\n")
+        
         if mode == 'subscribe' and token == expected:
             logger.info('WhatsApp webhook verified')
+            print("✅ Webhook verification SUCCESSFUL! Returning challenge.")
             return challenge, 200
+        
         logger.error(f'WhatsApp webhook verification failed. Got: {token}')
+        print(f"❌ Webhook verification FAILED!")
         return 'Forbidden', 403
 
     try:
         payload = request.json
+        print("\n" + "="*80)
+        print("📨 INCOMING WHATSAPP WEBHOOK")
+        print("="*80)
+        print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')}")
+        print(f"Full Payload: {json.dumps(payload, indent=2, default=str)}")
+        print("="*80 + "\n")
+        
         if not payload:
+            print("⚠️ Empty payload received")
             return jsonify({'status': 'ok'}), 200
 
         for entry in payload.get('entry', []):
@@ -855,14 +876,111 @@ def whatsapp_webhook():
                 messages = value.get('messages', [])
                 contacts_meta = {c['wa_id']: c.get('profile', {}).get('name', 'WhatsApp User')
                                  for c in value.get('contacts', [])}
+                
+                print(f"\n📱 Processing entry...")
+                print(f"   Metadata: {json.dumps(value.get('metadata', {}), indent=2)}")
+                print(f"   Contacts found: {list(contacts_meta.keys())}")
+                print(f"   Messages count: {len(messages)}")
 
                 for msg in messages:
                     sender_wa_id = msg.get('from')
                     msg_type = msg.get('type', 'text')
+                    msg_id = msg.get('id')
+                    msg_timestamp = msg.get('timestamp')
                     content = ''
                     display_name = contacts_meta.get(sender_wa_id, 'WhatsApp User')
                     
-                    # Save contact first
+                    print("\n" + "-"*60)
+                    print(f"💬 MESSAGE RECEIVED")
+                    print("-"*60)
+                    print(f"   Message ID: {msg_id}")
+                    print(f"   From (Sender ID): {sender_wa_id}")
+                    print(f"   Display Name: {display_name}")
+                    print(f"   Type: {msg_type}")
+                    print(f"   Timestamp: {datetime.fromtimestamp(int(msg_timestamp)).strftime('%Y-%m-%d %H:%M:%S') if msg_timestamp else 'N/A'}")
+                    print(f"   Raw Timestamp: {msg_timestamp}")
+                    
+                    # Print full message details
+                    print(f"\n   Full Message Data:")
+                    print(f"   {json.dumps(msg, indent=2, default=str)}")
+                    
+                    # Extract content based on type
+                    if msg_type == 'text':
+                        content = msg.get('text', {}).get('body', '')
+                        print(f"\n   📝 Text Content: {content}")
+                        
+                    elif msg_type == 'interactive':
+                        interactive = msg.get('interactive', {})
+                        interactive_type = interactive.get('type')
+                        print(f"\n   🎮 Interactive Message Detected!")
+                        print(f"   Interactive Type: {interactive_type}")
+                        print(f"   Interactive Data: {json.dumps(interactive, indent=2, default=str)}")
+                        
+                        if interactive_type == 'button_reply':
+                            content = f"[Button: {interactive['button_reply']['title']}]"
+                            print(f"   Button ID: {interactive['button_reply']['id']}")
+                            print(f"   Button Title: {interactive['button_reply']['title']}")
+                        elif interactive_type == 'list_reply':
+                            content = f"[List: {interactive['list_reply']['title']}]"
+                            print(f"   List ID: {interactive['list_reply']['id']}")
+                            print(f"   List Title: {interactive['list_reply']['title']}")
+                            
+                    elif msg_type == 'image':
+                        image_info = msg.get('image', {})
+                        content = '[Image]'
+                        print(f"\n   🖼️ Image received!")
+                        print(f"   Caption: {image_info.get('caption', 'No caption')}")
+                        print(f"   Image ID: {image_info.get('id')}")
+                        print(f"   MIME Type: {image_info.get('mime_type')}")
+                        
+                    elif msg_type == 'audio':
+                        audio_info = msg.get('audio', {})
+                        content = '[Audio]'
+                        print(f"\n   🎵 Audio received!")
+                        print(f"   Audio ID: {audio_info.get('id')}")
+                        print(f"   Duration: {audio_info.get('duration')} seconds")
+                        
+                    elif msg_type == 'document':
+                        doc_info = msg.get('document', {})
+                        content = f"[Document: {doc_info.get('filename', 'Unknown')}]"
+                        print(f"\n   📄 Document received!")
+                        print(f"   Filename: {doc_info.get('filename')}")
+                        print(f"   Document ID: {doc_info.get('id')}")
+                        
+                    elif msg_type == 'location':
+                        loc = msg.get('location', {})
+                        content = f"[Location: {loc.get('latitude')},{loc.get('longitude')}]"
+                        print(f"\n   📍 Location received!")
+                        print(f"   Latitude: {loc.get('latitude')}")
+                        print(f"   Longitude: {loc.get('longitude')}")
+                        print(f"   Name: {loc.get('name', 'N/A')}")
+                        print(f"   Address: {loc.get('address', 'N/A')}")
+                        
+                    elif msg_type == 'sticker':
+                        sticker_info = msg.get('sticker', {})
+                        content = '[Sticker]'
+                        print(f"\n   🎨 Sticker received!")
+                        print(f"   Sticker ID: {sticker_info.get('id')}")
+                        
+                    elif msg_type == 'reaction':
+                        reaction_info = msg.get('reaction', {})
+                        content = f"[Reaction: {reaction_info.get('emoji')}]"
+                        print(f"\n   😊 Reaction received!")
+                        print(f"   Emoji: {reaction_info.get('emoji')}")
+                        print(f"   Message ID: {reaction_info.get('message_id')}")
+                        
+                    elif msg_type == 'order':
+                        order_info = msg.get('order', {})
+                        content = f"[Order: {order_info.get('catalog_id')}]"
+                        print(f"\n   🛒 Order received!")
+                        print(f"   {json.dumps(order_info, indent=2, default=str)}")
+                    
+                    else:
+                        content = f'[{msg_type}]'
+                        print(f"\n   ⚠️ Unknown message type: {msg_type}")
+                    
+                    # Save contact
+                    print(f"\n   💾 Saving contact to database...")
                     contact_id = save_contact(
                         platform='whatsapp',
                         platform_user_id=sender_wa_id,
@@ -870,114 +988,106 @@ def whatsapp_webhook():
                         phone_number=f'+{sender_wa_id}',
                         opt_in=True
                     )
+                    print(f"   Contact ID: {contact_id}")
                     
-                    # Check if this is an interactive response (button/list click)
+                    # Save incoming message
+                    if content:
+                        save_message(contact_id, 'whatsapp', 'incoming', content)
+                        print(f"   ✅ Incoming message saved to database")
+                    
+                    # Emit socket event
+                    socketio.emit('new_message', {
+                        'platform': 'whatsapp',
+                        'sender_id': sender_wa_id,
+                        'display_name': display_name,
+                        'content': content,
+                        'timestamp': datetime.now().isoformat(),
+                        'message_type': msg_type,
+                        'message_id': msg_id
+                    })
+                    
+                    # Process with chatbot based on message type
+                    print(f"\n   🤖 Processing with chatbot...")
+                    
                     if msg_type == 'interactive':
+                        # Handle interactive responses
                         interactive = msg.get('interactive', {})
                         interactive_type = interactive.get('type')
                         
                         if interactive_type == 'button_reply':
                             interaction_id = interactive['button_reply']['id']
-                            interaction_title = interactive['button_reply']['title']
-                            
-                            # Process via chatbot
                             response_dict, next_state = chatbot.process_interaction(sender_wa_id, interaction_id)
-                            
-                            # Send interactive response
-                            result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
-                            
-                            # Save bot response
-                            if result.get('success'):
-                                save_message(contact_id, 'whatsapp', 'outgoing', 
-                                           f"[Button clicked: {interaction_title}] Bot response sent")
-                            
-                            # Emit socket event
-                            socketio.emit('new_message', {
-                                'platform': 'whatsapp',
-                                'sender_id': sender_wa_id,
-                                'display_name': display_name,
-                                'content': f"[Button: {interaction_title}]",
-                                'timestamp': datetime.now().isoformat()
-                            })
+                            print(f"   🎯 Button clicked: {interaction_id}")
+                            print(f"   Next state: {next_state}")
                             
                         elif interactive_type == 'list_reply':
                             interaction_id = interactive['list_reply']['id']
-                            interaction_title = interactive['list_reply']['title']
-                            
-                            # Process via chatbot
                             response_dict, next_state = chatbot.process_interaction(sender_wa_id, interaction_id)
+                            print(f"   📋 List selected: {interaction_id}")
+                            print(f"   Next state: {next_state}")
+                        else:
+                            response_dict, next_state = chatbot.handle_text_message(sender_wa_id, content)
                             
-                            # Send interactive response
-                            result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
-                            
-                            # Save bot response
-                            if result.get('success'):
-                                save_message(contact_id, 'whatsapp', 'outgoing', 
-                                           f"[List selected: {interaction_title}] Bot response sent")
-                            
-                            socketio.emit('new_message', {
-                                'platform': 'whatsapp',
-                                'sender_id': sender_wa_id,
-                                'display_name': display_name,
-                                'content': f"[Selected: {interaction_title}]",
-                                'timestamp': datetime.now().isoformat()
-                            })
-                    
-                    # Handle regular text messages
                     elif msg_type == 'text':
-                        content = msg.get('text', {}).get('body', '')
-                        save_message(contact_id, 'whatsapp', 'incoming', content)
-                        
-                        # Process via chatbot
                         response_dict, next_state = chatbot.handle_text_message(sender_wa_id, content)
+                        print(f"   💬 Text message processed")
+                        print(f"   Next state: {next_state}")
                         
-                        # Send interactive response
-                        result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
-                        
-                        # Save bot response to database
-                        if result.get('success'):
-                            # Extract text from response for saving
-                            if response_dict.get('type') == 'text':
-                                bot_response = response_dict.get('text', {}).get('body', '')
-                            elif response_dict.get('type') == 'interactive':
-                                bot_response = response_dict.get('interactive', {}).get('body', {}).get('text', '')
-                            else:
-                                bot_response = "Bot response sent"
-                            save_message(contact_id, 'whatsapp', 'outgoing', bot_response)
-                        
-                        socketio.emit('new_message', {
-                            'platform': 'whatsapp',
-                            'sender_id': sender_wa_id,
-                            'display_name': display_name,
-                            'content': content,
-                            'timestamp': datetime.now().isoformat()
-                        })
-                        logger.info(f'WhatsApp message from {sender_wa_id}: {content[:80]}')
-                    
-                    # Handle other message types
-                    elif msg_type in ['image', 'audio', 'document', 'location']:
-                        if msg_type == 'image':
-                            content = '[Image]'
-                        elif msg_type == 'audio':
-                            content = '[Audio]'
-                        elif msg_type == 'document':
-                            content = '[Document]'
-                        elif msg_type == 'location':
-                            loc = msg.get('location', {})
-                            content = f"[Location: {loc.get('latitude')},{loc.get('longitude')}]"
-                        
-                        save_message(contact_id, 'whatsapp', 'incoming', content)
-                        
-                        # Send default response for media
+                    else:
+                        # Default response for non-text messages
                         default_response = "Thank you for sharing! Our team will review and get back to you. For immediate assistance, please call +263779897192"
-                        adapters['whatsapp'].send_message(sender_wa_id, default_response)
-                        save_message(contact_id, 'whatsapp', 'outgoing', default_response)
-
+                        response_dict = WhatsAppInteractiveMenu.create_text_message(default_response)
+                        next_state = 'main'
+                        print(f"   📎 Media/other message type - using default response")
+                    
+                    # Send response
+                    print(f"\n   📤 Sending response to {sender_wa_id}...")
+                    print(f"   Response Type: {response_dict.get('type', 'unknown')}")
+                    
+                    if response_dict.get('type') == 'text':
+                        print(f"   Response Text: {response_dict.get('text', {}).get('body', '')[:200]}...")
+                    elif response_dict.get('type') == 'interactive':
+                        interactive_response = response_dict.get('interactive', {})
+                        print(f"   Interactive Type: {interactive_response.get('type')}")
+                        print(f"   Response Body: {interactive_response.get('body', {}).get('text', '')[:200]}...")
+                    
+                    result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
+                    
+                    print(f"   Send Result: {json.dumps(result, indent=2, default=str)}")
+                    
+                    # Save bot response to database
+                    if result.get('success'):
+                        if response_dict.get('type') == 'text':
+                            bot_response = response_dict.get('text', {}).get('body', '')
+                        elif response_dict.get('type') == 'interactive':
+                            bot_response = response_dict.get('interactive', {}).get('body', {}).get('text', '')
+                        else:
+                            bot_response = "Bot response sent"
+                        
+                        save_message(contact_id, 'whatsapp', 'outgoing', bot_response)
+                        print(f"   ✅ Bot response saved to database")
+                        print(f"   Message ID from Meta: {result.get('message_id')}")
+                    else:
+                        print(f"   ❌ Failed to send: {result.get('error')}")
+                    
+                    print("-"*60)
+                    logger.info(f'WhatsApp message from {sender_wa_id} ({display_name}): {content[:80]}')
+        
+        print("\n" + "="*80)
+        print("✅ WEBHOOK PROCESSING COMPLETE")
+        print("="*80 + "\n")
         return jsonify({'status': 'ok'}), 200
+        
     except Exception as e:
+        print("\n" + "="*80)
+        print(f"❌ WEBHOOK ERROR")
+        print("="*80)
+        print(f"Error: {str(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
+        print("="*80 + "\n")
         logger.error(f'WhatsApp webhook error: {e}')
-        return jsonify({'status': 'error'}), 500
-
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+    
 @app.route('/api/whatsapp/sync-contacts', methods=['POST'])
 @login_required
 def sync_whatsapp_contacts():
