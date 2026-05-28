@@ -837,7 +837,7 @@ def whatsapp_webhook():
         mode = request.args.get('hub.mode')
         token = request.args.get('hub.verify_token')
         challenge = request.args.get('hub.challenge')
-        expected = os.getenv('WHATSAPP_VERIFY_TOKEN', 'magolis_whatsapp_verify')
+        expected = os.getenv('WHATSAPP_VERIFY_TOKEN', '1122583909768342')
         
         print("\n" + "="*80)
         print("📞 WEBHOOK VERIFICATION REQUEST")
