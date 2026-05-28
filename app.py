@@ -388,15 +388,29 @@ class WhatsAppAdapter:
         if components:
             payload["template"]["components"] = components
         
+        print(f"📤 SENDING TEMPLATE: {template_name}")
+        print(f"   To: {to}")
+        print(f"   URL: {url}")
+        print(f"   Payload: {json.dumps(payload, indent=2)}")
+        
         try:
             response = requests.post(url, json=payload, headers=self._headers(), timeout=30)
+            
+            # Log FULL response for debugging
+            print(f"   Response Status: {response.status_code}")
+            print(f"   Response Body: {json.dumps(response.json(), indent=2)}")
+            
             data = response.json()
             if response.status_code == 200 and data.get('messages'):
                 return {'success': True, 'platform': 'whatsapp', 'message_id': data['messages'][0].get('id')}
+            
             error_msg = data.get('error', {}).get('message', f'HTTP {response.status_code}')
-            logger.error(f"Template send failed: {error_msg}")
-            return {'success': False, 'error': error_msg}
+            error_code = data.get('error', {}).get('code')
+            print(f"❌ TEMPLATE ERROR [{error_code}]: {error_msg}")
+            logger.error(f"Template send failed: {error_msg} (Code: {error_code})")
+            return {'success': False, 'error': error_msg, 'code': error_code}
         except Exception as e:
+            print(f"❌ TEMPLATE EXCEPTION: {e}")
             logger.error(f"Template send exception: {e}")
             return {'success': False, 'error': str(e)}
 
