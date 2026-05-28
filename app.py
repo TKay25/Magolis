@@ -830,8 +830,8 @@ def whatsapp_diagnose():
     result = adapters['whatsapp'].diagnose()
     return jsonify(result)
 
-@app.route('/webhook/whatsapp', methods=['GET', 'POST'])
-def whatsapp_webhook():
+@app.route('/webhook/whatsappmagolis', methods=['GET', 'POST'])
+def whatsapp_webhook_magolis():
     """WhatsApp Cloud API webhook — with full metadata logging"""
     if request.method == 'GET':
         mode = request.args.get('hub.mode')
