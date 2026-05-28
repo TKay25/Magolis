@@ -3,6 +3,7 @@ Stephen Margolis Resort WhatsApp Chatbot - Meta API Compliant
 Respects: 3 buttons max OR 10 list rows max
 """
 
+from email.mime import text
 import os
 import json
 import re
@@ -206,24 +207,24 @@ class StephenMargolisChatbot:
     def _get_activities_menu(self) -> Tuple[Dict, str]:
         text = """🎯 *ACTIVITIES & ENTRANCE FEES*
 
-*ENTRANCE:*
-• Adults: $5
-• Children (3-12yrs): $3
+        *ENTRANCE:*
+        • Adults: $5
+        • Children (3-12yrs): $3
 
-*ACTIVITIES ($5 each):*
-Zipline • VR • Horse Riding
-Boat Cruise • Giant Swing
-Kids Play Area
+        *ACTIVITIES ($5 each):*
+        Zipline • VR • Horse Riding
+        Boat Cruise • Giant Swing
+        Kids Play Area
 
-*OTHER:*
-Fishing: $10 | Canoeing: $3
-Putt-Putt Golf: FREE!
+        *OTHER:*
+        Fishing: $10 | Canoeing: $3
+        Putt-Putt Golf: FREE!
 
-*FREE:* Braai stands (bring own food)
-*PARKING:* $5/vehicle (after 1st 50 free)
+        *FREE:* Braai stands (bring own food)
+        *PARKING:* $5/vehicle (after 1st 50 free)
 
-What would you like to do?"""
-        
+        What would you like to do?"""
+            
         buttons = [
             {'id': 'book_activity', 'title': '📅 Book Activity'},
             {'id': 'ask_activities', 'title': '❓ More Info'},
@@ -491,22 +492,59 @@ We look forward to hearing from you!"""
             session['last_menu'] = menu_mapping[interaction_id]
             return self.get_menu(menu_mapping[interaction_id])
         
-        # Handle action buttons
+        # Handle action buttons - some return button messages, some return text
         action_response = self._handle_action_buttons(interaction_id)
         if action_response:
-            text_msg = WhatsAppInteractiveMenu.create_text_message(action_response)
-            return text_msg, session.get('last_menu', 'main')
+            # Check if the response is already a button message (dict with 'interactive' key)
+            if isinstance(action_response, dict) and action_response.get('type') == 'interactive':
+                return action_response, session.get('last_menu', 'main')
+            # Otherwise it's a text message
+            elif isinstance(action_response, dict):
+                return action_response, session.get('last_menu', 'main')
         
         return self.get_menu('main')
     
-    def _handle_action_buttons(self, action_id: str) -> Optional[str]:
-        """Handle action button clicks with text responses"""
+    def _handle_action_buttons(self, action_id: str) -> Optional[Dict]:
+        """Handle action button clicks with text responses that include menus"""
         
+        # For book_activity - return a button message, not just text
+        if action_id == 'book_activity':
+            text = """📅 *Activity Booking*
+
+    Please reply with:
+    • Activity name
+    • Number of people
+    • Preferred date
+
+    Our team will confirm availability!
+
+    Would you like to do anything else?"""
+            buttons = [
+                {'id': 'activities', 'title': '🎯 View Activities'},
+                {'id': 'book_activity', 'title': '📅 Book Another'},
+                {'id': 'main', 'title': '🏠 Main Menu'}
+            ]
+            return WhatsAppInteractiveMenu.create_button_message(text, buttons)
+        
+        # For ask_activities - return a button message, not just text
+        if action_id == 'ask_activities':
+            text = """🎯 *More Activity Info*
+
+    All activities are guided and include safety equipment. 
+    Kids Play Area has swimming pool, swings, see-saw, play house, and jumping castle.
+
+    Group discounts available for 10+ people!
+
+    What would you like to do next?"""
+            buttons = [
+                {'id': 'book_activity', 'title': '📅 Book Activity'},
+                {'id': 'activities', 'title': '🎯 Back to Activities'},
+                {'id': 'main', 'title': '🏠 Main Menu'}
+            ]
+            return WhatsAppInteractiveMenu.create_button_message(text, buttons)
+        
+        # Keep all other actions as text responses
         actions = {
-            'book_activity': "📅 *Activity Booking*\n\nPlease reply with:\n• Activity name\n• Number of people\n• Preferred date\n\nOur team will confirm availability!",
-            
-            'ask_activities': "🎯 *More Activity Info*\n\nAll activities are guided and include safety equipment. Kids Play Area has swimming pool, swings, see-saw, play house, and jumping castle.\n\nGroup discounts available for 10+ people!",
-            
             'book_room': "📅 *Room Booking*\n\nPlease reply with:\n• Check-in date\n• Number of nights\n• Room type preference\n• Number of guests\n\nWe'll check availability and send payment details!",
             
             'room_amenities': "🏊 *Room Amenities*\n\n✅ Swimming pool access (accommodation guests only)\n✅ Free parking\n✅ Braai stands\n✅ Restaurant access\n✅ 24/7 security\n✅ Backup generator\n✅ Room service available",
@@ -544,8 +582,12 @@ We look forward to hearing from you!"""
             'whatsapp': "💬 *WhatsApp Us*\n\nClick this link to start a chat:\nhttps://wa.me/263779897192\n\nOr save our number: +263779897192"
         }
         
-        return actions.get(action_id)
-    
+        result = actions.get(action_id)
+        if result and isinstance(result, str):
+            return WhatsAppInteractiveMenu.create_text_message(result)
+        return result
+
+
     def handle_text_message(self, user_id: str, message: str) -> Tuple[Dict, str]:
         """Handle free text messages from users"""
         message_lower = message.lower().strip()
