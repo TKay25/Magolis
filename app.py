@@ -365,6 +365,41 @@ class WhatsAppAdapter:
     def _headers(self):
         return {"Authorization": f"Bearer {self.access_token}", "Content-Type": "application/json"}
 
+    def send_template_message(self, recipient_id, template_name, language_code='en', components=None):
+        """Send a template message (for out-of-24h-window communication or booking confirmations)"""
+        if not self.is_configured:
+            return {'success': False, 'error': self.init_error or 'WhatsApp not configured'}
+        
+        to = recipient_id.lstrip('+')
+        url = f"https://graph.facebook.com/v18.0/{self.phone_number_id}/messages"
+        
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to,
+            "type": "template",
+            "template": {
+                "name": template_name,
+                "language": {
+                    "code": language_code
+                }
+            }
+        }
+        
+        if components:
+            payload["template"]["components"] = components
+        
+        try:
+            response = requests.post(url, json=payload, headers=self._headers(), timeout=30)
+            data = response.json()
+            if response.status_code == 200 and data.get('messages'):
+                return {'success': True, 'platform': 'whatsapp', 'message_id': data['messages'][0].get('id')}
+            error_msg = data.get('error', {}).get('message', f'HTTP {response.status_code}')
+            logger.error(f"Template send failed: {error_msg}")
+            return {'success': False, 'error': error_msg}
+        except Exception as e:
+            logger.error(f"Template send exception: {e}")
+            return {'success': False, 'error': str(e)}
+
     def send_message(self, recipient_id, content):
         if not self.is_configured:
             return {'success': False, 'error': self.init_error or 'WhatsApp not configured'}
@@ -1017,7 +1052,7 @@ def whatsapp_webhook_magolis():
                         
                         if interactive_type == 'button_reply':
                             interaction_id = interactive['button_reply']['id']
-                            result_tuple = chatbot.process_interaction(sender_wa_id, interaction_id)
+                            result_tuple = chatbot.process_interaction(sender_wa_id, interaction_id, sender_wa_id, adapters['whatsapp'])
                             response_dict = result_tuple[0]
                             next_state = result_tuple[1]
                             print(f"   🎯 Button clicked: {interaction_id}")
@@ -1025,7 +1060,7 @@ def whatsapp_webhook_magolis():
                             
                         elif interactive_type == 'list_reply':
                             interaction_id = interactive['list_reply']['id']
-                            result_tuple = chatbot.process_interaction(sender_wa_id, interaction_id)
+                            result_tuple = chatbot.process_interaction(sender_wa_id, interaction_id, sender_wa_id, adapters['whatsapp'])
                             response_dict = result_tuple[0]
                             next_state = result_tuple[1]
                             print(f"   📋 List selected: {interaction_id}")
@@ -1036,11 +1071,16 @@ def whatsapp_webhook_magolis():
                             next_state = result_tuple[1]
                             
                     elif msg_type == 'text':
-                        result_tuple = chatbot.handle_text_message(sender_wa_id, content)
-                        response_dict = result_tuple[0]
-                        next_state = result_tuple[1]
-                        print(f"   💬 Text message processed")
-                        print(f"   Next state: {next_state}")
+                        content_lower = content.lower()
+                        if 'book activity' in content_lower or 'book a activity' in content_lower:
+                            # Send template for booking
+                            result = adapters['whatsapp'].send_template_message(sender_wa_id, 'margolisactivitybooking', 'en')
+                            save_message(contact_id, 'whatsapp', 'outgoing', 'Activity booking template sent')
+                        else:
+                            result_tuple = chatbot.handle_text_message(sender_wa_id, content)
+                            response_dict = result_tuple[0]
+                            next_state = result_tuple[1]
+                            result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
                         
                     else:
                         default_response = "Thank you for sharing! Our team will review and get back to you. For immediate assistance, please call +263779897192"
