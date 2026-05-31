@@ -365,8 +365,8 @@ class WhatsAppAdapter:
     def _headers(self):
         return {"Authorization": f"Bearer {self.access_token}", "Content-Type": "application/json"}
 
-    def send_template_message(self, recipient_id, template_name, language_code='en', components=None):
-        """Send a template message (for out-of-24h-window communication or booking confirmations)"""
+    def send_template_message(self, recipient_id, template_name, language_code='en', components=None, flow_token=None):
+        """Send a template message (supports regular templates AND Flow buttons)"""
         if not self.is_configured:
             return {'success': False, 'error': self.init_error or 'WhatsApp not configured'}
         
@@ -379,40 +379,51 @@ class WhatsAppAdapter:
             "type": "template",
             "template": {
                 "name": template_name,
-                "language": {
-                    "code": language_code
-                }
+                "language": {"code": language_code}
             }
         }
         
+        # If components are provided, add them
         if components:
             payload["template"]["components"] = components
+        # Special handling for Flow button (template with Flow)
+        elif flow_token:
+            payload["template"]["components"] = [
+                {
+                    "type": "button",
+                    "sub_type": "flow",
+                    "index": 0,
+                    "parameters": [
+                        {
+                            "type": "action",
+                            "action": {
+                                "flow_token": flow_token
+                            }
+                        }
+                    ]
+                }
+            ]
         
         print(f"📤 SENDING TEMPLATE: {template_name}")
         print(f"   To: {to}")
-        print(f"   URL: {url}")
         print(f"   Payload: {json.dumps(payload, indent=2)}")
         
         try:
             response = requests.post(url, json=payload, headers=self._headers(), timeout=30)
-            
-            # Log FULL response for debugging
             print(f"   Response Status: {response.status_code}")
-            print(f"   Response Body: {json.dumps(response.json(), indent=2)}")
+            print(f"   Response Body: {response.text}")
             
             data = response.json()
             if response.status_code == 200 and data.get('messages'):
                 return {'success': True, 'platform': 'whatsapp', 'message_id': data['messages'][0].get('id')}
             
             error_msg = data.get('error', {}).get('message', f'HTTP {response.status_code}')
-            error_code = data.get('error', {}).get('code')
-            print(f"❌ TEMPLATE ERROR [{error_code}]: {error_msg}")
-            logger.error(f"Template send failed: {error_msg} (Code: {error_code})")
-            return {'success': False, 'error': error_msg, 'code': error_code}
+            print(f"❌ TEMPLATE ERROR: {error_msg}")
+            return {'success': False, 'error': error_msg}
         except Exception as e:
             print(f"❌ TEMPLATE EXCEPTION: {e}")
-            logger.error(f"Template send exception: {e}")
             return {'success': False, 'error': str(e)}
+    
 
     def send_message(self, recipient_id, content):
         if not self.is_configured:
@@ -1078,35 +1089,54 @@ def whatsapp_webhook_magolis():
                         if interactive_type == 'button_reply':
                             interaction_id = interactive['button_reply']['id']
                             print(f"   🎯 Button clicked: {interaction_id}")
-                            
-                            result_tuple = chatbot.process_interaction(sender_wa_id, interaction_id, sender_wa_id, adapters['whatsapp'])
-                            response_dict = result_tuple[0]
-                            next_state = result_tuple[1]
-                            
-                            # Only send if there's a response
-                            if response_dict:
-                                print(f"   📤 Sending response to {sender_wa_id}...")
+
+                            if interaction_id == 'book_activity':
+                                # Send Flow template
+                                result = adapters['whatsapp'].send_template_message(
+                                    sender_wa_id, 
+                                    'margolisactivitybooking',  # Your template name
+                                    'en',
+                                    flow_token=f"booking_{sender_wa_id}_{int(datetime.now().timestamp())}"
+                                )
+                                print(f"   📧 Flow template sent: {result}")
                                 
-                                # Fix response_dict if it's a tuple
-                                if isinstance(response_dict, tuple) and len(response_dict) > 0:
-                                    response_dict = response_dict[0]
-                                
-                                # Send the response
-                                result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
-                                
-                                # Save to database if successful
                                 if result.get('success'):
-                                    if response_dict.get('type') == 'text':
-                                        bot_response = response_dict.get('text', {}).get('body', '')
-                                    elif response_dict.get('type') == 'interactive':
-                                        bot_response = response_dict.get('interactive', {}).get('body', {}).get('text', 'Interactive menu sent')
-                                    else:
-                                        bot_response = "Response sent"
-                                    
-                                    save_message(contact_id, 'whatsapp', 'outgoing', bot_response)
-                                    print(f"   ✅ Bot response saved to database")
+                                    save_message(contact_id, 'whatsapp', 'outgoing', 'Activity booking flow sent')
                                 else:
-                                    print(f"   ❌ Failed to send: {result.get('error')}")
+                                    # Fallback to text if flow fails
+                                    fallback = "Please reply with your activity name, number of people, and preferred date."
+                                    adapters['whatsapp'].send_message(sender_wa_id, fallback)
+                            else:
+                                # Handle other buttons normally
+
+                                result_tuple = chatbot.process_interaction(sender_wa_id, interaction_id, sender_wa_id, adapters['whatsapp'])
+                                response_dict = result_tuple[0]
+                                next_state = result_tuple[1]
+                                
+                                # Only send if there's a response
+                                if response_dict:
+                                    print(f"   📤 Sending response to {sender_wa_id}...")
+                                    
+                                    # Fix response_dict if it's a tuple
+                                    if isinstance(response_dict, tuple) and len(response_dict) > 0:
+                                        response_dict = response_dict[0]
+                                    
+                                    # Send the response
+                                    result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
+                                    
+                                    # Save to database if successful
+                                    if result.get('success'):
+                                        if response_dict.get('type') == 'text':
+                                            bot_response = response_dict.get('text', {}).get('body', '')
+                                        elif response_dict.get('type') == 'interactive':
+                                            bot_response = response_dict.get('interactive', {}).get('body', {}).get('text', 'Interactive menu sent')
+                                        else:
+                                            bot_response = "Response sent"
+                                        
+                                        save_message(contact_id, 'whatsapp', 'outgoing', bot_response)
+                                        print(f"   ✅ Bot response saved to database")
+                                    else:
+                                        print(f"   ❌ Failed to send: {result.get('error')}")
                             
                         elif interactive_type == 'list_reply':
                             interaction_id = interactive['list_reply']['id']
