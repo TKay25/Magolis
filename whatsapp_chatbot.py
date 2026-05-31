@@ -496,59 +496,30 @@ We look forward to hearing from you!"""
         action_response = self._handle_action_buttons(interaction_id, sender_id, adapter)
         
         if action_response:
-            # Check if this is a template request
-            if isinstance(action_response, dict) and action_response.get('type') == 'template':
-                # Send template using the adapter
-                if adapter:
-                    template_result = adapter.send_template_message(
-                        sender_id, 
-                        action_response.get('template_name'), 
-                        action_response.get('language', 'en')
-                    )
-                    if template_result.get('success'):
-                        # Return a simple confirmation after template
-                        text = """✅ *Booking Request Received!*
-
-    Our team will contact you shortly to confirm your activity booking.
-
-    📞 For immediate assistance: +263779897192
-
-    Type MENU to return to main menu."""
-                        return WhatsAppInteractiveMenu.create_text_message(text), session.get('last_menu', 'main')
-                    else:
-                        # Fallback to button message if template fails
-                        text = """📅 *Activity Booking*
-
-    Please reply with:
-    • Activity name
-    • Number of people
-    • Preferred date
-
-    Our team will confirm availability!
-
-    Would you like to do anything else?"""
-                        buttons = [
-                            {'id': 'activities', 'title': '🎯 View Activities'},
-                            {'id': 'book_activity', 'title': '📅 Book Another'},
-                            {'id': 'main', 'title': '🏠 Main Menu'}
-                        ]
-                        return WhatsAppInteractiveMenu.create_button_message(text, buttons), session.get('last_menu', 'main')
-            
-            # Regular button or text message
-            elif isinstance(action_response, dict) and action_response.get('type') == 'interactive':
-                return action_response, session.get('last_menu', 'main')
-            elif isinstance(action_response, dict):
-                return action_response, session.get('last_menu', 'main')
+            return action_response, session.get('last_menu', 'main')
         
         return self.get_menu('main')
     
     def _handle_action_buttons(self, action_id: str, sender_id: str = None, adapter=None) -> Optional[Dict]:
         """Handle action button clicks with text responses that include menus"""
         
-        # For book_activity - return None to signal that we should send a template
+        # For book_activity - simple text response (template removed)
         if action_id == 'book_activity':
-            # Return a special marker to send template instead of button message
-            return {'type': 'template', 'template_name': 'margolisactivitybooking', 'language': 'en'}
+            text = """📅 *Activity Booking Request Received!*
+
+Please reply with:
+• Activity name (Zipline/VR/Horse Riding/Boat Cruise/Giant Swing)
+• Number of people
+• Preferred date
+
+Example: "Zipline, 3 people, this Saturday"
+
+Our team will confirm availability within 24 hours!
+
+📞 For urgent bookings: +263779897192
+
+Type MENU to return to main menu."""
+            return WhatsAppInteractiveMenu.create_text_message(text)
         
         # For ask_activities - return button message as before
         if action_id == 'ask_activities':
