@@ -885,7 +885,11 @@ def whatsapp_diagnose():
 
 @app.route('/webhook/whatsappmagolis', methods=['GET', 'POST'])
 def whatsapp_webhook_magolis():
-    """WhatsApp Cloud API webhook — with full metadata logging"""
+    """WhatsApp Cloud API webhook — with metadata logging and duplicate prevention"""
+    
+    # Track processed message IDs to prevent duplicates
+    processed_message_ids = set()
+    
     if request.method == 'GET':
         mode = request.args.get('hub.mode')
         token = request.args.get('hub.verify_token')
@@ -936,9 +940,16 @@ def whatsapp_webhook_magolis():
                 print(f"   Messages count: {len(messages)}")
 
                 for msg in messages:
+                    msg_id = msg.get('id')
+                    
+                    # Skip duplicate messages
+                    if msg_id in processed_message_ids:
+                        print(f"   ⏭️ Skipping duplicate message {msg_id}")
+                        continue
+                    processed_message_ids.add(msg_id)
+                    
                     sender_wa_id = msg.get('from')
                     msg_type = msg.get('type', 'text')
-                    msg_id = msg.get('id')
                     msg_timestamp = msg.get('timestamp')
                     content = ''
                     display_name = contacts_meta.get(sender_wa_id, 'WhatsApp User')
@@ -1066,146 +1077,104 @@ def whatsapp_webhook_magolis():
                         
                         if interactive_type == 'button_reply':
                             interaction_id = interactive['button_reply']['id']
+                            print(f"   🎯 Button clicked: {interaction_id}")
+                            
                             result_tuple = chatbot.process_interaction(sender_wa_id, interaction_id, sender_wa_id, adapters['whatsapp'])
                             response_dict = result_tuple[0]
                             next_state = result_tuple[1]
-                            print(f"   🎯 Button clicked: {interaction_id}")
-                            print(f"   Next state: {next_state}")
+                            
+                            # Only send if there's a response
+                            if response_dict:
+                                print(f"   📤 Sending response to {sender_wa_id}...")
+                                
+                                # Fix response_dict if it's a tuple
+                                if isinstance(response_dict, tuple) and len(response_dict) > 0:
+                                    response_dict = response_dict[0]
+                                
+                                # Send the response
+                                result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
+                                
+                                # Save to database if successful
+                                if result.get('success'):
+                                    if response_dict.get('type') == 'text':
+                                        bot_response = response_dict.get('text', {}).get('body', '')
+                                    elif response_dict.get('type') == 'interactive':
+                                        bot_response = response_dict.get('interactive', {}).get('body', {}).get('text', 'Interactive menu sent')
+                                    else:
+                                        bot_response = "Response sent"
+                                    
+                                    save_message(contact_id, 'whatsapp', 'outgoing', bot_response)
+                                    print(f"   ✅ Bot response saved to database")
+                                else:
+                                    print(f"   ❌ Failed to send: {result.get('error')}")
                             
                         elif interactive_type == 'list_reply':
                             interaction_id = interactive['list_reply']['id']
+                            print(f"   📋 List selected: {interaction_id}")
+                            
                             result_tuple = chatbot.process_interaction(sender_wa_id, interaction_id, sender_wa_id, adapters['whatsapp'])
                             response_dict = result_tuple[0]
                             next_state = result_tuple[1]
-                            print(f"   📋 List selected: {interaction_id}")
-                            print(f"   Next state: {next_state}")
+                            
+                            # Only send if there's a response
+                            if response_dict:
+                                print(f"   📤 Sending response to {sender_wa_id}...")
+                                
+                                if isinstance(response_dict, tuple) and len(response_dict) > 0:
+                                    response_dict = response_dict[0]
+                                
+                                result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
+                                
+                                if result.get('success'):
+                                    if response_dict.get('type') == 'text':
+                                        bot_response = response_dict.get('text', {}).get('body', '')
+                                    else:
+                                        bot_response = "Response sent"
+                                    
+                                    save_message(contact_id, 'whatsapp', 'outgoing', bot_response)
+                                    print(f"   ✅ Bot response saved to database")
+                                else:
+                                    print(f"   ❌ Failed to send: {result.get('error')}")
                         else:
                             result_tuple = chatbot.handle_text_message(sender_wa_id, content)
                             response_dict = result_tuple[0]
                             next_state = result_tuple[1]
                             
+                            if response_dict:
+                                if isinstance(response_dict, tuple):
+                                    response_dict = response_dict[0]
+                                result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
+                                
                     elif msg_type == 'text':
                         content_lower = content.lower()
                         if 'book activity' in content_lower or 'book a activity' in content_lower:
                             # Send template for booking
                             result = adapters['whatsapp'].send_template_message(sender_wa_id, 'margolisactivitybooking', 'en')
                             save_message(contact_id, 'whatsapp', 'outgoing', 'Activity booking template sent')
+                            print(f"   📧 Booking template sent")
                         else:
                             result_tuple = chatbot.handle_text_message(sender_wa_id, content)
                             response_dict = result_tuple[0]
                             next_state = result_tuple[1]
-                            result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
+                            
+                            if response_dict:
+                                if isinstance(response_dict, tuple):
+                                    response_dict = response_dict[0]
+                                result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
+                                
+                                if result.get('success'):
+                                    if response_dict.get('type') == 'text':
+                                        bot_response = response_dict.get('text', {}).get('body', '')
+                                    else:
+                                        bot_response = "Response sent"
+                                    save_message(contact_id, 'whatsapp', 'outgoing', bot_response)
                         
                     else:
                         default_response = "Thank you for sharing! Our team will review and get back to you. For immediate assistance, please call +263779897192"
                         response_dict = WhatsAppInteractiveMenu.create_text_message(default_response)
                         next_state = 'main'
+                        result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
                         print(f"   📎 Media/other message type - using default response")
-                    
-                    print(f"\n   📤 Sending response to {sender_wa_id}...")
-                    
-                    # Fix response_dict if it's a tuple
-                    if isinstance(response_dict, tuple) and len(response_dict) > 0:
-                        response_dict = response_dict[0]
-                    
-                    # Handle different response types
-                    if isinstance(response_dict, dict):
-                        print(f"   Response Type: {response_dict.get('type', 'unknown')}")
-                        
-                        # CASE 1: Template message (for bookings)
-                        if response_dict.get('type') == 'template':
-                            print(f"   📧 TEMPLATE DETECTED: {response_dict.get('template_name')}")
-                            
-                            # Send template
-                            result = adapters['whatsapp'].send_template_message(
-                                sender_wa_id,
-                                response_dict.get('template_name'),
-                                response_dict.get('language', 'en_US')
-                            )
-                            print(f"   📧 Template result: {result}")
-                            
-                            if result.get('success'):
-                                # Send confirmation message after template
-                                confirm_msg = WhatsAppInteractiveMenu.create_text_message(
-                                    "✅ Booking request received!\n\nOur team will contact you shortly to confirm.\n\nType MENU for main menu."
-                                )
-                                adapters['whatsapp'].send_interactive_message(sender_wa_id, confirm_msg)
-                                print(f"   ✅ Template sent successfully")
-                            else:
-                                # Template failed - send fallback
-                                print(f"   ❌ Template failed: {result.get('error')}")
-                                fallback = WhatsAppInteractiveMenu.create_text_message(
-                                    "📅 To book an activity, please reply with:\n• Activity name\n• Number of people\n• Preferred date\n\nWe'll get back to you ASAP!"
-                                )
-                                adapters['whatsapp'].send_interactive_message(sender_wa_id, fallback)
-                        
-                        # CASE 2: Regular text message
-                        elif response_dict.get('type') == 'text':
-                            print(f"   📝 Sending text response")
-                            result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
-                            print(f"   Text send result: {result.get('success')}")
-                        
-                        # CASE 3: Interactive message (buttons/lists)
-                        elif response_dict.get('type') == 'interactive':
-                            print(f"   🎮 Sending interactive response")
-                            interactive_type = response_dict.get('interactive', {}).get('type', 'unknown')
-                            print(f"   Interactive Type: {interactive_type}")
-                            result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
-                            print(f"   Interactive send result: {result.get('success')}")
-                            
-                            if not result.get('success'):
-                                print(f"   ❌ Interactive failed: {result.get('error')}")
-                                # Fallback to text message
-                                fallback = WhatsAppInteractiveMenu.create_text_message(
-                                    "I'm having trouble showing the menu. Please type MENU to see options or call us at +263779897192"
-                                )
-                                adapters['whatsapp'].send_interactive_message(sender_wa_id, fallback)
-                        
-                        # CASE 4: Unknown type
-                        else:
-                            print(f"   ⚠️ Unknown response type: {response_dict.get('type')}")
-                            # Try to send as text if possible
-                            if response_dict.get('text'):
-                                result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
-                            else:
-                                # Send default error message
-                                error_msg = WhatsAppInteractiveMenu.create_text_message(
-                                    "Sorry, I encountered an error. Please type MENU to continue or call us at +263779897192"
-                                )
-                                result = adapters['whatsapp'].send_interactive_message(sender_wa_id, error_msg)
-                        
-                        # Save successful response to database
-                        if result.get('success'):
-                            if response_dict.get('type') == 'text':
-                                bot_response = response_dict.get('text', {}).get('body', '')
-                            elif response_dict.get('type') == 'interactive':
-                                bot_response = response_dict.get('interactive', {}).get('body', {}).get('text', 'Interactive menu sent')
-                            elif response_dict.get('type') == 'template':
-                                bot_response = "Template sent: " + response_dict.get('template_name')
-                            else:
-                                bot_response = "Response sent"
-                            
-                            save_message(contact_id, 'whatsapp', 'outgoing', bot_response)
-                            print(f"   ✅ Bot response saved to database")
-                            print(f"   Message ID from Meta: {result.get('message_id')}")
-                        else:
-                            print(f"   ❌ Failed to send: {result.get('error')}")
-                            # Log the error to database
-                            error_log = f"[ERROR] Failed to send: {result.get('error')}"
-                            save_message(contact_id, 'whatsapp', 'outgoing', error_log)
-                    
-                    else:
-                        print(f"   ⚠️ Warning: response_dict is {type(response_dict)}, not a dict")
-                        # Try to send as text if it's a string
-                        if isinstance(response_dict, str):
-                            text_response = WhatsAppInteractiveMenu.create_text_message(response_dict)
-                            result = adapters['whatsapp'].send_interactive_message(sender_wa_id, text_response)
-                        else:
-                            # Send generic error
-                            error_msg = WhatsAppInteractiveMenu.create_text_message(
-                                "Sorry, something went wrong. Please type MENU to restart or call us at +263779897192"
-                            )
-                            result = adapters['whatsapp'].send_interactive_message(sender_wa_id, error_msg)
 
                     print(f"\n   Final result: {json.dumps(result, indent=2, default=str)}")
 
