@@ -417,6 +417,7 @@
                         <li class="nav-item"><a class="nav-link" href="#" onclick="showTab('broadcast'); return false;"><i class="bi bi-megaphone"></i> Bulk Broadcast</a></li>
                         <li class="nav-item"><a class="nav-link" href="#" onclick="showTab('contacts'); return false;"><i class="bi bi-people"></i> Contacts</a></li>
                         <li class="nav-item"><a class="nav-link" href="#" onclick="showTab('history'); return false;"><i class="bi bi-clock-history"></i> History</a></li>
+                        <li class="nav-item"><a class="nav-link" href="#" onclick="showTab('bookings'); return false;"><i class="bi bi-calendar-check"></i> Activity Bookings</a></li>
                         <li class="nav-item"><a class="nav-link" href="#" onclick="showTab('status'); return false;"><i class="bi bi-check-circle"></i> Platform Status</a></li>
                         <li class="nav-item"><a class="nav-link" href="#" onclick="openPlatformGuide(); return false;"><i class="bi bi-journal-text"></i> Platform Guide</a></li>
                         <li class="nav-item"><a class="nav-link" href="#" onclick="openDataGuide(); return false;"><i class="bi bi-database"></i> Data Guide</a></li>
@@ -619,6 +620,47 @@
                                     </select>
                                 </div>
                                 <div class="card-body p-2" id="history-list" style="max-height:60vh;overflow-y:auto;"><div class="text-center py-3">Loading history...</div></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ACTIVITY BOOKINGS TAB -->
+                    <div id="bookings-tab" class="tab-content" style="display: none;">
+                        <div class="animate-fade-in">
+                            <h2 class="fw-bold main-title mb-2">Activity Bookings</h2>
+                            
+                            <div class="card-modern mb-2">
+                                <div class="card-header-modern d-flex justify-content-between align-items-center">
+                                    <span><i class="bi bi-funnel me-1"></i> Filter Bookings</span>
+                                    <button class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2" onclick="loadBookings()" style="font-size:0.65rem;"><i class="bi bi-arrow-repeat me-1"></i>Refresh</button>
+                                </div>
+                                <div class="card-body p-2">
+                                    <div class="row g-2">
+                                        <div class="col-md-3">
+                                            <select id="booking-status-filter" class="form-select form-select-sm" onchange="loadBookings()">
+                                                <option value="all">All Status</option>
+                                                <option value="pending">Pending</option>
+                                                <option value="confirmed">Confirmed</option>
+                                                <option value="declined">Declined</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <input type="date" id="booking-date-filter" class="form-control form-control-sm" placeholder="Filter by date" onchange="loadBookings()">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <input type="text" id="booking-search" class="form-control form-control-sm" placeholder="Search by reference or name..." onkeyup="loadBookings()">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card-modern">
+                                <div class="card-header-modern">
+                                    <span><i class="bi bi-list-check me-1"></i> Booking Requests</span>
+                                </div>
+                                <div class="card-body p-0" id="bookings-list">
+                                    <div class="text-center py-3">Loading bookings...</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1004,6 +1046,143 @@
         const socket = io({ transports: ['websocket', 'polling'] });
         socket.on('connect', () => console.log('Socket connected'));
 
+        // ============ ACTIVITY BOOKINGS FUNCTIONS ============
+
+        async function loadBookings() {
+            const status = document.getElementById('booking-status-filter').value;
+            const date = document.getElementById('booking-date-filter').value;
+            const search = document.getElementById('booking-search').value;
+            
+            let url = `/api/bookings?status=${status}`;
+            if (date) url += `&date=${date}`;
+            if (search) url += `&search=${encodeURIComponent(search)}`;
+            
+            const container = document.getElementById('bookings-list');
+            container.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary spinner-border-sm"></div><p class="mt-1">Loading...</p></div>';
+            
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                
+                if (data.success && data.bookings.length) {
+                    let html = `<div class="table-responsive"><table class="table table-hover mb-0" style="font-size:0.78rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Reference</th>
+                                <th>Customer</th>
+                                <th>Date</th>
+                                <th>Adults/Children</th>
+                                <th>Total</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+                    
+                    for (const b of data.bookings) {
+                        const statusClass = b.status === 'confirmed' ? 'bg-success' : (b.status === 'pending' ? 'bg-warning' : 'bg-danger');
+                        const statusText = b.status === 'confirmed' ? 'Confirmed' : (b.status === 'pending' ? 'Pending' : 'Declined');
+                        
+                        html += `<tr>
+                            <td><code>${escapeHtml(b.booking_reference)}</code></td>
+                            <td>${escapeHtml(b.customer_name || 'Guest')}<br><small class="text-muted">${escapeHtml(b.phone_number || '')}</small></td>
+                            <td>${new Date(b.date).toLocaleDateString()}</td>
+                            <td>👨 ${b.adults} / 👧 ${b.children}</td>
+                            <td><strong>$${parseFloat(b.total_amount).toFixed(2)}</strong></td>
+                            <td><span class="badge ${statusClass}">${statusText}</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary mb-1" style="font-size:0.65rem;" onclick="viewBookingDetails(${b.id})"><i class="bi bi-eye"></i> View</button>
+                                ${b.status === 'pending' ? `<button class="btn btn-sm btn-outline-success mb-1 ms-1" style="font-size:0.65rem;" onclick="confirmBookingFromAdmin(${b.id}, '${b.booking_reference}', '${b.phone_number}')"><i class="bi bi-check-lg"></i> Confirm</button>
+                                <button class="btn btn-sm btn-outline-danger mb-1 ms-1" style="font-size:0.65rem;" onclick="declineBookingFromAdmin(${b.id}, '${b.booking_reference}', '${b.phone_number}')"><i class="bi bi-x-lg"></i> Decline</button>` : ''}
+                            </td>
+                        </tr>`;
+                        
+                        // Hidden row for details (will be toggled)
+                        html += `<tr id="booking-detail-${b.id}" style="display:none; background:#f8f9fa;">
+                            <td colspan="7">
+                                <div class="p-2">
+                                    <strong>Activities Selected:</strong><br>
+                                    ${b.zipline > 0 ? `• Ziplining: ${b.zipline} person(s)<br>` : ''}
+                                    ${b.horse_riding > 0 ? `• Horse Riding: ${b.horse_riding} person(s)<br>` : ''}
+                                    ${b.vr > 0 ? `• VR: ${b.vr} person(s)<br>` : ''}
+                                    ${b.giant_swing > 0 ? `• Giant Swing: ${b.giant_swing} person(s)<br>` : ''}
+                                    ${b.boat_cruise > 0 ? `• Boat Cruise: ${b.boat_cruise} person(s)<br>` : ''}
+                                    ${b.canoeing > 0 ? `• Canoeing: ${b.canoeing} person(s)<br>` : ''}
+                                    ${b.fishing > 0 ? `• Fishing: ${b.fishing} person(s)<br>` : ''}
+                                    <strong>Cost Breakdown:</strong><br>
+                                    • Entrance Fee: $${parseFloat(b.entrance_fee).toFixed(2)}<br>
+                                    • Activities Total: $${parseFloat(b.activities_total).toFixed(2)}<br>
+                                    • Parking: $${parseFloat(b.parking_fee || 0).toFixed(2)}<br>
+                                    <strong>Submitted:</strong> ${new Date(b.submitted_at).toLocaleString()}
+                                    ${b.confirmed_at ? `<br><strong>Confirmed:</strong> ${new Date(b.confirmed_at).toLocaleString()}` : ''}
+                                </div>
+                            </td>
+                        </tr>`;
+                    }
+                    
+                    html += `</tbody></table></div>`;
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<div class="text-center py-3 text-muted"><i class="bi bi-calendar-x fs-4"></i><p class="mb-0 mt-2">No bookings found</p></div>';
+                }
+            } catch (e) {
+                container.innerHTML = `<div class="alert alert-danger m-2">Error loading bookings: ${escapeHtml(e.message)}</div>`;
+            }
+        }
+
+        function viewBookingDetails(bookingId) {
+            const detailRow = document.getElementById(`booking-detail-${bookingId}`);
+            if (detailRow.style.display === 'none') {
+                detailRow.style.display = 'table-row';
+            } else {
+                detailRow.style.display = 'none';
+            }
+        }
+
+        async function confirmBookingFromAdmin(bookingId, bookingRef, phoneNumber) {
+            if (!confirm(`Confirm booking ${bookingRef}? The customer will receive a confirmation message.`)) return;
+            
+            try {
+                const res = await fetch('/api/admin/confirm-booking', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ booking_id: bookingId, booking_reference: bookingRef, phone_number: phoneNumber })
+                });
+                
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Booking Confirmed', `Booking ${bookingRef} confirmed and customer notified`, 'success');
+                    loadBookings();
+                } else {
+                    showToast('Error', data.error || 'Failed to confirm booking', 'danger');
+                }
+            } catch (e) {
+                showToast('Error', e.message, 'danger');
+            }
+        }
+
+        async function declineBookingFromAdmin(bookingId, bookingRef, phoneNumber) {
+            if (!confirm(`Decline booking ${bookingRef}? The customer will be notified.`)) return;
+            
+            try {
+                const res = await fetch('/api/admin/decline-booking', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ booking_id: bookingId, booking_reference: bookingRef, phone_number: phoneNumber })
+                });
+                
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Booking Declined', `Booking ${bookingRef} declined and customer notified`, 'success');
+                    loadBookings();
+                } else {
+                    showToast('Error', data.error || 'Failed to decline booking', 'danger');
+                }
+            } catch (e) {
+                showToast('Error', e.message, 'danger');
+            }
+        }
+
         function isAppReviewError(msg) {
             if (!msg) return false;
             const m = msg.toLowerCase();
@@ -1137,6 +1316,7 @@
             if(tabName === 'dashboard') { loadDashboardStats(); loadPlatformStatus(); loadDashboardRecentBroadcasts(); }
             if(tabName === 'contacts') { loadContacts(); if(!_metaSynced[currentMetaTab]){ _metaSynced[currentMetaTab]=true; if(currentMetaTab==='facebook') syncFacebookContacts(); else if(currentMetaTab==='instagram') syncInstagramContacts(); else if(currentMetaTab==='whatsapp') syncWhatsAppContacts();} }
             if(tabName === 'history') loadMessageHistory();
+            if(tabName === 'bookings') { loadBookings(); }
             if(tabName === 'broadcast') { loadBroadcasts(); updateRecipientCount(); updatePlatformHint(); }
             if(tabName === 'status') loadPlatformStatusCards();
             if(window.innerWidth < 768) document.getElementById('sidebar')?.classList.remove('show');

@@ -1474,6 +1474,183 @@ Would you like to make a new booking?"""
         print(f"❌ Webhook error: {e}")
         logger.error(f'WhatsApp webhook error: {e}')
         return jsonify({'status': 'error', 'error': str(e)}), 500
+
+# ==================== ACTIVITY BOOKINGS API ====================
+
+@app.route('/api/bookings', methods=['GET'])
+@login_required
+def get_bookings():
+    """Get activity bookings with filters"""
+    status = request.args.get('status', 'all')
+    date_filter = request.args.get('date', '')
+    search = request.args.get('search', '')
+    
+    with get_db_cursor(commit=False) as cursor:
+        query = '''
+            SELECT b.*, c.display_name as customer_name, c.phone_number
+            FROM activity_bookings b
+            LEFT JOIN contacts c ON b.contact_id = c.id
+            WHERE 1=1
+        '''
+        params = []
+        
+        if status != 'all':
+            query += ' AND b.status = %s'
+            params.append(status)
+        
+        if date_filter:
+            query += ' AND b.date = %s'
+            params.append(date_filter)
+        
+        if search:
+            query += ' AND (b.booking_reference ILIKE %s OR c.display_name ILIKE %s OR c.phone_number ILIKE %s)'
+            search_term = f'%{search}%'
+            params.extend([search_term, search_term, search_term])
+        
+        query += ' ORDER BY b.submitted_at DESC'
+        
+        cursor.execute(query, tuple(params))
+        bookings = cursor.fetchall()
+        
+        # Convert to list of dicts and add parking_fee for display
+        result = []
+        for b in bookings:
+            booking_dict = dict(b)
+            # Calculate parking fee for display
+            parking_fee = 5.00 if booking_dict.get('parking_needed') else 0
+            booking_dict['parking_fee'] = parking_fee
+            result.append(booking_dict)
+        
+        return jsonify({'success': True, 'bookings': result})
+
+
+@app.route('/api/admin/confirm-booking', methods=['POST'])
+@login_required
+def admin_confirm_booking():
+    """Admin confirms a booking and sends WhatsApp message to customer"""
+    data = request.json
+    booking_id = data.get('booking_id')
+    booking_ref = data.get('booking_reference')
+    phone_number = data.get('phone_number')
+    
+    if not booking_id or not booking_ref:
+        return jsonify({'success': False, 'error': 'Booking ID and reference required'}), 400
+    
+    with get_db_cursor(commit=True) as cursor:
+        # Update booking status
+        cursor.execute('''
+            UPDATE activity_bookings 
+            SET status = 'confirmed', confirmed_at = %s 
+            WHERE id = %s AND booking_reference = %s
+        ''', (datetime.now(), booking_id, booking_ref))
+        
+        if cursor.rowcount == 0:
+            return jsonify({'success': False, 'error': 'Booking not found'}), 404
+        
+        # Get booking details for confirmation message
+        cursor.execute('''
+            SELECT b.*, c.display_name, c.phone_number
+            FROM activity_bookings b
+            LEFT JOIN contacts c ON b.contact_id = c.id
+            WHERE b.id = %s
+        ''', (booking_id,))
+        booking = cursor.fetchone()
+    
+    # Send WhatsApp confirmation to customer if phone number exists
+    if phone_number or (booking and booking.get('phone_number')):
+        customer_phone = phone_number or booking.get('phone_number')
+        customer_phone = customer_phone.lstrip('+')
+        
+        confirmation_msg = f"""✅ *BOOKING CONFIRMED!*
+
+Thank you for choosing Stephen Margolis Resort!
+
+*Booking Reference:* {booking_ref}
+*Date:* {booking['date'] if booking else 'N/A'}
+*Total Amount:* ${float(booking['total_amount']):.2f} (if booking else 'N/A')
+
+*Next Steps:*
+1️⃣ Our team will contact you within 24 hours
+2️⃣ Bring your ID on the day of visit
+3️⃣ Arrive 15 minutes before your booking time
+
+📞 Questions? Call +263779897192
+
+We look forward to hosting you! 🌟"""
+        
+        # Send via WhatsApp adapter
+        result = adapters['whatsapp'].send_message(customer_phone, confirmation_msg)
+        
+        # Save to message history
+        with get_db_cursor(commit=True) as cursor:
+            cursor.execute('SELECT id FROM contacts WHERE phone_number = %s OR platform_user_id = %s', 
+                          (f'+{customer_phone}', customer_phone))
+            contact = cursor.fetchone()
+            if contact:
+                save_message(contact['id'], 'whatsapp', 'outgoing', f"Booking confirmed: {booking_ref}\n{confirmation_msg}")
+    
+    return jsonify({'success': True, 'message': f'Booking {booking_ref} confirmed'})
+
+
+@app.route('/api/admin/decline-booking', methods=['POST'])
+@login_required
+def admin_decline_booking():
+    """Admin declines a booking and sends WhatsApp message to customer"""
+    data = request.json
+    booking_id = data.get('booking_id')
+    booking_ref = data.get('booking_reference')
+    phone_number = data.get('phone_number')
+    
+    if not booking_id or not booking_ref:
+        return jsonify({'success': False, 'error': 'Booking ID and reference required'}), 400
+    
+    with get_db_cursor(commit=True) as cursor:
+        # Update booking status
+        cursor.execute('''
+            UPDATE activity_bookings 
+            SET status = 'declined' 
+            WHERE id = %s AND booking_reference = %s
+        ''', (booking_id, booking_ref))
+        
+        if cursor.rowcount == 0:
+            return jsonify({'success': False, 'error': 'Booking not found'}), 404
+        
+        # Get booking details
+        cursor.execute('''
+            SELECT b.*, c.display_name, c.phone_number
+            FROM activity_bookings b
+            LEFT JOIN contacts c ON b.contact_id = c.id
+            WHERE b.id = %s
+        ''', (booking_id,))
+        booking = cursor.fetchone()
+    
+    # Send WhatsApp decline message to customer if phone number exists
+    if phone_number or (booking and booking.get('phone_number')):
+        customer_phone = phone_number or booking.get('phone_number')
+        customer_phone = customer_phone.lstrip('+')
+        
+        decline_msg = f"""❌ *Booking Update*
+
+Dear customer,
+
+Your booking request {booking_ref} for {booking['date'] if booking else 'the requested date'} has been declined.
+
+Please contact us directly at +263779897192 for assistance or to make a new booking.
+
+Thank you for your understanding."""
+        
+        # Send via WhatsApp adapter
+        result = adapters['whatsapp'].send_message(customer_phone, decline_msg)
+        
+        # Save to message history
+        with get_db_cursor(commit=True) as cursor:
+            cursor.execute('SELECT id FROM contacts WHERE phone_number = %s OR platform_user_id = %s', 
+                          (f'+{customer_phone}', customer_phone))
+            contact = cursor.fetchone()
+            if contact:
+                save_message(contact['id'], 'whatsapp', 'outgoing', f"Booking declined: {booking_ref}")
+    
+    return jsonify({'success': True, 'message': f'Booking {booking_ref} declined'})
     
 @app.route('/api/whatsapp/sync-contacts', methods=['POST'])
 @login_required
