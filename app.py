@@ -1161,9 +1161,8 @@ We look forward to hosting you! 🌟"""
 
 @app.route('/webhook/whatsappmagolis', methods=['GET', 'POST'])
 def whatsapp_webhook_magolis():
-    """WhatsApp Cloud API webhook — with metadata logging and duplicate prevention"""
+    """WhatsApp Cloud API webhook — for Stephen Margolis Resort ONLY"""
     
-    # Track processed message IDs to prevent duplicates
     processed_message_ids = set()
     
     if request.method == 'GET':
@@ -1172,152 +1171,34 @@ def whatsapp_webhook_magolis():
         challenge = request.args.get('hub.challenge')
         expected = os.getenv('WHATSAPP_VERIFY_TOKEN', '1122583909768342')
         
-        print("\n" + "="*80)
-        print("📞 WEBHOOK VERIFICATION REQUEST")
-        print("="*80)
-        print(f"Mode: {mode}")
-        print(f"Token received: {token}")
-        print(f"Token expected: {expected}")
-        print(f"Challenge: {challenge}")
-        print("="*80 + "\n")
-        
         if mode == 'subscribe' and token == expected:
-            logger.info('WhatsApp webhook verified')
-            print("✅ Webhook verification SUCCESSFUL! Returning challenge.")
             return challenge, 200
-        
-        logger.error(f'WhatsApp webhook verification failed. Got: {token}')
-        print(f"❌ Webhook verification FAILED!")
         return 'Forbidden', 403
 
     try:
         payload = request.json
-        print("\n" + "="*80)
-        print("📨 INCOMING WHATSAPP WEBHOOK")
-        print("="*80)
-        print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')}")
-        print(f"Full Payload: {json.dumps(payload, indent=2, default=str)}")
-        print("="*80 + "\n")
         
         if not payload:
-            print("⚠️ Empty payload received")
             return jsonify({'status': 'ok'}), 200
 
         for entry in payload.get('entry', []):
             for change in entry.get('changes', []):
                 value = change.get('value', {})
                 messages = value.get('messages', [])
-                contacts_meta = {c['wa_id']: c.get('profile', {}).get('name', 'WhatsApp User')
-                                 for c in value.get('contacts', [])}
-                
-                print(f"\n📱 Processing entry...")
-                print(f"   Metadata: {json.dumps(value.get('metadata', {}), indent=2)}")
-                print(f"   Contacts found: {list(contacts_meta.keys())}")
-                print(f"   Messages count: {len(messages)}")
+                contacts_meta = {c['wa_id']: c.get('profile', {}).get('name', 'Guest') for c in value.get('contacts', [])}
 
                 for msg in messages:
                     msg_id = msg.get('id')
                     
-                    # Skip duplicate messages
                     if msg_id in processed_message_ids:
-                        print(f"   ⏭️ Skipping duplicate message {msg_id}")
                         continue
                     processed_message_ids.add(msg_id)
                     
                     sender_wa_id = msg.get('from')
                     msg_type = msg.get('type', 'text')
-                    msg_timestamp = msg.get('timestamp')
-                    content = ''
-                    display_name = contacts_meta.get(sender_wa_id, 'WhatsApp User')
+                    display_name = contacts_meta.get(sender_wa_id, 'Guest')
                     
-                    print("\n" + "-"*60)
-                    print(f"💬 MESSAGE RECEIVED")
-                    print("-"*60)
-                    print(f"   Message ID: {msg_id}")
-                    print(f"   From (Sender ID): {sender_wa_id}")
-                    print(f"   Display Name: {display_name}")
-                    print(f"   Type: {msg_type}")
-                    print(f"   Timestamp: {datetime.fromtimestamp(int(msg_timestamp)).strftime('%Y-%m-%d %H:%M:%S') if msg_timestamp else 'N/A'}")
-                    print(f"   Raw Timestamp: {msg_timestamp}")
-                    
-                    print(f"\n   Full Message Data:")
-                    print(f"   {json.dumps(msg, indent=2, default=str)}")
-                    
-                    if msg_type == 'text':
-                        content = msg.get('text', {}).get('body', '')
-                        print(f"\n   📝 Text Content: {content}")
-                        
-                    elif msg_type == 'interactive':
-                        interactive = msg.get('interactive', {})
-                        interactive_type = interactive.get('type')
-                        print(f"\n   🎮 Interactive Message Detected!")
-                        print(f"   Interactive Type: {interactive_type}")
-                        print(f"   Interactive Data: {json.dumps(interactive, indent=2, default=str)}")
-                        
-                        if interactive_type == 'button_reply':
-                            content = f"[Button: {interactive['button_reply']['title']}]"
-                            print(f"   Button ID: {interactive['button_reply']['id']}")
-                            print(f"   Button Title: {interactive['button_reply']['title']}")
-                        elif interactive_type == 'list_reply':
-                            content = f"[List: {interactive['list_reply']['title']}]"
-                            print(f"   List ID: {interactive['list_reply']['id']}")
-                            print(f"   List Title: {interactive['list_reply']['title']}")
-                            
-                    elif msg_type == 'image':
-                        image_info = msg.get('image', {})
-                        content = '[Image]'
-                        print(f"\n   🖼️ Image received!")
-                        print(f"   Caption: {image_info.get('caption', 'No caption')}")
-                        print(f"   Image ID: {image_info.get('id')}")
-                        print(f"   MIME Type: {image_info.get('mime_type')}")
-                        
-                    elif msg_type == 'audio':
-                        audio_info = msg.get('audio', {})
-                        content = '[Audio]'
-                        print(f"\n   🎵 Audio received!")
-                        print(f"   Audio ID: {audio_info.get('id')}")
-                        print(f"   Duration: {audio_info.get('duration')} seconds")
-                        
-                    elif msg_type == 'document':
-                        doc_info = msg.get('document', {})
-                        content = f"[Document: {doc_info.get('filename', 'Unknown')}]"
-                        print(f"\n   📄 Document received!")
-                        print(f"   Filename: {doc_info.get('filename')}")
-                        print(f"   Document ID: {doc_info.get('id')}")
-                        
-                    elif msg_type == 'location':
-                        loc = msg.get('location', {})
-                        content = f"[Location: {loc.get('latitude')},{loc.get('longitude')}]"
-                        print(f"\n   📍 Location received!")
-                        print(f"   Latitude: {loc.get('latitude')}")
-                        print(f"   Longitude: {loc.get('longitude')}")
-                        print(f"   Name: {loc.get('name', 'N/A')}")
-                        print(f"   Address: {loc.get('address', 'N/A')}")
-                        
-                    elif msg_type == 'sticker':
-                        sticker_info = msg.get('sticker', {})
-                        content = '[Sticker]'
-                        print(f"\n   🎨 Sticker received!")
-                        print(f"   Sticker ID: {sticker_info.get('id')}")
-                        
-                    elif msg_type == 'reaction':
-                        reaction_info = msg.get('reaction', {})
-                        content = f"[Reaction: {reaction_info.get('emoji')}]"
-                        print(f"\n   😊 Reaction received!")
-                        print(f"   Emoji: {reaction_info.get('emoji')}")
-                        print(f"   Message ID: {reaction_info.get('message_id')}")
-                        
-                    elif msg_type == 'order':
-                        order_info = msg.get('order', {})
-                        content = f"[Order: {order_info.get('catalog_id')}]"
-                        print(f"\n   🛒 Order received!")
-                        print(f"   {json.dumps(order_info, indent=2, default=str)}")
-                    
-                    else:
-                        content = f'[{msg_type}]'
-                        print(f"\n   ⚠️ Unknown message type: {msg_type}")
-                    
-                    print(f"\n   💾 Saving contact to database...")
+                    # Save contact
                     contact_id = save_contact(
                         platform='whatsapp',
                         platform_user_id=sender_wa_id,
@@ -1325,57 +1206,188 @@ def whatsapp_webhook_magolis():
                         phone_number=f'+{sender_wa_id}',
                         opt_in=True
                     )
-                    print(f"   Contact ID: {contact_id}")
                     
-                    if content:
-                        save_message(contact_id, 'whatsapp', 'incoming', content)
-                        print(f"   ✅ Incoming message saved to database")
-                    
-                    socketio.emit('new_message', {
-                        'platform': 'whatsapp',
-                        'sender_id': sender_wa_id,
-                        'display_name': display_name,
-                        'content': content,
-                        'timestamp': datetime.now().isoformat(),
-                        'message_type': msg_type,
-                        'message_id': msg_id
-                    })
-                    
-                    print(f"\n   🤖 Processing with chatbot...")
-                    
-                    # Initialize variables
-                    response_dict = None
-                    next_state = 'main'
-                    
+                    # ============ FLOW SUBMISSION (ACTIVITY BOOKING) ============
                     if msg_type == 'interactive':
                         interactive = msg.get('interactive', {})
-                        interactive_type = interactive.get('type')
                         
-                        if interactive_type == 'button_reply':
-                            interaction_id = interactive['button_reply']['id']
-                            print(f"   🎯 Button clicked: {interaction_id}")
+                        if interactive.get('type') == 'nfm_reply':
+                            response_str = interactive.get('nfm_reply', {}).get('response_json', '{}')
+                            
+                            try:
+                                form_response = json.loads(response_str)
+                            except:
+                                form_response = {}
+                            
+                            print(f"📋 Flow submission received: {json.dumps(form_response, indent=2)}")
+                            
+                            # Extract data - Screen 0
+                            booking_date = form_response.get('screen_0_Date_0', '')
+                            adults = int(form_response.get('screen_0_Adults_1', 0) or 0)
+                            children = int(form_response.get('screen_0_Children_2', 0) or 0)
+                            parking_response = form_response.get('screen_0_Will_you_need_Parking_Space_3', 'No')
+                            parking_needed = parking_response == 'Yes'
+                            
+                            # Extract activities - Screen 1
+                            activities = {
+                                'zipline': int(form_response.get('screen_1_Ziplining_0', 0) or 0),
+                                'horse_riding': int(form_response.get('screen_1_Horse_Riding_1', 0) or 0),
+                                'vr': int(form_response.get('screen_1_VR_VIRTUAL_REALITY_2', 0) or 0),
+                                'giant_swing': int(form_response.get('screen_1_Giant_Swing_3', 0) or 0),
+                                'boat_cruise': int(form_response.get('screen_1_Boat_Cruise_4', 0) or 0),
+                                'canoeing': int(form_response.get('screen_1_Canoeing_5', 0) or 0),
+                                'fishing': int(form_response.get('screen_1_Fishing_6', 0) or 0)
+                            }
+                            
+                            # Calculate costs
+                            ADULT_ENTRANCE = 5.00
+                            CHILD_ENTRANCE = 3.00
+                            ACTIVITY_FEE = 5.00
+                            PARKING_FEE = 5.00
+                            
+                            entrance_total = (adults * ADULT_ENTRANCE) + (children * CHILD_ENTRANCE)
+                            
+                            activities_total = sum([
+                                activities['zipline'], activities['horse_riding'], activities['vr'],
+                                activities['giant_swing'], activities['boat_cruise'],
+                                activities['canoeing'], activities['fishing']
+                            ]) * ACTIVITY_FEE
+                            
+                            parking_total = PARKING_FEE if parking_needed else 0
+                            total = entrance_total + activities_total + parking_total
+                            
+                            # Generate booking reference
+                            booking_ref = f"ACT-{datetime.now().strftime('%Y%m%d%H%M')}-{sender_wa_id[-4:]}"
+                            
+                            # Save to database
+                            with get_db_cursor(commit=True) as cursor:
+                                cursor.execute('''
+                                    INSERT INTO activity_bookings (
+                                        contact_id, booking_reference, date, adults, children, parking_needed,
+                                        zipline, horse_riding, vr, giant_swing, boat_cruise, canoeing, fishing,
+                                        entrance_fee, activities_total, total_amount, status, submitted_at
+                                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                ''', (
+                                    contact_id, booking_ref, booking_date, adults, children, parking_needed,
+                                    activities['zipline'], activities['horse_riding'], activities['vr'],
+                                    activities['giant_swing'], activities['boat_cruise'], activities['canoeing'],
+                                    activities['fishing'], entrance_total, activities_total, total, 'pending', datetime.now()
+                                ))
+                            
+                            # Build activity summary text
+                            activity_items = []
+                            if activities['zipline'] > 0:
+                                activity_items.append(f"   • Ziplining: {activities['zipline']} person(s)")
+                            if activities['horse_riding'] > 0:
+                                activity_items.append(f"   • Horse Riding: {activities['horse_riding']} person(s)")
+                            if activities['vr'] > 0:
+                                activity_items.append(f"   • VR: {activities['vr']} person(s)")
+                            if activities['giant_swing'] > 0:
+                                activity_items.append(f"   • Giant Swing: {activities['giant_swing']} person(s)")
+                            if activities['boat_cruise'] > 0:
+                                activity_items.append(f"   • Boat Cruise: {activities['boat_cruise']} person(s)")
+                            if activities['canoeing'] > 0:
+                                activity_items.append(f"   • Canoeing: {activities['canoeing']} person(s)")
+                            if activities['fishing'] > 0:
+                                activity_items.append(f"   • Fishing: {activities['fishing']} person(s)")
+                            
+                            activities_text = "\n".join(activity_items) if activity_items else "   • None selected"
+                            
+                            # Build summary message
+                            summary = f"""📋 *ACTIVITY BOOKING SUMMARY*
 
+*Booking Reference:* {booking_ref}
+*Date:* {booking_date}
+*Contact:* {display_name}
 
-                                                        # In the button_reply section, add these handlers
-                            if interaction_id.startswith('confirm_booking_'):
-                                # Extract booking reference
-                                booking_ref = interaction_id.replace('confirm_booking_', '')
+*Group Details:*
+👨 Adults: {adults}
+👧 Children: {children}
+🅿️ Parking Needed: {'Yes' if parking_needed else 'No'}
+
+*Activities Selected:*
+{activities_text}
+
+*Cost Breakdown:*
+💰 Entrance Fee: ${entrance_total:.2f}
+🎯 Activities Total: ${activities_total:.2f}
+🅿️ Parking: ${parking_total:.2f}
+━━━━━━━━━━━━━━━━━━
+💵 *TOTAL: ${total:.2f}*
+
+Would you like to confirm this booking?
+
+Tap CONFIRM to proceed or DECLINE to cancel."""
+                            
+                            # Send buttons
+                            buttons = [
+                                {'id': f'confirm_{booking_ref}', 'title': '✅ Confirm'},
+                                {'id': f'decline_{booking_ref}', 'title': '❌ Decline'},
+                                {'id': 'main', 'title': '🏠 Main Menu'}
+                            ]
+                            
+                            response_dict = WhatsAppInteractiveMenu.create_button_message(summary, buttons)
+                            adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
+                            
+                            save_message(contact_id, 'whatsapp', 'outgoing', f"Booking summary sent: {booking_ref}")
+                            
+                            # Notify staff
+                            staff_numbers = os.getenv('STAFF_WHATSAPP_NUMBERS', '263779897192').split(',')
+                            for staff_num in staff_numbers:
+                                staff_num = staff_num.strip().lstrip('+')
+                                staff_msg = f"🔔 *NEW BOOKING REQUEST*\n\nReference: {booking_ref}\nCustomer: {display_name}\nPhone: +{sender_wa_id}\nDate: {booking_date}\nTotal: ${total:.2f}\n\nPending confirmation."
+                                adapters['whatsapp'].send_message(staff_num, staff_msg)
+                            
+                            continue
+                        
+                        # ============ HANDLE BUTTON CLICKS ============
+                        elif interactive.get('type') == 'button_reply':
+                            button_id = interactive.get('button_reply', {}).get('id')
+                            
+                            # Confirm booking
+                            if button_id.startswith('confirm_'):
+                                booking_ref = button_id.replace('confirm_', '')
                                 
-                                # Confirm the booking in database
-                                confirm_booking(booking_ref)
+                                with get_db_cursor(commit=True) as cursor:
+                                    cursor.execute('''
+                                        UPDATE activity_bookings 
+                                        SET status = 'confirmed', confirmed_at = %s 
+                                        WHERE booking_reference = %s
+                                    ''', (datetime.now(), booking_ref))
                                 
-                                # Send confirmation message
-                                confirmation_msg = send_booking_confirmation(sender_wa_id, booking_ref)
-                                result = adapters['whatsapp'].send_interactive_message(sender_wa_id, confirmation_msg)
+                                confirmation = f"""✅ *BOOKING CONFIRMED!*
+
+Thank you for choosing Stephen Margolis Resort!
+
+*Booking Reference:* {booking_ref}
+
+Our team will contact you within 24 hours to confirm availability.
+
+📞 Questions? Call +263779897192
+
+We look forward to hosting you! 🌟"""
                                 
-                                # Also notify admin/staff (optional)
-                                # Send internal notification to your team
-                                notify_staff_about_booking(booking_ref)
+                                buttons = [
+                                    {'id': 'activities', 'title': '🎯 Activities'},
+                                    {'id': 'main', 'title': '🏠 Main Menu'}
+                                ]
                                 
-                            elif interaction_id.startswith('decline_booking_'):
-                                booking_ref = interaction_id.replace('decline_booking_', '')
+                                response_dict = WhatsAppInteractiveMenu.create_button_message(confirmation, buttons)
+                                adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
                                 
-                                # Update booking status to declined
+                                save_message(contact_id, 'whatsapp', 'outgoing', f"Booking confirmed: {booking_ref}")
+                                
+                                # Notify staff of confirmation
+                                staff_numbers = os.getenv('STAFF_WHATSAPP_NUMBERS', '263779897192').split(',')
+                                for staff_num in staff_numbers:
+                                    staff_num = staff_num.strip().lstrip('+')
+                                    staff_msg = f"✅ *BOOKING CONFIRMED*\n\nReference: {booking_ref}\nCustomer confirmed their booking."
+                                    adapters['whatsapp'].send_message(staff_num, staff_msg)
+                            
+                            # Decline booking
+                            elif button_id.startswith('decline_'):
+                                booking_ref = button_id.replace('decline_', '')
+                                
                                 with get_db_cursor(commit=True) as cursor:
                                     cursor.execute('''
                                         UPDATE activity_bookings 
@@ -1385,270 +1397,81 @@ def whatsapp_webhook_magolis():
                                 
                                 decline_msg = f"""❌ *Booking Declined*
 
-                            Your booking {booking_ref} has been cancelled.
+Booking {booking_ref} has been cancelled.
 
-                            No payment is required at this time.
-
-                            Would you like to make a new booking or explore other services?"""
+Would you like to make a new booking?"""
                                 
                                 buttons = [
                                     {'id': 'book_activity', 'title': '📅 Book Again'},
                                     {'id': 'main', 'title': '🏠 Main Menu'}
                                 ]
                                 
-                                result = adapters['whatsapp'].send_interactive_message(
-                                    sender_wa_id, 
-                                    WhatsAppInteractiveMenu.create_button_message(decline_msg, buttons)
-                                )
-
-                            elif interaction_id == 'book_activity':
-                                # Send Flow template
+                                response_dict = WhatsAppInteractiveMenu.create_button_message(decline_msg, buttons)
+                                adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
+                                
+                                save_message(contact_id, 'whatsapp', 'outgoing', f"Booking declined: {booking_ref}")
+                            
+                            # Book activity button - send the flow template
+                            elif button_id == 'book_activity':
                                 result = adapters['whatsapp'].send_template_message(
                                     sender_wa_id, 
-                                    'margolisactivitybooking',  # Your template name
+                                    'margolisactivitybooking',
                                     'en',
-                                    flow_token=f"booking_{sender_wa_id}_{int(datetime.now().timestamp())}"
+                                    flow_token=f"booking_{contact_id}_{int(datetime.now().timestamp())}"
                                 )
-                                print(f"   📧 Flow template sent: {result}")
                                 
-                                if result.get('success'):
-                                    save_message(contact_id, 'whatsapp', 'outgoing', 'Activity booking flow sent')
-                                else:
-                                    # Fallback to text if flow fails
+                                if not result.get('success'):
                                     fallback = "Please reply with your activity name, number of people, and preferred date."
                                     adapters['whatsapp'].send_message(sender_wa_id, fallback)
+                            
+                            # Main menu button
+                            elif button_id == 'main':
+                                response_dict, _ = chatbot.get_menu('main')
+                                adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
+                            
+                            # Other buttons - use chatbot
                             else:
-                                # Handle other buttons normally
-
-                                result_tuple = chatbot.process_interaction(sender_wa_id, interaction_id, sender_wa_id, adapters['whatsapp'])
+                                result_tuple = chatbot.process_interaction(sender_wa_id, button_id, sender_wa_id, adapters['whatsapp'])
                                 response_dict = result_tuple[0]
-                                next_state = result_tuple[1]
-                                
-                                # Only send if there's a response
                                 if response_dict:
-                                    print(f"   📤 Sending response to {sender_wa_id}...")
-                                    
-                                    # Fix response_dict if it's a tuple
-                                    if isinstance(response_dict, tuple) and len(response_dict) > 0:
+                                    if isinstance(response_dict, tuple):
                                         response_dict = response_dict[0]
-                                    
-                                    # Send the response
-                                    result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
-                                    
-                                    # Save to database if successful
-                                    if result.get('success'):
-                                        if response_dict.get('type') == 'text':
-                                            bot_response = response_dict.get('text', {}).get('body', '')
-                                        elif response_dict.get('type') == 'interactive':
-                                            bot_response = response_dict.get('interactive', {}).get('body', {}).get('text', 'Interactive menu sent')
-                                        else:
-                                            bot_response = "Response sent"
-                                        
-                                        save_message(contact_id, 'whatsapp', 'outgoing', bot_response)
-                                        print(f"   ✅ Bot response saved to database")
-                                    else:
-                                        print(f"   ❌ Failed to send: {result.get('error')}")
-                            
-                        elif interactive_type == 'list_reply':
-                            interaction_id = interactive['list_reply']['id']
-                            print(f"   📋 List selected: {interaction_id}")
-                            
-                            result_tuple = chatbot.process_interaction(sender_wa_id, interaction_id, sender_wa_id, adapters['whatsapp'])
+                                    adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
+                        
+                        # ============ HANDLE LIST SELECTIONS ============
+                        elif interactive.get('type') == 'list_reply':
+                            selected_id = interactive.get('list_reply', {}).get('id')
+                            result_tuple = chatbot.process_interaction(sender_wa_id, selected_id, sender_wa_id, adapters['whatsapp'])
                             response_dict = result_tuple[0]
-                            next_state = result_tuple[1]
-                            
-                            # Only send if there's a response
-                            if response_dict:
-                                print(f"   📤 Sending response to {sender_wa_id}...")
-                                
-                                if isinstance(response_dict, tuple) and len(response_dict) > 0:
-                                    response_dict = response_dict[0]
-                                
-                                result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
-                                
-                                if result.get('success'):
-                                    if response_dict.get('type') == 'text':
-                                        bot_response = response_dict.get('text', {}).get('body', '')
-                                    else:
-                                        bot_response = "Response sent"
-                                    
-                                    save_message(contact_id, 'whatsapp', 'outgoing', bot_response)
-                                    print(f"   ✅ Bot response saved to database")
-                                else:
-                                    print(f"   ❌ Failed to send: {result.get('error')}")
-                        else:
-                            result_tuple = chatbot.handle_text_message(sender_wa_id, content)
-                            response_dict = result_tuple[0]
-                            next_state = result_tuple[1]
-                            
                             if response_dict:
                                 if isinstance(response_dict, tuple):
                                     response_dict = response_dict[0]
-                                result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
-                                
+                                adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
+                    
+                    # ============ TEXT MESSAGES ============
                     elif msg_type == 'text':
                         content = msg.get('text', {}).get('body', '')
                         content_lower = content.lower()
                         
-                        # CHECK IF THIS IS A FLOW SUBMISSION RESPONSE
-                        # Flow submissions come as JSON strings that start with {
-                        is_flow_submission = False
-                        flow_data = None
-                        
-                        if content.startswith('{'):
-                            try:
-                                flow_data = json.loads(content)
-                                # Check if it has flow submission structure
-                                if 'data' in flow_data and ('screen_0' in str(flow_data) or 'flow_token' in flow_data):
-                                    is_flow_submission = True
-                                    print(f"\n   🔄 FLOW SUBMISSION DETECTED!")
-                                    print(f"   Flow Data: {json.dumps(flow_data, indent=2)}")
-                            except json.JSONDecodeError:
-                                pass  # Not a JSON, continue as normal text
-                        
-                        if is_flow_submission and flow_data:
-                            # ============ PROCESS FLOW SUBMISSION ============
-                            print(f"   📋 Processing Flow submission...")
-                            
-                            # Extract data from flow submission
-                            # The data is nested under 'data' key
-                            submission_data = flow_data.get('data', {})
-                            
-                            # Screen 0 data (first screen)
-                            booking_date = submission_data.get('screen_0_Date_0', '')
-                            adults = int(submission_data.get('screen_0_Adults_1', 0) or 0)
-                            children = int(submission_data.get('screen_0_Children_2', 0) or 0)
-                            parking_response = submission_data.get('screen_0_Will_you_need_Parking_Space_3', 'No')
-                            parking_needed = parking_response == 'Yes'
-                            
-                            # Screen 1 data (activity counts)
-                            activities = {
-                                'zipline': int(submission_data.get('screen_1_Ziplining_0', 0) or 0),
-                                'horse_riding': int(submission_data.get('screen_1_Horse_Riding_1', 0) or 0),
-                                'vr': int(submission_data.get('screen_1_VR_VIRTUAL_REALITY_2', 0) or 0),
-                                'giant_swing': int(submission_data.get('screen_1_Giant_Swing_3', 0) or 0),
-                                'boat_cruise': int(submission_data.get('screen_1_Boat_Cruise_4', 0) or 0),
-                                'canoeing': int(submission_data.get('screen_1_Canoeing_5', 0) or 0),
-                                'fishing': int(submission_data.get('screen_1_Fishing_6', 0) or 0)
-                            }
-                            
-                            print(f"   Booking Date: {booking_date}")
-                            print(f"   Adults: {adults}, Children: {children}")
-                            print(f"   Parking: {parking_needed}")
-                            print(f"   Activities: {activities}")
-                            
-                            # Calculate costs
-                            costs = calculate_activity_booking(adults, children, parking_needed, activities)
-                            
-                            # Generate booking reference
-                            booking_ref = create_booking_reference()
-                            
-                            # Get flow_token from the submission
-                            flow_token = flow_data.get('flow_token', f"booking_{sender_wa_id}_{int(datetime.now().timestamp())}")
-                            
-                            # Save booking to database
-                            booking_record = {
-                                'booking_reference': booking_ref,
-                                'date': booking_date,
-                                'adults': adults,
-                                'children': children,
-                                'parking_needed': parking_needed,
-                                'zipline': activities['zipline'],
-                                'horse_riding': activities['horse_riding'],
-                                'vr': activities['vr'],
-                                'giant_swing': activities['giant_swing'],
-                                'boat_cruise': activities['boat_cruise'],
-                                'canoeing': activities['canoeing'],
-                                'fishing': activities['fishing'],
-                                'entrance_fee': costs['entrance_fee'],
-                                'activities_total': costs['activities_total'],
-                                'total_amount': costs['total'],
-                                'flow_token': flow_token
-                            }
-                            
-                            save_activity_booking(contact_id, booking_record)
-                            
-                            # Get contact info
-                            with get_db_cursor(commit=False) as cursor:
-                                cursor.execute('SELECT display_name FROM contacts WHERE id = %s', (contact_id,))
-                                contact_info = cursor.fetchone()
-                            
-                            # Build and send booking summary with buttons
-                            summary_message = build_booking_summary(
-                                booking_ref, booking_date, adults, children, 
-                                parking_needed, activities, costs, 
-                                {'display_name': contact_info.get('display_name', 'Guest') if contact_info else 'Guest', 'phone_number': f'+{sender_wa_id}'}
-                            )
-                            
-                            # Send the summary (this is an interactive message with Confirm/Decline buttons)
-                            result = adapters['whatsapp'].send_interactive_message(sender_wa_id, summary_message)
-                            
-                            if result.get('success'):
-                                save_message(contact_id, 'whatsapp', 'outgoing', f"Booking summary sent: {booking_ref}")
-                                print(f"   ✅ Booking summary sent with buttons")
-                            else:
-                                print(f"   ❌ Failed to send summary: {result.get('error')}")
-                                # Fallback text message
-                                fallback = f"📋 Booking Reference: {booking_ref}\nTotal: ${costs['total']:.2f}\n\nReply CONFIRM to book or DECLINE to cancel."
-                                adapters['whatsapp'].send_message(sender_wa_id, fallback)
-                            
-                            # Notify staff
-                            notify_staff_about_booking(booking_ref)
-                            
-                            # Save that we processed this
-                            save_message(contact_id, 'whatsapp', 'incoming', "[Flow Submission] Booking data received")
-                            
-                        elif 'book activity' in content_lower or 'book a activity' in content_lower:
-                            # Send Flow template for booking
-                            flow_token = f"booking_{contact_id}_{int(datetime.now().timestamp())}"
+                        if 'book activity' in content_lower or 'book a activity' in content_lower:
                             result = adapters['whatsapp'].send_template_message(
                                 sender_wa_id, 
-                                'margolisactivitybooking', 
+                                'margolisactivitybooking',
                                 'en',
-                                flow_token=flow_token
+                                flow_token=f"booking_{contact_id}_{int(datetime.now().timestamp())}"
                             )
-                            save_message(contact_id, 'whatsapp', 'outgoing', 'Activity booking flow sent')
-                            print(f"   📧 Booking flow template sent")
-                            
                         else:
-                            # Normal text handling through chatbot
                             result_tuple = chatbot.handle_text_message(sender_wa_id, content)
                             response_dict = result_tuple[0]
-                            next_state = result_tuple[1]
-                            
                             if response_dict:
                                 if isinstance(response_dict, tuple):
                                     response_dict = response_dict[0]
-                                result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
-                                
-                                if result.get('success'):
-                                    if response_dict.get('type') == 'text':
-                                        bot_response = response_dict.get('text', {}).get('body', '')
-                                    else:
-                                        bot_response = "Response sent"
-                                    save_message(contact_id, 'whatsapp', 'outgoing', bot_response)
-                        
-                    else:
-                        default_response = "Thank you for sharing! Our team will review and get back to you. For immediate assistance, please call +263779897192"
-                        response_dict = WhatsAppInteractiveMenu.create_text_message(default_response)
-                        next_state = 'main'
-                        result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
-                        print(f"   📎 Media/other message type - using default response")
+                                adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
 
-                    print(f"\n   Final result: {json.dumps(result, indent=2, default=str)}")
-
-        print("\n" + "="*80)
-        print("✅ WEBHOOK PROCESSING COMPLETE")
-        print("="*80 + "\n")
         return jsonify({'status': 'ok'}), 200
         
     except Exception as e:
-        print("\n" + "="*80)
-        print(f"❌ WEBHOOK ERROR")
-        print("="*80)
-        print(f"Error: {str(e)}")
-        print(f"Traceback: {traceback.format_exc()}")
-        print("="*80 + "\n")
+        print(f"❌ Webhook error: {e}")
         logger.error(f'WhatsApp webhook error: {e}')
         return jsonify({'status': 'error', 'error': str(e)}), 500
     
