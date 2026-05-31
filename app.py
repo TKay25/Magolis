@@ -1636,13 +1636,131 @@ def whatsapp_webhook_magolis():
                                 result = adapters['whatsapp'].send_interactive_message(sender_wa_id, response_dict)
                                 
                     elif msg_type == 'text':
+                        content = msg.get('text', {}).get('body', '')
                         content_lower = content.lower()
-                        if 'book activity' in content_lower or 'book a activity' in content_lower:
-                            # Send template for booking
-                            result = adapters['whatsapp'].send_template_message(sender_wa_id, 'margolisactivitybooking', 'en')
-                            save_message(contact_id, 'whatsapp', 'outgoing', 'Activity booking template sent')
-                            print(f"   📧 Booking template sent")
+                        
+                        # CHECK IF THIS IS A FLOW SUBMISSION RESPONSE
+                        # Flow submissions come as JSON strings that start with {
+                        is_flow_submission = False
+                        flow_data = None
+                        
+                        if content.startswith('{'):
+                            try:
+                                flow_data = json.loads(content)
+                                # Check if it has flow submission structure
+                                if 'data' in flow_data and ('screen_0' in str(flow_data) or 'flow_token' in flow_data):
+                                    is_flow_submission = True
+                                    print(f"\n   🔄 FLOW SUBMISSION DETECTED!")
+                                    print(f"   Flow Data: {json.dumps(flow_data, indent=2)}")
+                            except json.JSONDecodeError:
+                                pass  # Not a JSON, continue as normal text
+                        
+                        if is_flow_submission and flow_data:
+                            # ============ PROCESS FLOW SUBMISSION ============
+                            print(f"   📋 Processing Flow submission...")
+                            
+                            # Extract data from flow submission
+                            # The data is nested under 'data' key
+                            submission_data = flow_data.get('data', {})
+                            
+                            # Screen 0 data (first screen)
+                            booking_date = submission_data.get('screen_0_Date_0', '')
+                            adults = int(submission_data.get('screen_0_Adults_1', 0) or 0)
+                            children = int(submission_data.get('screen_0_Children_2', 0) or 0)
+                            parking_response = submission_data.get('screen_0_Will_you_need_Parking_Space_3', 'No')
+                            parking_needed = parking_response == 'Yes'
+                            
+                            # Screen 1 data (activity counts)
+                            activities = {
+                                'zipline': int(submission_data.get('screen_1_Ziplining_0', 0) or 0),
+                                'horse_riding': int(submission_data.get('screen_1_Horse_Riding_1', 0) or 0),
+                                'vr': int(submission_data.get('screen_1_VR_VIRTUAL_REALITY_2', 0) or 0),
+                                'giant_swing': int(submission_data.get('screen_1_Giant_Swing_3', 0) or 0),
+                                'boat_cruise': int(submission_data.get('screen_1_Boat_Cruise_4', 0) or 0),
+                                'canoeing': int(submission_data.get('screen_1_Canoeing_5', 0) or 0),
+                                'fishing': int(submission_data.get('screen_1_Fishing_6', 0) or 0)
+                            }
+                            
+                            print(f"   Booking Date: {booking_date}")
+                            print(f"   Adults: {adults}, Children: {children}")
+                            print(f"   Parking: {parking_needed}")
+                            print(f"   Activities: {activities}")
+                            
+                            # Calculate costs
+                            costs = calculate_activity_booking(adults, children, parking_needed, activities)
+                            
+                            # Generate booking reference
+                            booking_ref = create_booking_reference()
+                            
+                            # Get flow_token from the submission
+                            flow_token = flow_data.get('flow_token', f"booking_{sender_wa_id}_{int(datetime.now().timestamp())}")
+                            
+                            # Save booking to database
+                            booking_record = {
+                                'booking_reference': booking_ref,
+                                'date': booking_date,
+                                'adults': adults,
+                                'children': children,
+                                'parking_needed': parking_needed,
+                                'zipline': activities['zipline'],
+                                'horse_riding': activities['horse_riding'],
+                                'vr': activities['vr'],
+                                'giant_swing': activities['giant_swing'],
+                                'boat_cruise': activities['boat_cruise'],
+                                'canoeing': activities['canoeing'],
+                                'fishing': activities['fishing'],
+                                'entrance_fee': costs['entrance_fee'],
+                                'activities_total': costs['activities_total'],
+                                'total_amount': costs['total'],
+                                'flow_token': flow_token
+                            }
+                            
+                            save_activity_booking(contact_id, booking_record)
+                            
+                            # Get contact info
+                            with get_db_cursor(commit=False) as cursor:
+                                cursor.execute('SELECT display_name FROM contacts WHERE id = %s', (contact_id,))
+                                contact_info = cursor.fetchone()
+                            
+                            # Build and send booking summary with buttons
+                            summary_message = build_booking_summary(
+                                booking_ref, booking_date, adults, children, 
+                                parking_needed, activities, costs, 
+                                {'display_name': contact_info.get('display_name', 'Guest') if contact_info else 'Guest', 'phone_number': f'+{sender_wa_id}'}
+                            )
+                            
+                            # Send the summary (this is an interactive message with Confirm/Decline buttons)
+                            result = adapters['whatsapp'].send_interactive_message(sender_wa_id, summary_message)
+                            
+                            if result.get('success'):
+                                save_message(contact_id, 'whatsapp', 'outgoing', f"Booking summary sent: {booking_ref}")
+                                print(f"   ✅ Booking summary sent with buttons")
+                            else:
+                                print(f"   ❌ Failed to send summary: {result.get('error')}")
+                                # Fallback text message
+                                fallback = f"📋 Booking Reference: {booking_ref}\nTotal: ${costs['total']:.2f}\n\nReply CONFIRM to book or DECLINE to cancel."
+                                adapters['whatsapp'].send_message(sender_wa_id, fallback)
+                            
+                            # Notify staff
+                            notify_staff_about_booking(booking_ref)
+                            
+                            # Save that we processed this
+                            save_message(contact_id, 'whatsapp', 'incoming', "[Flow Submission] Booking data received")
+                            
+                        elif 'book activity' in content_lower or 'book a activity' in content_lower:
+                            # Send Flow template for booking
+                            flow_token = f"booking_{contact_id}_{int(datetime.now().timestamp())}"
+                            result = adapters['whatsapp'].send_template_message(
+                                sender_wa_id, 
+                                'margolisactivitybooking', 
+                                'en',
+                                flow_token=flow_token
+                            )
+                            save_message(contact_id, 'whatsapp', 'outgoing', 'Activity booking flow sent')
+                            print(f"   📧 Booking flow template sent")
+                            
                         else:
+                            # Normal text handling through chatbot
                             result_tuple = chatbot.handle_text_message(sender_wa_id, content)
                             response_dict = result_tuple[0]
                             next_state = result_tuple[1]
