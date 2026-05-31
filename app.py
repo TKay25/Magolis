@@ -1651,6 +1651,109 @@ Thank you for your understanding."""
                 save_message(contact['id'], 'whatsapp', 'outgoing', f"Booking declined: {booking_ref}")
     
     return jsonify({'success': True, 'message': f'Booking {booking_ref} declined'})
+
+@app.route('/api/admin/resend-confirmation', methods=['POST'])
+@login_required
+def admin_resend_confirmation():
+    """Resend confirmation message for an already confirmed booking"""
+    data = request.json
+    booking_id = data.get('booking_id')
+    booking_ref = data.get('booking_reference')
+    phone_number = data.get('phone_number')
+    
+    if not booking_id or not booking_ref:
+        return jsonify({'success': False, 'error': 'Booking ID and reference required'}), 400
+    
+    with get_db_cursor(commit=False) as cursor:
+        # Get booking details
+        cursor.execute('''
+            SELECT b.*, c.display_name, c.phone_number
+            FROM activity_bookings b
+            LEFT JOIN contacts c ON b.contact_id = c.id
+            WHERE b.id = %s AND b.booking_reference = %s
+        ''', (booking_id, booking_ref))
+        booking = cursor.fetchone()
+        
+        if not booking:
+            return jsonify({'success': False, 'error': 'Booking not found'}), 404
+    
+    # Send WhatsApp confirmation to customer
+    customer_phone = phone_number or booking.get('phone_number')
+    
+    if not customer_phone:
+        return jsonify({'success': False, 'error': 'No phone number for customer'}), 400
+    
+    customer_phone = customer_phone.lstrip('+')
+    
+    # Calculate parking fee for display
+    parking_fee = 5.00 if booking.get('parking_needed') else 0
+    
+    # Build activity summary
+    activity_summary = []
+    if booking.get('zipline', 0) > 0:
+        activity_summary.append(f"🎢 Ziplining: {booking['zipline']} person(s)")
+    if booking.get('horse_riding', 0) > 0:
+        activity_summary.append(f"🐎 Horse Riding: {booking['horse_riding']} person(s)")
+    if booking.get('vr', 0) > 0:
+        activity_summary.append(f"🥽 VR: {booking['vr']} person(s)")
+    if booking.get('giant_swing', 0) > 0:
+        activity_summary.append(f"🎠 Giant Swing: {booking['giant_swing']} person(s)")
+    if booking.get('boat_cruise', 0) > 0:
+        activity_summary.append(f"⛵ Boat Cruise: {booking['boat_cruise']} person(s)")
+    if booking.get('canoeing', 0) > 0:
+        activity_summary.append(f"🛶 Canoeing: {booking['canoeing']} person(s)")
+    if booking.get('fishing', 0) > 0:
+        activity_summary.append(f"🎣 Fishing: {booking['fishing']} person(s)")
+    
+    activities_text = "\n".join(activity_summary) if activity_summary else "None selected"
+    
+    confirmation_msg = f"""✅ *BOOKING CONFIRMED!*
+
+Thank you for choosing Stephen Margolis Resort!
+
+*Booking Reference:* {booking_ref}
+*Date:* {booking['date']}
+*Contact:* {booking.get('display_name', 'Guest')}
+
+*Group Details:*
+👨 Adults: {booking['adults']}
+👧 Children: {booking['children']}
+🅿️ Parking Needed: {'Yes' if booking.get('parking_needed') else 'No'}
+
+*Activities Selected:*
+{activities_text}
+
+*Cost Breakdown:*
+💰 Entrance Fee: ${float(booking['entrance_fee']):.2f}
+🎯 Activities Total: ${float(booking['activities_total']):.2f}
+🅿️ Parking: ${parking_fee:.2f}
+━━━━━━━━━━━━━━━━━━
+💵 *TOTAL: ${float(booking['total_amount']):.2f}*
+
+*Next Steps:*
+1️⃣ Our team will contact you within 24 hours
+2️⃣ Bring your ID on the day of visit
+3️⃣ Arrive 15 minutes before your booking time
+
+📞 Questions? Call +263779897192
+
+We look forward to hosting you! 🌟"""
+    
+    # Send via WhatsApp adapter
+    result = adapters['whatsapp'].send_message(customer_phone, confirmation_msg)
+    
+    if not result.get('success'):
+        return jsonify({'success': False, 'error': result.get('error', 'Failed to send WhatsApp message')}), 500
+    
+    # Save to message history
+    with get_db_cursor(commit=True) as cursor:
+        cursor.execute('SELECT id FROM contacts WHERE phone_number = %s OR platform_user_id = %s', 
+                      (f'+{customer_phone}', customer_phone))
+        contact = cursor.fetchone()
+        if contact:
+            save_message(contact['id'], 'whatsapp', 'outgoing', f"Booking confirmation resent: {booking_ref}\n{confirmation_msg}")
+    
+    return jsonify({'success': True, 'message': f'Confirmation resent for {booking_ref}'})
     
 @app.route('/api/whatsapp/sync-contacts', methods=['POST'])
 @login_required

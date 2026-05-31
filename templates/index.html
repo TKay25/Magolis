@@ -1092,29 +1092,40 @@
                             <td><span class="badge ${statusClass}">${statusText}</span></td>
                             <td>
                                 <button class="btn btn-sm btn-outline-primary mb-1" style="font-size:0.65rem;" onclick="viewBookingDetails(${b.id})"><i class="bi bi-eye"></i> View</button>
-                                ${b.status === 'pending' ? `<button class="btn btn-sm btn-outline-success mb-1 ms-1" style="font-size:0.65rem;" onclick="confirmBookingFromAdmin(${b.id}, '${b.booking_reference}', '${b.phone_number}')"><i class="bi bi-check-lg"></i> Confirm</button>
-                                <button class="btn btn-sm btn-outline-danger mb-1 ms-1" style="font-size:0.65rem;" onclick="declineBookingFromAdmin(${b.id}, '${b.booking_reference}', '${b.phone_number}')"><i class="bi bi-x-lg"></i> Decline</button>` : ''}
+                                ${b.status === 'pending' ? 
+                                    `<button class="btn btn-sm btn-outline-success mb-1 ms-1" style="font-size:0.65rem;" onclick="confirmBookingFromAdmin(${b.id}, '${b.booking_reference}', '${b.phone_number}')"><i class="bi bi-check-lg"></i> Confirm</button>
+                                    <button class="btn btn-sm btn-outline-danger mb-1 ms-1" style="font-size:0.65rem;" onclick="declineBookingFromAdmin(${b.id}, '${b.booking_reference}', '${b.phone_number}')"><i class="bi bi-x-lg"></i> Decline</button>` : 
+                                    (b.status === 'confirmed' ? 
+                                        `<button class="btn btn-sm btn-outline-warning mb-1 ms-1" style="font-size:0.65rem;" onclick="resendConfirmation(${b.id}, '${b.booking_reference}', '${b.phone_number}')"><i class="bi bi-envelope-paper"></i> Resend</button>` : 
+                                        `<button class="btn btn-sm btn-outline-secondary mb-1 ms-1" style="font-size:0.65rem;" disabled>No Actions</button>`
+                                    )
+                                }
                             </td>
                         </tr>`;
                         
-                        // Hidden row for details (will be toggled)
+                        // Hidden row for details
+                        const parkingFee = b.parking_needed ? 5 : 0;
                         html += `<tr id="booking-detail-${b.id}" style="display:none; background:#f8f9fa;">
                             <td colspan="7">
                                 <div class="p-2">
+                                    <strong>📋 Booking Details</strong><br><br>
                                     <strong>Activities Selected:</strong><br>
-                                    ${b.zipline > 0 ? `• Ziplining: ${b.zipline} person(s)<br>` : ''}
-                                    ${b.horse_riding > 0 ? `• Horse Riding: ${b.horse_riding} person(s)<br>` : ''}
-                                    ${b.vr > 0 ? `• VR: ${b.vr} person(s)<br>` : ''}
-                                    ${b.giant_swing > 0 ? `• Giant Swing: ${b.giant_swing} person(s)<br>` : ''}
-                                    ${b.boat_cruise > 0 ? `• Boat Cruise: ${b.boat_cruise} person(s)<br>` : ''}
-                                    ${b.canoeing > 0 ? `• Canoeing: ${b.canoeing} person(s)<br>` : ''}
-                                    ${b.fishing > 0 ? `• Fishing: ${b.fishing} person(s)<br>` : ''}
-                                    <strong>Cost Breakdown:</strong><br>
+                                    ${b.zipline > 0 ? `• Ziplining: ${b.zipline} person(s) - $${b.zipline * 5}<br>` : ''}
+                                    ${b.horse_riding > 0 ? `• Horse Riding: ${b.horse_riding} person(s) - $${b.horse_riding * 5}<br>` : ''}
+                                    ${b.vr > 0 ? `• VR: ${b.vr} person(s) - $${b.vr * 5}<br>` : ''}
+                                    ${b.giant_swing > 0 ? `• Giant Swing: ${b.giant_swing} person(s) - $${b.giant_swing * 5}<br>` : ''}
+                                    ${b.boat_cruise > 0 ? `• Boat Cruise: ${b.boat_cruise} person(s) - $${b.boat_cruise * 5}<br>` : ''}
+                                    ${b.canoeing > 0 ? `• Canoeing: ${b.canoeing} person(s) - $${b.canoeing * 5}<br>` : ''}
+                                    ${b.fishing > 0 ? `• Fishing: ${b.fishing} person(s) - $${b.fishing * 5}<br>` : ''}
+                                    <br>
+                                    <strong>💰 Cost Breakdown:</strong><br>
                                     • Entrance Fee: $${parseFloat(b.entrance_fee).toFixed(2)}<br>
                                     • Activities Total: $${parseFloat(b.activities_total).toFixed(2)}<br>
-                                    • Parking: $${parseFloat(b.parking_fee || 0).toFixed(2)}<br>
-                                    <strong>Submitted:</strong> ${new Date(b.submitted_at).toLocaleString()}
-                                    ${b.confirmed_at ? `<br><strong>Confirmed:</strong> ${new Date(b.confirmed_at).toLocaleString()}` : ''}
+                                    • Parking Fee: $${parkingFee}.00<br>
+                                    <strong>━━━━━━━━━━━━━━━━━━</strong><br>
+                                    <strong>💵 TOTAL: $${parseFloat(b.total_amount).toFixed(2)}</strong><br><br>
+                                    <strong>📅 Submitted:</strong> ${new Date(b.submitted_at).toLocaleString()}
+                                    ${b.confirmed_at ? `<br><strong>✅ Confirmed:</strong> ${new Date(b.confirmed_at).toLocaleString()}` : ''}
                                 </div>
                             </td>
                         </tr>`;
@@ -1153,6 +1164,7 @@
                 if (data.success) {
                     showToast('Booking Confirmed', `Booking ${bookingRef} confirmed and customer notified`, 'success');
                     loadBookings();
+                    loadDashboardStats();
                 } else {
                     showToast('Error', data.error || 'Failed to confirm booking', 'danger');
                 }
@@ -1175,8 +1187,30 @@
                 if (data.success) {
                     showToast('Booking Declined', `Booking ${bookingRef} declined and customer notified`, 'success');
                     loadBookings();
+                    loadDashboardStats();
                 } else {
                     showToast('Error', data.error || 'Failed to decline booking', 'danger');
+                }
+            } catch (e) {
+                showToast('Error', e.message, 'danger');
+            }
+        }
+
+        async function resendConfirmation(bookingId, bookingRef, phoneNumber) {
+            if (!confirm(`Resend confirmation for booking ${bookingRef}? The customer will receive the confirmation message again.`)) return;
+            
+            try {
+                const res = await fetch('/api/admin/resend-confirmation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ booking_id: bookingId, booking_reference: bookingRef, phone_number: phoneNumber })
+                });
+                
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Resent', `Confirmation message resent for ${bookingRef}`, 'success');
+                } else {
+                    showToast('Error', data.error || 'Failed to resend', 'danger');
                 }
             } catch (e) {
                 showToast('Error', e.message, 'danger');
