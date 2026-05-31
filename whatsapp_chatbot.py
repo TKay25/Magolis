@@ -621,34 +621,129 @@ We look forward to hearing from you!"""
         if message_lower in ['menu', 'main menu', 'start', 'hello', 'hi', 'hey', 'help']:
             return self.get_menu('main')
         
-        # Keyword to menu mapping
+        # Keyword to menu mapping - COMPLETED with all options
         keyword_to_menu = {
+            # Activities
             'activity': 'activities',
             'entrance': 'activities',
             'fee': 'activities',
+            'zipline': 'activities',
+            'vr': 'activities',
+            'virtual reality': 'activities',
+            'horse': 'activities',
+            'riding': 'activities',
+            'boat': 'activities',
+            'cruise': 'activities',
+            'giant swing': 'activities',
+            'swing': 'activities',
+            'kids': 'activities',
+            'play area': 'activities',
+            'fishing': 'activities',
+            'canoe': 'activities',
+            'canoeing': 'activities',
+            'putt putt': 'activities',
+            'putt-putt': 'activities',
+            'braai': 'activities',
+            'parking': 'activities',
+            'price': 'activities',
+            'cost': 'activities',
+            
+            # Accommodation
             'room': 'accommodation',
             'stay': 'accommodation',
+            'standard room': 'accommodation',
+            'deluxe': 'accommodation',
+            'executive': 'accommodation',
+            'platinum': 'accommodation',
+            'suite': 'accommodation',
+            'day rest': 'accommodation',
+            'check in': 'accommodation',
+            'check out': 'accommodation',
+            'extra bed': 'accommodation',
+            'deposit': 'accommodation',
+            
+            # Restaurant
             'food': 'restaurant',
             'menu': 'restaurant',
             'eat': 'restaurant',
+            'drink': 'restaurant',
+            'starter': 'restaurant',
+            'wings': 'restaurant',
+            'kebab': 'restaurant',
+            'spring roll': 'restaurant',
+            'samoosa': 'restaurant',
+            'burger': 'restaurant',
+            'chicken': 'restaurant',
+            'steak': 'restaurant',
+            't-bone': 'restaurant',
+            'rice': 'restaurant',
+            'chips': 'restaurant',
+            'fries': 'restaurant',
+            'salad': 'restaurant',
+            'dessert': 'restaurant',
+            'ice cream': 'restaurant',
+            
+            # Birthday
             'birthday': 'birthday',
             'party': 'birthday',
+            'celebrate': 'birthday',
+            
+            # Weddings
             'wedding': 'wedding',
             'marry': 'wedding',
+            'marriage': 'wedding',
+            'bride': 'wedding',
+            'groom': 'wedding',
+            'honeymoon': 'wedding',
+            
+            # Conference
             'conference': 'conference',
             'meeting': 'conference',
             'team building': 'conference',
+            'teambuilding': 'conference',
+            'corporate': 'conference',
+            'business': 'conference',
+            
+            # Educational
             'school': 'educational',
             'tour': 'educational',
+            'educational': 'educational',
+            'student': 'educational',
+            'teacher': 'educational',
+            'museum': 'educational',
+            'bushman': 'educational',
+            'tree': 'educational',
+            'dorm': 'educational',
+            'curriculum': 'educational',
+            
+            # Getaway
             'getaway': 'getaway',
             'package': 'getaway',
+            'night': 'getaway',
+            'full board': 'getaway',
+            'discount': 'getaway',
+            'save': 'getaway',
+            
+            # Location
             'location': 'location',
             'direction': 'location',
             'address': 'location',
+            'map': 'location',
+            'google': 'location',
+            'driving': 'location',
+            'transport': 'location',
+            'kombi': 'location',
+            'taxi': 'location',
+            
+            # Contact
             'contact': 'contact',
             'phone': 'contact',
-            'price': 'activities',
-            'cost': 'activities',
+            'whatsapp': 'contact',
+            'email': 'contact',
+            'call': 'contact',
+            'hours': 'contact',
+            'opening': 'contact',
+            'office': 'contact',
         }
         
         for keyword, menu_id in keyword_to_menu.items():
@@ -658,19 +753,19 @@ We look forward to hearing from you!"""
         # Default response
         default_text = """🤖 *I can help you with:*
 
-• Activities & Entrance Fees
-• Accommodation Booking
-• Restaurant Menu
-• Birthday Packages
-• Weddings
-• Conferences & Team Building
-• Educational Tours
-• Getaway Packages
-• Location & Directions
-• Contact Information
+    • Activities & Entrance Fees
+    • Accommodation Booking
+    • Restaurant Menu
+    • Birthday Packages
+    • Weddings
+    • Conferences & Team Building
+    • Educational Tours
+    • Getaway Packages
+    • Location & Directions
+    • Contact Information
 
-*Type "MENU" to see all options* or ask me anything about Stephen Margolis Resort!
+    *Type "MENU" to see all options* or ask me anything about Stephen Margolis Resort!
 
-📞 For immediate assistance: +263779897192"""
+    📞 For immediate assistance: +263779897192"""
         
         return WhatsAppInteractiveMenu.create_text_message(default_text), 'main'
