@@ -503,23 +503,10 @@ We look forward to hearing from you!"""
     def _handle_action_buttons(self, action_id: str, sender_id: str = None, adapter=None) -> Optional[Dict]:
         """Handle action button clicks with text responses that include menus"""
         
-        # For book_activity - simple text response (template removed)
         if action_id == 'book_activity':
-            text = """📅 *Activity Booking Request Received!*
-
-Please reply with:
-• Activity name (Zipline/VR/Horse Riding/Boat Cruise/Giant Swing)
-• Number of people
-• Preferred date
-
-Example: "Zipline, 3 people, this Saturday"
-
-Our team will confirm availability within 24 hours!
-
-📞 For urgent bookings: +263779897192
-
-Type MENU to return to main menu."""
-            return WhatsAppInteractiveMenu.create_text_message(text)
+            # Return a marker to send template instead of button message
+            return {'type': 'template', 'template_name': 'margolisactivitybooking', 'language': 'en'}
+    
         
         # For ask_activities - return button message as before
         if action_id == 'ask_activities':
