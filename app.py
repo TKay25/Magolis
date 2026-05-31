@@ -105,9 +105,113 @@ def get_db_cursor(commit=True):
         if conn:
             conn.close()
 
+def calculate_activity_booking(adults, children, parking_needed, activities):
+    """Calculate total cost for activity booking"""
+    
+    # Entrance fees
+    ADULT_ENTRANCE = 5.00
+    CHILD_ENTRANCE = 3.00
+    ACTIVITY_FEE = 5.00
+    PARKING_FEE = 5.00
+    
+    entrance_total = (adults * ADULT_ENTRANCE) + (children * CHILD_ENTRANCE)
+    
+    # Calculate activity totals
+    activities_total = sum([
+        activities.get('zipline', 0),
+        activities.get('horse_riding', 0),
+        activities.get('vr', 0),
+        activities.get('giant_swing', 0),
+        activities.get('boat_cruise', 0),
+        activities.get('canoeing', 0),
+        activities.get('fishing', 0)
+    ]) * ACTIVITY_FEE
+    
+    parking_total = PARKING_FEE if parking_needed else 0
+    total = entrance_total + activities_total + parking_total
+    
+    return {
+        'entrance_fee': entrance_total,
+        'activities_total': activities_total,
+        'parking_fee': parking_total,
+        'total': total
+    }
+
+def create_booking_reference():
+    """Generate unique booking reference"""
+    import random
+    import string
+    timestamp = datetime.now().strftime('%Y%m%d%H%M')
+    random_chars = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+    return f"ACT-{timestamp}-{random_chars}"
+
+def save_activity_booking(contact_id, booking_data):
+    """Save activity booking to database"""
+    with get_db_cursor(commit=True) as cursor:
+        cursor.execute('''
+            INSERT INTO activity_bookings (
+                contact_id, booking_reference, date, adults, children, parking_needed,
+                zipline, horse_riding, vr, giant_swing, boat_cruise, canoeing, fishing,
+                entrance_fee, activities_total, total_amount, status, flow_token, submitted_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ''', (
+            contact_id, booking_data['booking_reference'], booking_data['date'],
+            booking_data['adults'], booking_data['children'], booking_data['parking_needed'],
+            booking_data['zipline'], booking_data['horse_riding'], booking_data['vr'],
+            booking_data['giant_swing'], booking_data['boat_cruise'], booking_data['canoeing'],
+            booking_data['fishing'], booking_data['entrance_fee'], booking_data['activities_total'],
+            booking_data['total_amount'], 'pending', booking_data['flow_token'], datetime.now()
+        ))
+        return cursor.fetchone()['id'] if hasattr(cursor, 'fetchone') else None
+
+def confirm_booking(booking_reference):
+    """Confirm a booking"""
+    with get_db_cursor(commit=True) as cursor:
+        cursor.execute('''
+            UPDATE activity_bookings 
+            SET confirmed = TRUE, confirmed_at = %s, status = 'confirmed'
+            WHERE booking_reference = %s
+        ''', (datetime.now(), booking_reference))
+        return cursor.rowcount > 0
+
+def get_booking_by_reference(booking_reference):
+    """Get booking by reference number"""
+    with get_db_cursor(commit=False) as cursor:
+        cursor.execute('SELECT * FROM activity_bookings WHERE booking_reference = %s', (booking_reference,))
+        return cursor.fetchone()
+
 def init_db():
     """Initialize database tables"""
     with get_db_cursor(commit=True) as cursor:
+
+        # Activity Bookings table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS activity_bookings (
+                id SERIAL PRIMARY KEY,
+                contact_id INTEGER REFERENCES contacts(id) ON DELETE CASCADE,
+                booking_reference TEXT UNIQUE NOT NULL,
+                date DATE NOT NULL,
+                adults INTEGER NOT NULL,
+                children INTEGER NOT NULL,
+                parking_needed BOOLEAN DEFAULT FALSE,
+                zipline INTEGER DEFAULT 0,
+                horse_riding INTEGER DEFAULT 0,
+                vr INTEGER DEFAULT 0,
+                giant_swing INTEGER DEFAULT 0,
+                boat_cruise INTEGER DEFAULT 0,
+                canoeing INTEGER DEFAULT 0,
+                fishing INTEGER DEFAULT 0,
+                entrance_fee DECIMAL(10,2) NOT NULL,
+                activities_total DECIMAL(10,2) NOT NULL,
+                total_amount DECIMAL(10,2) NOT NULL,
+                status TEXT DEFAULT 'pending',
+                flow_token TEXT,
+                submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                confirmed_at TIMESTAMP,
+                confirmed BOOLEAN DEFAULT FALSE
+            )
+        ''')
+
         # Users table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
@@ -894,6 +998,245 @@ def whatsapp_diagnose():
     result = adapters['whatsapp'].diagnose()
     return jsonify(result)
 
+@app.route('/webhook/flow-submission', methods=['POST'])
+def flow_submission_webhook():
+    """Handle WhatsApp Flow form submissions"""
+    try:
+        payload = request.json
+        print(f"\n📋 FLOW SUBMISSION RECEIVED")
+        print(f"Payload: {json.dumps(payload, indent=2)}")
+        
+        # Extract flow data
+        flow_token = payload.get('flow_token')
+        contact_id = payload.get('contact_id')
+        flow_data = payload.get('data', {})
+        
+        # Extract form data from the flow
+        # Screen 0 data
+        booking_date = flow_data.get('screen_0_Date_0', '')
+        adults = int(flow_data.get('screen_0_Adults_1', 0))
+        children = int(flow_data.get('screen_0_Children_2', 0))
+        parking_needed = flow_data.get('screen_0_Will_you_need_Parking_Space_3', 'No') == 'Yes'
+        
+        # Screen 1 data (activity counts)
+        activities = {
+            'zipline': int(flow_data.get('screen_1_Ziplining_0', 0)),
+            'horse_riding': int(flow_data.get('screen_1_Horse_Riding_1', 0)),
+            'vr': int(flow_data.get('screen_1_VR_VIRTUAL_REALITY_2', 0)),
+            'giant_swing': int(flow_data.get('screen_1_Giant_Swing_3', 0)),
+            'boat_cruise': int(flow_data.get('screen_1_Boat_Cruise_4', 0)),
+            'canoeing': int(flow_data.get('screen_1_Canoeing_5', 0)),
+            'fishing': int(flow_data.get('screen_1_Fishing_6', 0))
+        }
+        
+        # Calculate costs
+        costs = calculate_activity_booking(adults, children, parking_needed, activities)
+        
+        # Generate booking reference
+        booking_ref = create_booking_reference()
+        
+        # Save to database
+        booking_record = {
+            'booking_reference': booking_ref,
+            'date': booking_date,
+            'adults': adults,
+            'children': children,
+            'parking_needed': parking_needed,
+            'zipline': activities['zipline'],
+            'horse_riding': activities['horse_riding'],
+            'vr': activities['vr'],
+            'giant_swing': activities['giant_swing'],
+            'boat_cruise': activities['boat_cruise'],
+            'canoeing': activities['canoeing'],
+            'fishing': activities['fishing'],
+            'entrance_fee': costs['entrance_fee'],
+            'activities_total': costs['activities_total'],
+            'total_amount': costs['total'],
+            'flow_token': flow_token
+        }
+        
+        save_activity_booking(contact_id, booking_record)
+        
+        # Get contact phone number to send confirmation
+        with get_db_cursor(commit=False) as cursor:
+            cursor.execute('SELECT phone_number, display_name FROM contacts WHERE id = %s', (contact_id,))
+            contact = cursor.fetchone()
+        
+        # Build summary message
+        summary_message = build_booking_summary(booking_ref, booking_date, adults, children, 
+                                                parking_needed, activities, costs, contact)
+        
+        # Send the summary via WhatsApp
+        wa = adapters['whatsapp']
+        wa.send_message(contact['phone_number'].lstrip('+'), summary_message)
+        
+        return jsonify({'success': True, 'booking_reference': booking_ref}), 200
+        
+    except Exception as e:
+        print(f"❌ Flow submission error: {e}")
+        logger.error(f"Flow submission error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+def build_booking_summary(booking_ref, booking_date, adults, children, parking_needed, activities, costs, contact):
+    """Build the booking summary message with confirm/decline buttons"""
+    
+    # Build activity summary
+    activity_lines = []
+    activity_map = {
+        'zipline': '🎢 Ziplining',
+        'horse_riding': '🐎 Horse Riding', 
+        'vr': '🥽 VR (Virtual Reality)',
+        'giant_swing': '🎠 Giant Swing',
+        'boat_cruise': '⛵ Boat Cruise',
+        'canoeing': '🛶 Canoeing',
+        'fishing': '🎣 Fishing'
+    }
+    
+    for key, name in activity_map.items():
+        count = activities.get(key, 0)
+        if count > 0:
+            activity_lines.append(f"   • {name}: {count} person(s)")
+    
+    activities_text = "\n".join(activity_lines) if activity_lines else "   • None selected"
+    
+    summary = f"""📋 *ACTIVITY BOOKING SUMMARY*
+
+*Booking Reference:* {booking_ref}
+*Date:* {booking_date}
+*Contact:* {contact.get('display_name', 'Guest')}
+
+*Group Details:*
+👨 Adults: {adults}
+👧 Children: {children}
+🅿️ Parking Needed: {'Yes' if parking_needed else 'No'}
+
+*Activities Selected:*
+{activities_text}
+
+*Cost Breakdown:*
+💰 Entrance Fee: ${costs['entrance_fee']:.2f}
+🎯 Activities Total: ${costs['activities_total']:.2f}
+🅿️ Parking: ${costs['parking_fee']:.2f}
+━━━━━━━━━━━━━━━━━━
+💵 *TOTAL: ${costs['total']:.2f}*
+
+*Payment Instructions:*
+💳 50% deposit required to confirm booking
+🏦 Ecobank Account: 1234567890
+📱 Send proof of payment to +263779897192
+
+Would you like to confirm this booking?
+
+⚠️ *Note:* Booking is not confirmed until deposit is received and verified.
+
+Tap CONFIRM to proceed or DECLINE to cancel."""
+    
+    # Create buttons for confirmation
+    buttons = [
+        {'id': f'confirm_booking_{booking_ref}', 'title': '✅ Confirm'},
+        {'id': f'decline_booking_{booking_ref}', 'title': '❌ Decline'},
+        {'id': 'main', 'title': '🏠 Main Menu'}
+    ]
+    
+    return WhatsAppInteractiveMenu.create_button_message(summary, buttons)
+
+def notify_staff_about_booking(booking_ref):
+    """Send internal notification to multiple staff members"""
+    booking = get_booking_by_reference(booking_ref)
+    if not booking:
+        return
+    
+    # Get contact info
+    with get_db_cursor(commit=False) as cursor:
+        cursor.execute('SELECT phone_number, display_name FROM contacts WHERE id = %s', (booking['contact_id'],))
+        contact = cursor.fetchone()
+    
+    notification = f"""🔔 *NEW ACTIVITY BOOKING*
+
+Reference: {booking_ref}
+Customer: {contact.get('display_name', 'Guest')}
+Phone: {contact.get('phone_number', 'N/A')}
+Date: {booking['date']}
+Adults: {booking['adults']}
+Children: {booking['children']}
+Total: ${float(booking['total_amount']):.2f}
+
+*Activity Breakdown:*
+🎢 Zipline: {booking['zipline']} people
+🐎 Horse Riding: {booking['horse_riding']} people
+🥽 VR: {booking['vr']} people
+🎠 Giant Swing: {booking['giant_swing']} people
+⛵ Boat Cruise: {booking['boat_cruise']} people
+🛶 Canoeing: {booking['canoeing']} people
+🎣 Fishing: {booking['fishing']} people
+
+📋 Action Required: Contact customer to confirm booking.
+
+View in dashboard: https://magolis.onrender.com"""
+    
+    # Get list of staff numbers from environment
+    staff_numbers_str = os.getenv('STAFF_WHATSAPP_NUMBERS', '')
+    staff_numbers = [num.strip() for num in staff_numbers_str.split(',') if num.strip()]
+    
+    # If no staff numbers configured, use default
+    if not staff_numbers:
+        staff_numbers = ['263774822568']  # Default resort number
+    
+    # Send notification to each staff member
+    success_count = 0
+    for staff_number in staff_numbers:
+        try:
+            # Remove any leading plus sign if present
+            clean_number = staff_number.lstrip('+')
+            result = adapters['whatsapp'].send_message(clean_number, notification)
+            if result.get('success'):
+                success_count += 1
+                print(f"   📧 Staff notification sent to {staff_number}")
+            else:
+                print(f"   ❌ Failed to send to {staff_number}: {result.get('error')}")
+        except Exception as e:
+            print(f"   ❌ Error sending to {staff_number}: {e}")
+    
+    # Also log to database for audit trail
+    with get_db_cursor(commit=True) as cursor:
+        cursor.execute('''
+            INSERT INTO notifications (booking_id, recipients_count, sent_count, notification_type, sent_at)
+            VALUES (%s, %s, %s, %s, %s)
+        ''', (booking['id'], len(staff_numbers), success_count, 'booking_confirmation', datetime.now()))
+    
+    return success_count
+
+def send_booking_confirmation(contact_phone, booking_ref):
+    """Send final confirmation message after user confirms"""
+    
+    confirmation = f"""✅ *BOOKING CONFIRMED!*
+
+Thank you for choosing Stephen Margolis Resort!
+
+*Your Booking Reference:* {booking_ref}
+
+We have received your activity booking request. Our team will contact you within 24 hours to:
+• Confirm availability
+• Provide payment details
+• Answer any questions
+
+*Next Steps:*
+1️⃣ Check your WhatsApp for updates
+2️⃣ Send proof of payment when ready
+3️⃣ Reply with MENU for other services
+
+📞 Need help? Call +263779897192
+
+We look forward to hosting you! 🌟"""
+    
+    # Also save to database as a special message
+    buttons = [
+        {'id': 'activities', 'title': '🎯 Activities'},
+        {'id': 'main', 'title': '🏠 Main Menu'}
+    ]
+    
+    return WhatsAppInteractiveMenu.create_button_message(confirmation, buttons)
+
 @app.route('/webhook/whatsappmagolis', methods=['GET', 'POST'])
 def whatsapp_webhook_magolis():
     """WhatsApp Cloud API webhook — with metadata logging and duplicate prevention"""
@@ -1090,7 +1433,53 @@ def whatsapp_webhook_magolis():
                             interaction_id = interactive['button_reply']['id']
                             print(f"   🎯 Button clicked: {interaction_id}")
 
-                            if interaction_id == 'book_activity':
+
+                                                        # In the button_reply section, add these handlers
+                            if interaction_id.startswith('confirm_booking_'):
+                                # Extract booking reference
+                                booking_ref = interaction_id.replace('confirm_booking_', '')
+                                
+                                # Confirm the booking in database
+                                confirm_booking(booking_ref)
+                                
+                                # Send confirmation message
+                                confirmation_msg = send_booking_confirmation(sender_wa_id, booking_ref)
+                                result = adapters['whatsapp'].send_interactive_message(sender_wa_id, confirmation_msg)
+                                
+                                # Also notify admin/staff (optional)
+                                # Send internal notification to your team
+                                notify_staff_about_booking(booking_ref)
+                                
+                            elif interaction_id.startswith('decline_booking_'):
+                                booking_ref = interaction_id.replace('decline_booking_', '')
+                                
+                                # Update booking status to declined
+                                with get_db_cursor(commit=True) as cursor:
+                                    cursor.execute('''
+                                        UPDATE activity_bookings 
+                                        SET status = 'declined' 
+                                        WHERE booking_reference = %s
+                                    ''', (booking_ref,))
+                                
+                                decline_msg = f"""❌ *Booking Declined*
+
+                            Your booking {booking_ref} has been cancelled.
+
+                            No payment is required at this time.
+
+                            Would you like to make a new booking or explore other services?"""
+                                
+                                buttons = [
+                                    {'id': 'book_activity', 'title': '📅 Book Again'},
+                                    {'id': 'main', 'title': '🏠 Main Menu'}
+                                ]
+                                
+                                result = adapters['whatsapp'].send_interactive_message(
+                                    sender_wa_id, 
+                                    WhatsAppInteractiveMenu.create_button_message(decline_msg, buttons)
+                                )
+
+                            elif interaction_id == 'book_activity':
                                 # Send Flow template
                                 result = adapters['whatsapp'].send_template_message(
                                     sender_wa_id, 
