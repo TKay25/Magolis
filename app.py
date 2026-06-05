@@ -22,6 +22,7 @@ from flask import Flask, request, jsonify, session, redirect, url_for, render_te
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 import requests
 
@@ -69,6 +70,17 @@ logger.info("SocketIO running in threading mode")
 
 # Initialize WhatsApp Chatbot
 chatbot = StephenMargolisChatbot()
+
+# ==================== FILE UPLOADS SETUP ====================
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
+ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+
+# Create uploads folder if it doesn't exist
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # ==================== DATABASE SETUP ====================
 
@@ -270,6 +282,9 @@ def init_db():
                 name TEXT NOT NULL,
                 platform TEXT NOT NULL,
                 message TEXT NOT NULL,
+                header TEXT,
+                footer TEXT,
+                image_url TEXT,
                 audience_filter TEXT,
                 total_recipients INTEGER DEFAULT 0,
                 sent_count INTEGER DEFAULT 0,
@@ -355,14 +370,14 @@ def get_recipients_for_broadcast(platform, audience_filter='all', tags=None):
         cursor.execute(query, tuple(params))
         return [dict(row) for row in cursor.fetchall()]
 
-def create_broadcast_record(user_id, name, platform, message, audience_filter, total_recipients):
+def create_broadcast_record(user_id, name, platform, message, audience_filter, total_recipients, header=None, footer=None, image_url=None):
     """Create a broadcast record"""
     with get_db_cursor(commit=True) as cursor:
         cursor.execute('''
-            INSERT INTO broadcasts (user_id, name, platform, message, audience_filter, total_recipients, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO broadcasts (user_id, name, platform, message, header, footer, image_url, audience_filter, total_recipients, status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
-        ''', (user_id, name, platform, message, audience_filter, total_recipients, 'processing'))
+        ''', (user_id, name, platform, message, header, footer, image_url, audience_filter, total_recipients, 'processing'))
         return cursor.fetchone()['id']
 
 def update_broadcast_stats(broadcast_id, sent_count, failed_count):
@@ -611,6 +626,36 @@ class WhatsAppAdapter:
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
+    def send_image(self, recipient_id, image_url, caption=''):
+        """Send an image with optional caption"""
+        if not self.is_configured:
+            return {'success': False, 'error': self.init_error or 'WhatsApp not configured'}
+        
+        to = recipient_id.lstrip('+')
+        url = f"https://graph.facebook.com/v18.0/{self.phone_number_id}/messages"
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to,
+            "type": "image",
+            "image": {"link": image_url}
+        }
+        if caption:
+            payload["image"]["caption"] = caption
+        
+        try:
+            response = requests.post(url, json=payload, headers=self._headers(), timeout=30)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('messages'):
+                    return {'success': True, 'platform': 'whatsapp', 'message_id': data['messages'][0].get('id')}
+            error_data = response.json()
+            error_msg = error_data.get('error', {}).get('message', f'HTTP {response.status_code}')
+            logger.error(f"WhatsApp image send failed: {error_msg}")
+            return {'success': False, 'error': error_msg}
+        except Exception as e:
+            logger.error(f"WhatsApp send_image exception: {e}")
+            return {'success': False, 'error': str(e)}
+
     def diagnose(self):
         """Check token validity and phone number registration"""
         result = {
@@ -792,6 +837,33 @@ class FacebookAdapter:
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
+    def send_image(self, recipient_id, image_url, caption=''):
+        """Send an image with optional caption"""
+        if not self.is_configured:
+            return {'success': False, 'error': 'Facebook not configured'}
+        
+        url = f"https://graph.facebook.com/v18.0/me/messages"
+        payload = {
+            "recipient": {"id": recipient_id},
+            "message": {"attachment": {"type": "image", "payload": {"url": image_url}}},
+            "messaging_type": "RESPONSE"
+        }
+        if caption:
+            payload["message"]["text"] = caption
+        
+        headers = {
+            "Authorization": f"Bearer {self.page_access_token}",
+            "Content-Type": "application/json"
+        }
+        
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=30)
+            if response.status_code == 200:
+                return {'success': True, 'platform': 'facebook'}
+            return {'success': False, 'error': f'HTTP {response.status_code}: {response.text}'}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
 
 class InstagramAdapter:
     def __init__(self):
@@ -861,6 +933,33 @@ class InstagramAdapter:
             "message": {"text": content},
             "messaging_type": "RESPONSE"
         }
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json"
+        }
+        
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=30)
+            if response.status_code == 200:
+                return {'success': True, 'platform': 'instagram'}
+            return {'success': False, 'error': f'HTTP {response.status_code}: {response.text}'}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def send_image(self, recipient_id, image_url, caption=''):
+        """Send an image with optional caption"""
+        if not self.is_configured:
+            return {'success': False, 'error': 'Instagram not configured'}
+        
+        url = f"https://graph.facebook.com/v18.0/{self.page_id}/messages"
+        payload = {
+            "recipient": {"id": recipient_id},
+            "message": {"attachment": {"type": "image", "payload": {"url": image_url}}},
+            "messaging_type": "RESPONSE"
+        }
+        if caption:
+            payload["message"]["text"] = caption
+        
         headers = {
             "Authorization": f"Bearer {self.access_token}",
             "Content-Type": "application/json"
@@ -1984,12 +2083,51 @@ def send_message():
     
     return jsonify(result)
 
+@app.route('/api/upload-image', methods=['POST'])
+@login_required
+def upload_image():
+    """Upload broadcast image"""
+    if 'image' not in request.files:
+        return jsonify({'success': False, 'error': 'No image file provided'}), 400
+    
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'No file selected'}), 400
+    
+    if not allowed_file(file.filename):
+        return jsonify({'success': False, 'error': 'Invalid file type. Allowed: JPG, PNG, GIF, WebP'}), 400
+    
+    if file.content_length and file.content_length > MAX_FILE_SIZE:
+        return jsonify({'success': False, 'error': 'File too large. Max 5MB'}), 400
+    
+    try:
+        # Generate unique filename
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        ext = secure_filename(file.filename).rsplit('.', 1)[1].lower()
+        filename = f"broadcast_{timestamp}_{os.urandom(4).hex()}.{ext}"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        
+        # Save file
+        file.save(filepath)
+        
+        # Return accessible URL (relative path for local development, adjust for production)
+        file_url = f"/static/uploads/{filename}"
+        
+        logger.info(f"Image uploaded: {filename}")
+        return jsonify({'success': True, 'url': file_url, 'filename': filename})
+    except Exception as e:
+        logger.error(f"Image upload error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/broadcast', methods=['POST'])
 @login_required
 def broadcast_message():
     data = request.json
     platform = data.get('platform')
     message = data.get('message')
+    header = data.get('header', '')
+    footer = data.get('footer', '')
+    image_url = data.get('image_url', '')
     audience_filter = data.get('audience_filter', 'all')
     tags = data.get('tags')
     campaign_name = data.get('campaign_name', f"Broadcast {datetime.now().strftime('%Y-%m-%d %H:%M')}")
@@ -2012,20 +2150,38 @@ def broadcast_message():
     
     broadcast_id = create_broadcast_record(
         session['user_id'], campaign_name, platform, message, 
-        audience_filter, len(recipients)
+        audience_filter, len(recipients), header, footer, image_url
     )
     
     def process_broadcast():
         sent_count = 0
         failed_count = 0
         
+        # Format message with header and footer
+        formatted_message = message
+        if header:
+            formatted_message = f"*{header}*\n\n{formatted_message}"
+        if footer:
+            formatted_message = f"{formatted_message}\n\n_{footer}_"
+        
         try:
             for i, recipient in enumerate(recipients):
-                try:
-                    result = adapter.send_message(recipient['platform_user_id'], message)
-                except Exception as e:
-                    logger.error(f"Broadcast send exception for {recipient['platform_user_id']}: {e}")
-                    result = {'success': False, 'error': str(e)}
+                result = {'success': True}
+                
+                # Send image first if provided
+                if image_url and platform == 'whatsapp':
+                    try:
+                        result = adapter.send_image(recipient['platform_user_id'], image_url, caption=formatted_message if platform == 'whatsapp' else '')
+                    except Exception as e:
+                        logger.error(f"Broadcast image send exception for {recipient['platform_user_id']}: {e}")
+                        result = {'success': False, 'error': str(e)}
+                else:
+                    # Send text message
+                    try:
+                        result = adapter.send_message(recipient['platform_user_id'], formatted_message)
+                    except Exception as e:
+                        logger.error(f"Broadcast send exception for {recipient['platform_user_id']}: {e}")
+                        result = {'success': False, 'error': str(e)}
                 
                 add_broadcast_recipient(
                     broadcast_id, 
@@ -2036,7 +2192,7 @@ def broadcast_message():
                 
                 if result.get('success'):
                     sent_count += 1
-                    save_message(recipient['id'], platform, 'outgoing', message)
+                    save_message(recipient['id'], platform, 'outgoing', formatted_message)
                 else:
                     failed_count += 1
                     logger.error(f"Broadcast {broadcast_id} failed for {recipient['platform_user_id']}: {result.get('error')}")

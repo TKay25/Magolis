@@ -490,7 +490,10 @@
                                             <div id="platform-hint" class="mb-2"></div>
                                             <div class="mb-2"><label class="form-label">Audience</label><select id="broadcast-audience" class="form-select" onchange="toggleTagFilter(); updateRecipientCount();"><option value="all">All opted-in contacts</option><option value="active">Active (last 30 days)</option><option value="tagged">Tagged contacts</option></select></div>
                                             <div class="mb-2" id="tag-filter-container" style="display: none;"><label class="form-label">Tags (comma)</label><input type="text" id="broadcast-tags" class="form-control" placeholder="vip,newsletter" oninput="updateRecipientCount()"></div>
+                                            <div class="mb-2"><label class="form-label">Message Header (Bold)</label><input type="text" id="broadcast-header" class="form-control" placeholder="e.g., 🎉 Exclusive Offer" style="font-weight: 600;"></div>
                                             <div class="mb-2"><label class="form-label">Message</label><textarea id="broadcast-message" class="form-control" rows="3" placeholder="Type your broadcast message here..."></textarea></div>
+                                            <div class="mb-2"><label class="form-label">Message Footer (Light)</label><input type="text" id="broadcast-footer" class="form-control" placeholder="e.g., This offer expires in 24 hours" style="font-size: 0.85rem; color: #999;"></div>
+                                            <div class="mb-2"><label class="form-label">Image (Optional)</label><div class="d-flex gap-2 align-items-center"><input type="file" id="broadcast-image-file" class="form-control" accept="image/*" onchange="previewBroadcastImage()"><span id="broadcast-image-preview" class="text-muted" style="font-size:0.7rem;"></span></div><input type="hidden" id="broadcast-image-url"></div>
                                             <div class="mb-2"><label class="form-label">Delay between messages (seconds)</label><input type="number" id="broadcast-rate" class="form-control" value="1" step="0.5"></div>
                                             <button class="btn btn-primary px-3 py-1" id="broadcast-btn" onclick="startBroadcast()"><i class="bi bi-megaphone me-1"></i> Start Broadcast</button>
                                             <div id="broadcast-result" class="mt-2"></div>
@@ -1818,16 +1821,53 @@
                 </div>`;
         }
         
+        function previewBroadcastImage(){
+            let fileInput = document.getElementById('broadcast-image-file');
+            let preview = document.getElementById('broadcast-image-preview');
+            if(fileInput.files && fileInput.files[0]){
+                let file = fileInput.files[0];
+                let size = (file.size / 1024 / 1024).toFixed(2);
+                preview.innerText = `📷 ${file.name} (${size}MB)`;
+            } else {
+                preview.innerText = '';
+            }
+        }
+        
         async function startBroadcast(){ 
             let name = document.getElementById('broadcast-name').value.trim(); 
             let platform = document.getElementById('broadcast-platform').value; 
             let audience = document.getElementById('broadcast-audience').value; 
             let tags = document.getElementById('broadcast-tags').value; 
+            let header = document.getElementById('broadcast-header').value.trim(); 
             let message = document.getElementById('broadcast-message').value.trim(); 
+            let footer = document.getElementById('broadcast-footer').value.trim(); 
+            let image_url = document.getElementById('broadcast-image-url').value.trim(); 
             let rate = parseFloat(document.getElementById('broadcast-rate').value); 
             let count = parseInt(document.getElementById('recipient-count').innerText); 
             if(!name || !message){ showToast('Error', 'Campaign name and message required', 'danger'); return; } 
             if(count === 0){ showToast('Error', 'No recipients found', 'danger'); return; } 
+            
+            // Upload image if file selected
+            let imageFile = document.getElementById('broadcast-image-file').files[0];
+            if(imageFile && !image_url){
+                try {
+                    const formData = new FormData();
+                    formData.append('image', imageFile);
+                    let uploadRes = await fetch('/api/upload-image', { method: 'POST', body: formData });
+                    let uploadData = await uploadRes.json();
+                    if(uploadData.success){
+                        image_url = uploadData.url;
+                        document.getElementById('broadcast-image-url').value = image_url;
+                    } else {
+                        showToast('Error', 'Image upload failed: ' + (uploadData.error || 'Unknown error'), 'danger');
+                        return;
+                    }
+                } catch(e){
+                    showToast('Error', 'Image upload error: ' + e.message, 'danger');
+                    return;
+                }
+            }
+            
             if(!confirm(`Send broadcast to ${count} recipients via ${platform}? This may take a few minutes.`)) return; 
             let btn = document.getElementById('broadcast-btn');
             btn.disabled = true; 
@@ -1845,13 +1885,18 @@
                 let res = await fetch('/api/broadcast', {
                     method: 'POST', 
                     headers: {'Content-Type': 'application/json'}, 
-                    body: JSON.stringify({campaign_name: name, platform, audience_filter: audience, tags, message, rate_limit: rate})
+                    body: JSON.stringify({campaign_name: name, platform, audience_filter: audience, tags, header, message, footer, image_url, rate_limit: rate})
                 }); 
                 let data = await res.json(); 
                 if(data.success){ 
                     _activeBroadcastId = data.broadcast_id;
                     document.getElementById('broadcast-name').value = ''; 
-                    document.getElementById('broadcast-message').value = ''; 
+                    document.getElementById('broadcast-header').value = '';
+                    document.getElementById('broadcast-message').value = '';
+                    document.getElementById('broadcast-footer').value = '';
+                    document.getElementById('broadcast-image-file').value = '';
+                    document.getElementById('broadcast-image-url').value = '';
+                    document.getElementById('broadcast-image-preview').innerText = '';
                     loadBroadcasts(); 
                 } else {
                     const _arErr = isAppReviewError(data.error);
