@@ -495,6 +495,32 @@
                                             <div class="mb-2"><label class="form-label">Message Footer (Light)</label><input type="text" id="broadcast-footer" class="form-control" placeholder="e.g., This offer expires in 24 hours" style="font-size: 0.85rem; color: #999;" oninput="updateMessagePreview()"></div>
                                             <div class="mb-2"><label class="form-label">Image (Optional)</label><div class="d-flex gap-2 align-items-center"><input type="file" id="broadcast-image-file" class="form-control" accept="image/*" onchange="previewBroadcastImage()"><span id="broadcast-image-preview" class="text-muted" style="font-size:0.7rem;"></span></div><input type="hidden" id="broadcast-image-url"></div>
                                             <div class="mb-2"><label class="form-label">Delay between messages (seconds)</label><input type="number" id="broadcast-rate" class="form-control" value="1" step="0.5"></div>
+                                            
+                                            <!-- Exclude Contacts Section -->
+                                            <div class="mb-2">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" style="width:100%; text-align:left;" onclick="toggleExcludeContacts()">
+                                                    <i class="bi bi-funnel me-1"></i> Exclude Contacts (Optional) <span id="exclude-count" style="float:right;">0 excluded</span>
+                                                </button>
+                                                <div id="exclude-contacts-panel" style="display:none; margin-top:8px; padding:10px; background:#f9fbfd; border-radius:8px; border:1px solid #e9ecef;">
+                                                    <div class="mb-2">
+                                                        <label style="font-size:0.75rem; font-weight:600;">Filter by Last Message Date</label>
+                                                        <div class="d-flex gap-2 align-items-center mb-2">
+                                                            <input type="date" id="exclude-date-from" class="form-control form-control-sm" onchange="autoExcludeByDate()">
+                                                            <span style="font-size:0.7rem;">to</span>
+                                                            <input type="date" id="exclude-date-to" class="form-control form-control-sm" onchange="autoExcludeByDate()">
+                                                        </div>
+                                                        <small style="color:#999;">Exclude contacts who last messaged outside this date range</small>
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <button type="button" class="btn btn-xs btn-outline-primary py-0 px-2" style="font-size:0.65rem;" onclick="loadBroadcastContactsList()">Load Contacts</button>
+                                                        <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2" style="font-size:0.65rem;" onclick="clearAllExclusions()">Clear All</button>
+                                                    </div>
+                                                    <div id="broadcast-contacts-list" style="max-height:200px; overflow-y:auto; border:1px solid #ddd; border-radius:6px; padding:6px; background:white; font-size:0.7rem;">
+                                                        <div style="text-align:center; padding:10px; color:#999;">Click "Load Contacts" to show list</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
                                             <button class="btn btn-primary px-3 py-1" id="broadcast-btn" onclick="startBroadcast()"><i class="bi bi-megaphone me-1"></i> Start Broadcast</button>
                                             <div id="broadcast-result" class="mt-2"></div>
                                             <!-- Live progress panel -->
@@ -1787,8 +1813,10 @@
                     }); 
                     let d = await r.json(); 
                     if(d.success) {
-                        document.getElementById('recipient-count').innerText = d.count;
-                        if(d.count === 0) showToast('No Recipients', 'No opted-in contacts found for this platform/audience. Sync contacts first.', 'warning');
+                        let count = d.count - _broadcastExcludedContacts.size;
+                        count = Math.max(0, count);
+                        document.getElementById('recipient-count').innerText = count;
+                        if(count === 0) showToast('No Recipients', 'No opted-in contacts found for this platform/audience. Sync contacts first.', 'warning');
                     } 
                 } catch(e){ showToast('Error', 'Could not fetch recipient count', 'danger'); } 
             }
@@ -1883,6 +1911,108 @@
             }
         }
         
+        let _broadcastExcludedContacts = new Set();
+        let _broadcastContactsList = [];
+        
+        function toggleExcludeContacts(){
+            let panel = document.getElementById('exclude-contacts-panel');
+            if(panel.style.display === 'none'){
+                panel.style.display = 'block';
+                if(_broadcastContactsList.length === 0 && _broadcastExcludedContacts.size === 0){
+                    loadBroadcastContactsList();
+                }
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+        
+        async function loadBroadcastContactsList(){
+            let platform = document.getElementById('broadcast-platform').value;
+            try {
+                let res = await fetch(`/api/contacts?platform=${platform}&limit=1000`);
+                let data = await res.json();
+                if(data.success && data.contacts){
+                    _broadcastContactsList = data.contacts;
+                    renderBroadcastContactsForExclusion();
+                } else {
+                    showToast('Error', 'Failed to load contacts', 'danger');
+                }
+            } catch(e){
+                showToast('Error', e.message, 'danger');
+            }
+        }
+        
+        function renderBroadcastContactsForExclusion(){
+            let html = '';
+            _broadcastContactsList.forEach(contact => {
+                let isExcluded = _broadcastExcludedContacts.has(contact.id);
+                let lastMsg = contact.last_interaction ? new Date(contact.last_interaction).toLocaleDateString() : 'Never';
+                html += `
+                    <div style="padding:4px; border-bottom:1px solid #eee; display:flex; align-items:center; gap:6px;">
+                        <input type="checkbox" id="exc-${contact.id}" ${isExcluded ? 'checked' : ''} onchange="toggleExcludeContact(${contact.id})">
+                        <label for="exc-${contact.id}" style="margin:0; flex:1; cursor:pointer; font-size:0.7rem;">
+                            <strong>${escapeHtml(contact.display_name || contact.platform_user_id)}</strong><br>
+                            <span style="color:#999; font-size:0.65rem;">Last: ${lastMsg}</span>
+                        </label>
+                    </div>
+                `;
+            });
+            document.getElementById('broadcast-contacts-list').innerHTML = html || '<div style="padding:10px; text-align:center; color:#999;">No contacts found</div>';
+            updateExcludeCountDisplay();
+        }
+        
+        function toggleExcludeContact(contactId){
+            if(_broadcastExcludedContacts.has(contactId)){
+                _broadcastExcludedContacts.delete(contactId);
+            } else {
+                _broadcastExcludedContacts.add(contactId);
+            }
+            updateExcludeCountDisplay();
+            updateRecipientCount();
+        }
+        
+        function autoExcludeByDate(){
+            let dateFrom = document.getElementById('exclude-date-from').value;
+            let dateTo = document.getElementById('exclude-date-to').value;
+            
+            if(!dateFrom || !dateTo){
+                return;
+            }
+            
+            let fromTime = new Date(dateFrom).getTime();
+            let toTime = new Date(dateTo).getTime();
+            
+            _broadcastContactsList.forEach(contact => {
+                if(!contact.last_interaction){
+                    _broadcastExcludedContacts.add(contact.id);
+                    return;
+                }
+                let lastMsgTime = new Date(contact.last_interaction).getTime();
+                if(lastMsgTime < fromTime || lastMsgTime > toTime){
+                    _broadcastExcludedContacts.add(contact.id);
+                } else {
+                    _broadcastExcludedContacts.delete(contact.id);
+                }
+            });
+            
+            renderBroadcastContactsForExclusion();
+        }
+        
+        function clearAllExclusions(){
+            _broadcastExcludedContacts.clear();
+            _broadcastContactsList = [];
+            document.getElementById('broadcast-contacts-list').innerHTML = '<div style="text-align:center; padding:10px; color:#999;">Click "Load Contacts" to show list</div>';
+            document.getElementById('exclude-date-from').value = '';
+            document.getElementById('exclude-date-to').value = '';
+            updateExcludeCountDisplay();
+            updateRecipientCount();
+        }
+        
+        function updateExcludeCountDisplay(){
+            let count = _broadcastExcludedContacts.size;
+            document.getElementById('exclude-count').innerText = count > 0 ? `${count} excluded` : '0 excluded';
+        }
+        
         async function startBroadcast(){ 
             let name = document.getElementById('broadcast-name').value.trim(); 
             let platform = document.getElementById('broadcast-platform').value; 
@@ -1935,7 +2065,18 @@
                 let res = await fetch('/api/broadcast', {
                     method: 'POST', 
                     headers: {'Content-Type': 'application/json'}, 
-                    body: JSON.stringify({campaign_name: name, platform, audience_filter: audience, tags, header, message, footer, image_url, rate_limit: rate})
+                    body: JSON.stringify({
+                        campaign_name: name, 
+                        platform, 
+                        audience_filter: audience, 
+                        tags, 
+                        header, 
+                        message, 
+                        footer, 
+                        image_url, 
+                        rate_limit: rate,
+                        excluded_contact_ids: Array.from(_broadcastExcludedContacts)
+                    })
                 }); 
                 let data = await res.json(); 
                 if(data.success){ 
@@ -1947,6 +2088,8 @@
                     document.getElementById('broadcast-image-file').value = '';
                     document.getElementById('broadcast-image-url').value = '';
                     document.getElementById('broadcast-image-preview').innerText = '';
+                    _broadcastExcludedContacts.clear();
+                    updateExcludeCountDisplay();
                     loadBroadcasts(); 
                 } else {
                     const _arErr = isAppReviewError(data.error);

@@ -45,6 +45,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = os.getenv('SECRET_KEY', 'your-super-secret-key-change-this')
 app.permanent_session_lifetime = timedelta(days=7)
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB max file size
 
 # CORS
 CORS(app, supports_credentials=True, origins=[
@@ -406,7 +407,7 @@ def add_broadcast_recipient(broadcast_id, contact_id, status, error_message=None
             VALUES (%s, %s, %s, %s, %s)
         ''', (broadcast_id, contact_id, status, error_message, datetime.now()))
 
-def get_all_contacts(platform=None, opt_in_only=False, search=None):
+def get_all_contacts(platform=None, opt_in_only=False, search=None, limit=200):
     """Get contacts for display"""
     with get_db_cursor(commit=False) as cursor:
         query = "SELECT * FROM contacts WHERE 1=1"
@@ -419,7 +420,8 @@ def get_all_contacts(platform=None, opt_in_only=False, search=None):
         if search:
             query += " AND (display_name ILIKE %s OR platform_user_id ILIKE %s)"
             params.extend([f"%{search}%", f"%{search}%"])
-        query += " ORDER BY last_interaction DESC NULLS LAST LIMIT 200"
+        query += " ORDER BY last_interaction DESC NULLS LAST LIMIT %s"
+        params.append(limit)
         cursor.execute(query, tuple(params))
         return [dict(row) for row in cursor.fetchall()]
 
@@ -2132,6 +2134,7 @@ def broadcast_message():
     tags = data.get('tags')
     campaign_name = data.get('campaign_name', f"Broadcast {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     rate_limit = data.get('rate_limit', 1)
+    excluded_contact_ids = data.get('excluded_contact_ids', [])
     
     if not platform or not message:
         return jsonify({'success': False, 'error': 'Missing required fields'}), 400
@@ -2144,6 +2147,10 @@ def broadcast_message():
         return jsonify({'success': False, 'error': f'{platform} is not configured'}), 400
     
     recipients = get_recipients_for_broadcast(platform, audience_filter, tags)
+    
+    # Filter out excluded contacts
+    excluded_set = set(excluded_contact_ids)
+    recipients = [r for r in recipients if r['id'] not in excluded_set]
     
     if not recipients:
         return jsonify({'success': False, 'error': 'No recipients found matching criteria'}), 404
@@ -2294,13 +2301,18 @@ def get_contacts():
     platform = request.args.get('platform')
     opt_in_only = request.args.get('opt_in_only', 'false').lower() == 'true'
     search = request.args.get('search', '')
+    limit = request.args.get('limit', 200)
+    try:
+        limit = int(limit)
+    except:
+        limit = 200
 
     if platform in (None, '', 'facebook'):
         fb_sync = maybe_backfill_facebook_contacts(force=False)
         if not fb_sync.get('success') and not fb_sync.get('skipped'):
             logger.warning(f"Facebook backfill skipped due to error: {fb_sync.get('error')}")
     
-    contacts = get_all_contacts(platform, opt_in_only, search)
+    contacts = get_all_contacts(platform, opt_in_only, search, limit)
     
     return jsonify({'success': True, 'contacts': contacts, 'count': len(contacts)})
 
