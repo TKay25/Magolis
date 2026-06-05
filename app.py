@@ -309,6 +309,14 @@ def init_db():
             )
         ''')
         
+        # Add missing columns to broadcasts table if they don't exist (for existing databases)
+        cursor.execute('''
+            ALTER TABLE broadcasts
+            ADD COLUMN IF NOT EXISTS header TEXT,
+            ADD COLUMN IF NOT EXISTS footer TEXT,
+            ADD COLUMN IF NOT EXISTS image_url TEXT
+        ''')
+        
         # Insert default admin user
         cursor.execute("SELECT id FROM users WHERE username = 'admin'")
         if not cursor.fetchone():
