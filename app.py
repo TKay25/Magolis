@@ -2175,15 +2175,15 @@ def broadcast_message():
             for i, recipient in enumerate(recipients):
                 result = {'success': True}
                 
-                # Send image first if provided
-                if image_url and platform == 'whatsapp':
+                # Send image if provided (all platforms support it)
+                if image_url:
                     try:
-                        result = adapter.send_image(recipient['platform_user_id'], image_url, caption=formatted_message if platform == 'whatsapp' else '')
+                        result = adapter.send_image(recipient['platform_user_id'], image_url, caption=formatted_message)
                     except Exception as e:
                         logger.error(f"Broadcast image send exception for {recipient['platform_user_id']}: {e}")
                         result = {'success': False, 'error': str(e)}
                 else:
-                    # Send text message
+                    # Send text message only
                     try:
                         result = adapter.send_message(recipient['platform_user_id'], formatted_message)
                     except Exception as e:
