@@ -2120,10 +2120,11 @@ def upload_image():
         # Save file
         file.save(filepath)
         
-        # Return accessible URL (relative path for local development, adjust for production)
-        file_url = f"/static/uploads/{filename}"
+        # Build absolute URL for Meta API (needs full URL, not relative path)
+        base_url = f"https://{request.host}" if request.host else os.getenv('APP_URL', 'https://magolis.onrender.com')
+        file_url = f"{base_url}/static/uploads/{filename}"
         
-        logger.info(f"Image uploaded: {filename}")
+        logger.info(f"Image uploaded: {filename} -> {file_url}")
         return jsonify({'success': True, 'url': file_url, 'filename': filename})
     except Exception as e:
         logger.error(f"Image upload error: {e}")
@@ -2181,15 +2182,20 @@ def broadcast_message():
         
         try:
             for i, recipient in enumerate(recipients):
-                result = {'success': True}
+                result = {'success': False}
                 
                 # Send image if provided (all platforms support it)
                 if image_url:
                     try:
                         result = adapter.send_image(recipient['platform_user_id'], image_url, caption=formatted_message)
                     except Exception as e:
-                        logger.error(f"Broadcast image send exception for {recipient['platform_user_id']}: {e}")
-                        result = {'success': False, 'error': str(e)}
+                        logger.warning(f"Broadcast image send failed for {recipient['platform_user_id']}: {e}, falling back to text only")
+                        # Fall back to text message if image fails
+                        try:
+                            result = adapter.send_message(recipient['platform_user_id'], formatted_message)
+                        except Exception as e2:
+                            logger.error(f"Broadcast text fallback failed for {recipient['platform_user_id']}: {e2}")
+                            result = {'success': False, 'error': f"Image: {str(e)}, Text: {str(e2)}"}
                 else:
                     # Send text message only
                     try:
