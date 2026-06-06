@@ -14,18 +14,39 @@
             box-sizing: border-box;
         }
 
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
         body {
             font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
             background: #ffffff;
             color: #1e2a3e;
             font-size: 0.8rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container-fluid {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .row.g-0 {
+            width: 100%;
+            height: 100%;
+            display: flex;
         }
 
         .sidebar {
-            min-height: 100vh;
+            height: 100%;
             background: #0B2B4F;
             transition: all 0.2s ease;
             box-shadow: 2px 0 12px rgba(0, 0, 0, 0.04);
+            overflow-y: auto;
         }
 
         .sidebar .nav-link {
@@ -45,6 +66,37 @@
             text-align: center;
         }
 
+        .col-md-9.col-lg-10.ms-auto {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .p-2.p-md-3 {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 0.5rem !important;
+        }
+
+        @media (min-width: 768px) {
+            .p-2.p-md-3 {
+                padding: 1rem !important;
+            }
+        }
+
+        .tab-content {
+            display: none;
+            height: 100%;
+            overflow-y: auto;
+            animation: fadeInUp 0.3s ease-out;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
         .card-modern {
             background: white;
             border-radius: 1rem;
@@ -52,6 +104,7 @@
             box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
             margin-bottom: 1rem;
             overflow: hidden;
+            flex-shrink: 0;
         }
 
         .card-header-modern {
@@ -179,6 +232,35 @@
             animation: fadeInUp 0.3s ease-out;
         }
 
+        /* Broadcast Tab - Two Column Layout */
+        #broadcast-tab .row.g-2 {
+            height: calc(100vh - 120px);
+        }
+
+        #broadcast-tab .col-lg-7 {
+            overflow-y: auto;
+            max-height: calc(100vh - 120px);
+        }
+
+        #broadcast-tab .col-lg-5 {
+            overflow-y: auto;
+            max-height: calc(100vh - 120px);
+        }
+
+        /* Contacts/History/Status/Bookings Tab - Full Height */
+        #contacts-tab,
+        #history-tab,
+        #status-tab,
+        #bookings-tab {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Individual scrollable lists */
+        .contact-list, .message-list, .broadcast-list {
+            overflow-y: auto;
+        }
+
         @keyframes fadeInUp {
             from {
                 opacity: 0;
@@ -213,25 +295,41 @@
         }
 
         @media (max-width: 768px) {
+            .container-fluid {
+                flex-direction: column;
+            }
+
+            .row.g-0 {
+                flex-direction: column;
+            }
+
             .sidebar {
                 position: fixed;
                 left: -260px;
+                top: 0;
                 z-index: 1050;
                 transition: left 0.2s;
                 width: 240px;
+                height: 100vh;
             }
             .sidebar.show {
                 left: 0;
             }
+
+            .col-md-9.col-lg-10.ms-auto {
+                width: 100%;
+                height: 100%;
+            }
+
             .stat-number {
                 font-size: 1.1rem;
             }
             body {
                 font-size: 0.75rem;
             }
-            /* push content below hamburger button */
+
             .p-2.p-md-3 {
-                padding-top: 52px !important;
+                padding-top: 50px !important;
             }
         }
 
@@ -486,7 +584,7 @@
                                         <div class="card-header-modern"><i class="bi bi-megaphone me-1"></i> Create Campaign</div>
                                         <div class="card-body p-3">
                                             <div class="mb-2"><label class="form-label">Campaign Name</label><input type="text" id="broadcast-name" class="form-control" placeholder="e.g., Weekly Digest"></div>
-                                            <div class="mb-2"><label class="form-label">Platform</label><select id="broadcast-platform" class="form-select" onchange="updateRecipientCount(); updatePlatformHint(); updateMessagePreview()"><option value="whatsapp">WhatsApp</option><option value="facebook">Facebook Messenger</option><option value="instagram">Instagram DM</option></select></div>
+                                            <div class="mb-2"><label class="form-label">Platform</label><select id="broadcast-platform" class="form-select" onchange="updateRecipientCount(); updatePlatformHint(); updateMessagePreview()"><option value="whatsapp">WhatsApp Only</option><option value="facebook">Facebook Messenger Only</option><option value="instagram">Instagram DM Only</option><option value="all" style="border-top: 1px solid #ddd; padding-top: 4px;">📢 Send to ALL Platforms (WA + FB + IG)</option></select></div>
                                             <div id="platform-hint" class="mb-2"></div>
                                             <div class="mb-2"><label class="form-label">Audience</label><select id="broadcast-audience" class="form-select" onchange="toggleTagFilter(); updateRecipientCount();"><option value="all">All opted-in contacts</option><option value="active">Active (last 30 days)</option><option value="tagged">Tagged contacts</option></select></div>
                                             <div class="mb-2" id="tag-filter-container" style="display: none;"><label class="form-label">Tags (comma)</label><input type="text" id="broadcast-tags" class="form-control" placeholder="vip,newsletter" oninput="updateRecipientCount()"></div>
@@ -546,18 +644,65 @@
                                         </div>
                                     </div>
                                     <div class="card-modern mb-2">
-                                        <div class="card-header-modern"><i class="bi bi-chat-dots me-1"></i> Message Preview</div>
-                                        <div class="card-body p-2" style="background: #f9fbfd; border-radius: 0.75rem; font-size: 0.75rem;">
-                                            <div style="margin-bottom: 8px;">
-                                                <small style="color: #999; font-weight: 600; text-transform: uppercase;">WhatsApp</small>
-                                                <div id="preview-whatsapp" style="background: white; padding: 8px; border-radius: 6px; margin-top: 4px; line-height: 1.4; border-left: 3px solid #25D366;">
-                                                    <span style="color: #999; font-size: 0.65rem;">Preview will appear here</span>
+                                        <div class="card-header-modern"><i class="bi bi-phone me-1"></i> <span id="preview-platform-label">WhatsApp Preview</span></div>
+                                        <div class="card-body p-3" style="background: linear-gradient(135deg, #f8fbfd 0%, #ffffff 100%); min-height: 200px; display: flex; flex-direction: column;">
+                                            <!-- Preview for WhatsApp -->
+                                            <div id="preview-whatsapp-section" style="display: block;">
+                                                <div style="background: white; padding: 12px; border-radius: 8px; border-left: 4px solid #25D366; box-shadow: 0 2px 4px rgba(37, 211, 102, 0.1);">
+                                                    <small style="color: #25D366; font-weight: 700; text-transform: uppercase; font-size: 0.6rem; letter-spacing: 0.5px;">WhatsApp Message</small>
+                                                    <div id="preview-whatsapp" style="margin-top: 8px; line-height: 1.6; font-size: 0.75rem; color: #1e2a3e;">
+                                                        <span style="color: #999; font-size: 0.65rem;">Preview will appear here</span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div style="margin-bottom: 8px;">
-                                                <small style="color: #999; font-weight: 600; text-transform: uppercase;">Facebook / Instagram</small>
-                                                <div id="preview-facebook" style="background: white; padding: 8px; border-radius: 6px; margin-top: 4px; line-height: 1.4; border-left: 3px solid #1877F2;">
-                                                    <span style="color: #999; font-size: 0.65rem;">Preview will appear here</span>
+                                            
+                                            <!-- Preview for Facebook -->
+                                            <div id="preview-facebook-section" style="display: none;">
+                                                <div style="background: white; padding: 12px; border-radius: 8px; border-left: 4px solid #1877F2; box-shadow: 0 2px 4px rgba(24, 119, 242, 0.1);">
+                                                    <small style="color: #1877F2; font-weight: 700; text-transform: uppercase; font-size: 0.6rem; letter-spacing: 0.5px;">Facebook Messenger</small>
+                                                    <div id="preview-facebook" style="margin-top: 8px; line-height: 1.6; font-size: 0.75rem; color: #1e2a3e;">
+                                                        <span style="color: #999; font-size: 0.65rem;">Preview will appear here</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Preview for Instagram -->
+                                            <div id="preview-instagram-section" style="display: none;">
+                                                <div style="background: white; padding: 12px; border-radius: 8px; border-left: 4px solid #C13584; box-shadow: 0 2px 4px rgba(193, 53, 132, 0.1);">
+                                                    <small style="color: #C13584; font-weight: 700; text-transform: uppercase; font-size: 0.6rem; letter-spacing: 0.5px;">Instagram DM</small>
+                                                    <div id="preview-instagram" style="margin-top: 8px; line-height: 1.6; font-size: 0.75rem; color: #1e2a3e;">
+                                                        <span style="color: #999; font-size: 0.65rem;">Preview will appear here</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Preview for All Platforms -->
+                                            <div id="preview-all-section" style="display: none;">
+                                                <div class="row g-1">
+                                                    <div class="col-md-4">
+                                                        <div style="background: white; padding: 10px; border-radius: 8px; border-left: 3px solid #25D366;">
+                                                            <small style="color: #25D366; font-weight: 700; font-size: 0.6rem;">WhatsApp</small>
+                                                            <div id="preview-all-wa" style="margin-top: 6px; line-height: 1.5; font-size: 0.7rem; color: #1e2a3e;">
+                                                                <span style="color: #999;">Preview will appear here</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <div style="background: white; padding: 10px; border-radius: 8px; border-left: 3px solid #1877F2;">
+                                                            <small style="color: #1877F2; font-weight: 700; font-size: 0.6rem;">Facebook</small>
+                                                            <div id="preview-all-fb" style="margin-top: 6px; line-height: 1.5; font-size: 0.7rem; color: #1e2a3e;">
+                                                                <span style="color: #999;">Preview will appear here</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <div style="background: white; padding: 10px; border-radius: 8px; border-left: 3px solid #C13584;">
+                                                            <small style="color: #C13584; font-weight: 700; font-size: 0.6rem;">Instagram</small>
+                                                            <div id="preview-all-ig" style="margin-top: 6px; line-height: 1.5; font-size: 0.7rem; color: #1e2a3e;">
+                                                                <span style="color: #999;">Preview will appear here</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -1806,18 +1951,36 @@
             let tags = document.getElementById('broadcast-tags').value; 
             if(audience === 'all' || audience === 'active' || (audience === 'tagged' && tags)) {
                 try{ 
-                    let r = await fetch('/api/recipient-count', {
-                        method: 'POST', 
-                        headers: {'Content-Type': 'application/json'}, 
-                        body: JSON.stringify({platform, audience_filter: audience, tags})
-                    }); 
-                    let d = await r.json(); 
-                    if(d.success) {
-                        let count = d.count - _broadcastExcludedContacts.size;
+                    // If sending to all platforms, sum counts from all
+                    if(platform === 'all'){
+                        let totalCount = 0;
+                        for(let plat of ['whatsapp', 'facebook', 'instagram']){
+                            let r = await fetch('/api/recipient-count', {
+                                method: 'POST', 
+                                headers: {'Content-Type': 'application/json'}, 
+                                body: JSON.stringify({platform: plat, audience_filter: audience, tags})
+                            }); 
+                            let d = await r.json(); 
+                            if(d.success) totalCount += d.count;
+                        }
+                        let count = totalCount - (_broadcastExcludedContacts.size * 3); // Exclude from all 3 platforms
                         count = Math.max(0, count);
                         document.getElementById('recipient-count').innerText = count;
-                        if(count === 0) showToast('No Recipients', 'No opted-in contacts found for this platform/audience. Sync contacts first.', 'warning');
-                    } 
+                        if(count === 0) showToast('No Recipients', 'No opted-in contacts found. Sync contacts first.', 'warning');
+                    } else {
+                        let r = await fetch('/api/recipient-count', {
+                            method: 'POST', 
+                            headers: {'Content-Type': 'application/json'}, 
+                            body: JSON.stringify({platform, audience_filter: audience, tags})
+                        }); 
+                        let d = await r.json(); 
+                        if(d.success) {
+                            let count = d.count - _broadcastExcludedContacts.size;
+                            count = Math.max(0, count);
+                            document.getElementById('recipient-count').innerText = count;
+                            if(count === 0) showToast('No Recipients', 'No opted-in contacts found for this platform/audience. Sync contacts first.', 'warning');
+                        } 
+                    }
                 } catch(e){ showToast('Error', 'Could not fetch recipient count', 'danger'); } 
             }
         }
@@ -1883,31 +2046,80 @@
             let message = document.getElementById('broadcast-message').value.trim();
             let footer = document.getElementById('broadcast-footer').value.trim();
             let hasImage = document.getElementById('broadcast-image-file').files.length > 0;
+            let platform = document.getElementById('broadcast-platform').value;
             
-            // Format for WhatsApp (bold header with *, italic footer with _)
+            // Format for WhatsApp
             let whatsappPreview = '';
-            if(hasImage) whatsappPreview += '📷 [Image]\n\n';
+            if(hasImage) whatsappPreview += '📷 <strong>[Image]</strong>\n\n';
             if(header) whatsappPreview += `<strong>${escapeHtml(header)}</strong>\n\n`;
             whatsappPreview += escapeHtml(message);
-            if(footer) whatsappPreview += `\n\n<em style="color:#999;">${escapeHtml(footer)}</em>`;
+            if(footer) whatsappPreview += `\n\n<em style="color:#888; font-size:0.9em;">${escapeHtml(footer)}</em>`;
             
-            // Format for Facebook/Instagram (similar but without WhatsApp formatting)
+            // Format for Facebook/Instagram
             let fbPreview = '';
-            if(hasImage) fbPreview += '📷 [Image]\n\n';
+            if(hasImage) fbPreview += '📷 <strong>[Image]</strong>\n\n';
             if(header) fbPreview += `<strong>${escapeHtml(header)}</strong>\n\n`;
             fbPreview += escapeHtml(message);
-            if(footer) fbPreview += `\n\n<span style="color:#999; font-size:0.7rem;">${escapeHtml(footer)}</span>`;
+            if(footer) fbPreview += `\n\n<span style="color:#888; font-size:0.9em;">${escapeHtml(footer)}</span>`;
             
             // Update preview elements
             let waEl = document.getElementById('preview-whatsapp');
             let fbEl = document.getElementById('preview-facebook');
+            let igEl = document.getElementById('preview-instagram');
             
+            let previewContent = '';
             if(message){
+                previewContent = message === '' ? 
+                    '<span style="color: #999; font-size: 0.65rem;">Preview will appear here</span>' :
+                    '<span></span>';
                 waEl.innerHTML = whatsappPreview.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
                 fbEl.innerHTML = fbPreview.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+                igEl.innerHTML = fbPreview.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+                
+                // Update all platforms preview
+                document.getElementById('preview-all-wa').innerHTML = whatsappPreview.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+                document.getElementById('preview-all-fb').innerHTML = fbPreview.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+                document.getElementById('preview-all-ig').innerHTML = fbPreview.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
             } else {
                 waEl.innerHTML = '<span style="color: #999; font-size: 0.65rem;">Preview will appear here</span>';
                 fbEl.innerHTML = '<span style="color: #999; font-size: 0.65rem;">Preview will appear here</span>';
+                igEl.innerHTML = '<span style="color: #999; font-size: 0.65rem;">Preview will appear here</span>';
+                document.getElementById('preview-all-wa').innerHTML = '<span style="color: #999; font-size: 0.65rem;">Preview will appear here</span>';
+                document.getElementById('preview-all-fb').innerHTML = '<span style="color: #999; font-size: 0.65rem;">Preview will appear here</span>';
+                document.getElementById('preview-all-ig').innerHTML = '<span style="color: #999; font-size: 0.65rem;">Preview will appear here</span>';
+            }
+            
+            // Show/hide preview sections based on platform
+            let waSec = document.getElementById('preview-whatsapp-section');
+            let fbSec = document.getElementById('preview-facebook-section');
+            let igSec = document.getElementById('preview-instagram-section');
+            let allSec = document.getElementById('preview-all-section');
+            let label = document.getElementById('preview-platform-label');
+            
+            if(platform === 'whatsapp'){
+                waSec.style.display = 'block';
+                fbSec.style.display = 'none';
+                igSec.style.display = 'none';
+                allSec.style.display = 'none';
+                label.textContent = '📱 WhatsApp Preview';
+            } else if(platform === 'facebook'){
+                waSec.style.display = 'none';
+                fbSec.style.display = 'block';
+                igSec.style.display = 'none';
+                allSec.style.display = 'none';
+                label.textContent = '📱 Facebook Messenger Preview';
+            } else if(platform === 'instagram'){
+                waSec.style.display = 'none';
+                fbSec.style.display = 'none';
+                igSec.style.display = 'block';
+                allSec.style.display = 'none';
+                label.textContent = '📱 Instagram DM Preview';
+            } else if(platform === 'all'){
+                waSec.style.display = 'none';
+                fbSec.style.display = 'none';
+                igSec.style.display = 'none';
+                allSec.style.display = 'block';
+                label.textContent = '📢 All Platforms Preview';
             }
         }
         
@@ -2048,7 +2260,8 @@
                 }
             }
             
-            if(!confirm(`Send broadcast to ${count} recipients via ${platform}? This may take a few minutes.`)) return; 
+            let platformLabel = platform === 'all' ? 'ALL PLATFORMS (WhatsApp, Facebook, Instagram)' : platform;
+            if(!confirm(`Send broadcast to ${count} recipients via ${platformLabel}? This may take a few minutes.`)) return; 
             let btn = document.getElementById('broadcast-btn');
             btn.disabled = true; 
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Sending…'; 
@@ -2062,44 +2275,97 @@
             document.getElementById('blive-summary').style.display = 'none';
             document.getElementById('broadcast-live').style.display = 'block';
             try { 
-                let res = await fetch('/api/broadcast', {
-                    method: 'POST', 
-                    headers: {'Content-Type': 'application/json'}, 
-                    body: JSON.stringify({
-                        campaign_name: name, 
-                        platform, 
-                        audience_filter: audience, 
-                        tags, 
-                        header, 
-                        message, 
-                        footer, 
-                        image_url, 
-                        rate_limit: rate,
-                        excluded_contact_ids: Array.from(_broadcastExcludedContacts)
-                    })
-                }); 
-                let data = await res.json(); 
-                if(data.success){ 
-                    _activeBroadcastId = data.broadcast_id;
-                    document.getElementById('broadcast-name').value = ''; 
-                    document.getElementById('broadcast-header').value = '';
-                    document.getElementById('broadcast-message').value = '';
-                    document.getElementById('broadcast-footer').value = '';
-                    document.getElementById('broadcast-image-file').value = '';
-                    document.getElementById('broadcast-image-url').value = '';
-                    document.getElementById('broadcast-image-preview').innerText = '';
-                    _broadcastExcludedContacts.clear();
-                    updateExcludeCountDisplay();
-                    loadBroadcasts(); 
-                } else {
-                    const _arErr = isAppReviewError(data.error);
-                    showToast('Error', (data.error || 'Failed to start') + (_arErr ? ' — App Review required' : ''), 'danger');
-                    if (_arErr) {
-                        document.getElementById('broadcast-result').innerHTML = `<div class="alert alert-danger mt-2 p-2" style="font-size:0.75rem;"><i class="bi bi-patch-check-fill me-1"></i><strong>Meta App Review required.</strong> ${escapeHtml(data.error)} ${appReviewLink()}</div>`;
+                // If sending to all platforms, send to each platform
+                if(platform === 'all'){
+                    let platforms = ['whatsapp', 'facebook', 'instagram'];
+                    let successCount = 0;
+                    let failCount = 0;
+                    for(let p of platforms){
+                        try {
+                            let res = await fetch('/api/broadcast', {
+                                method: 'POST', 
+                                headers: {'Content-Type': 'application/json'}, 
+                                body: JSON.stringify({
+                                    campaign_name: `${name} (${p.toUpperCase()})`, 
+                                    platform: p, 
+                                    audience_filter: audience, 
+                                    tags, 
+                                    header, 
+                                    message, 
+                                    footer, 
+                                    image_url, 
+                                    rate_limit: rate,
+                                    excluded_contact_ids: Array.from(_broadcastExcludedContacts)
+                                })
+                            }); 
+                            let data = await res.json(); 
+                            if(data.success) {
+                                successCount++;
+                                if(!_activeBroadcastId) _activeBroadcastId = data.broadcast_id;
+                            } else {
+                                failCount++;
+                                logger.error(`Failed to send to ${p}: ${data.error}`);
+                            }
+                        } catch(e){
+                            failCount++;
+                            logger.error(`Error sending to ${p}: ${e}`);
+                        }
                     }
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="bi bi-megaphone me-1"></i> Start Broadcast';
-                    document.getElementById('broadcast-live').style.display = 'none';
+                    if(successCount > 0){
+                        document.getElementById('broadcast-name').value = ''; 
+                        document.getElementById('broadcast-header').value = '';
+                        document.getElementById('broadcast-message').value = '';
+                        document.getElementById('broadcast-footer').value = '';
+                        document.getElementById('broadcast-image-file').value = '';
+                        document.getElementById('broadcast-image-url').value = '';
+                        document.getElementById('broadcast-image-preview').innerText = '';
+                        _broadcastExcludedContacts.clear();
+                        updateExcludeCountDisplay();
+                        loadBroadcasts();
+                        showToast('Sent', `Broadcast sent to ${successCount} platform(s)${failCount > 0 ? ` (${failCount} failed)` : ''}`, successCount === 3 ? 'success' : 'warning');
+                    } else {
+                        showToast('Error', 'Failed to send broadcast to any platform', 'danger');
+                    }
+                } else {
+                    let res = await fetch('/api/broadcast', {
+                        method: 'POST', 
+                        headers: {'Content-Type': 'application/json'}, 
+                        body: JSON.stringify({
+                            campaign_name: name, 
+                            platform, 
+                            audience_filter: audience, 
+                            tags, 
+                            header, 
+                            message, 
+                            footer, 
+                            image_url, 
+                            rate_limit: rate,
+                            excluded_contact_ids: Array.from(_broadcastExcludedContacts)
+                        })
+                    }); 
+                    let data = await res.json(); 
+                    if(data.success){ 
+                        _activeBroadcastId = data.broadcast_id;
+                        document.getElementById('broadcast-name').value = ''; 
+                        document.getElementById('broadcast-header').value = '';
+                        document.getElementById('broadcast-message').value = '';
+                        document.getElementById('broadcast-footer').value = '';
+                        document.getElementById('broadcast-image-file').value = '';
+                        document.getElementById('broadcast-image-url').value = '';
+                        document.getElementById('broadcast-image-preview').innerText = '';
+                        _broadcastExcludedContacts.clear();
+                        updateExcludeCountDisplay();
+                        loadBroadcasts(); 
+                    } else {
+                        const _arErr = isAppReviewError(data.error);
+                        showToast('Error', (data.error || 'Failed to start') + (_arErr ? ' — App Review required' : ''), 'danger');
+                        if (_arErr) {
+                            document.getElementById('broadcast-result').innerHTML = `<div class="alert alert-danger mt-2 p-2" style="font-size:0.75rem;"><i class="bi bi-patch-check-fill me-1"></i><strong>Meta App Review required.</strong> ${escapeHtml(data.error)} ${appReviewLink()}</div>`;
+                        }
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-megaphone me-1"></i> Start Broadcast';
+                        document.getElementById('broadcast-live').style.display = 'none';
+                    }
                 }
             } catch(e){ 
                 showToast('Error', 'Network error', 'danger');
