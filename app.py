@@ -2148,30 +2148,47 @@ def broadcast_message():
     if not platform or not message:
         return jsonify({'success': False, 'error': 'Missing required fields'}), 400
     
-    if platform not in adapters:
-        return jsonify({'success': False, 'error': f'Invalid platform: {platform}'}), 400
+    # Handle "all" platforms - send to all three platforms
+    if platform == 'all':
+        platforms_to_send = ['whatsapp', 'facebook', 'instagram']
+        # Verify all are configured
+        for p in platforms_to_send:
+            if p not in adapters or not adapters[p].is_configured:
+                return jsonify({'success': False, 'error': f'{p} is not configured'}), 400
+    else:
+        if platform not in adapters:
+            return jsonify({'success': False, 'error': f'Invalid platform: {platform}'}), 400
+        if not adapters[platform].is_configured:
+            return jsonify({'success': False, 'error': f'{platform} is not configured'}), 400
+        platforms_to_send = [platform]
     
-    adapter = adapters[platform]
-    if not adapter.is_configured:
-        return jsonify({'success': False, 'error': f'{platform} is not configured'}), 400
-    
-    recipients = get_recipients_for_broadcast(platform, audience_filter, tags)
-    
-    # Filter out excluded contacts
+    # Get recipients for each platform
     excluded_set = set(excluded_contact_ids)
-    recipients = [r for r in recipients if r['id'] not in excluded_set]
+    recipients_by_platform = {}
+    total_recipients = 0
     
-    if not recipients:
+    for p in platforms_to_send:
+        recipients = get_recipients_for_broadcast(p, audience_filter, tags)
+        # Filter out excluded contacts
+        recipients = [r for r in recipients if r['id'] not in excluded_set]
+        if recipients:
+            recipients_by_platform[p] = recipients
+            total_recipients += len(recipients)
+    
+    if not recipients_by_platform:
         return jsonify({'success': False, 'error': 'No recipients found matching criteria'}), 404
     
+    # Store platform info in broadcast record
+    broadcast_platform = 'all' if len(platforms_to_send) > 1 else platform
     broadcast_id = create_broadcast_record(
-        session['user_id'], campaign_name, platform, message, 
-        audience_filter, len(recipients), header, footer, image_url
+        session['user_id'], campaign_name, broadcast_platform, message, 
+        audience_filter, total_recipients, header, footer, image_url
     )
     
     def process_broadcast():
         sent_count = 0
         failed_count = 0
+        recipient_index = 0
         
         # Format message with header and footer
         formatted_message = message
@@ -2181,57 +2198,67 @@ def broadcast_message():
             formatted_message = f"{formatted_message}\n\n_{footer}_"
         
         try:
-            for i, recipient in enumerate(recipients):
-                result = {'success': False}
+            # Process each platform's recipients
+            for p in platforms_to_send:
+                if p not in recipients_by_platform:
+                    continue
                 
-                # Send image if provided (all platforms support it)
-                if image_url:
-                    try:
-                        result = adapter.send_image(recipient['platform_user_id'], image_url, caption=formatted_message)
-                    except Exception as e:
-                        logger.warning(f"Broadcast image send failed for {recipient['platform_user_id']}: {e}, falling back to text only")
-                        # Fall back to text message if image fails
+                platform_recipients = recipients_by_platform[p]
+                adapter = adapters[p]
+                
+                for i, recipient in enumerate(platform_recipients):
+                    recipient_index += 1
+                    result = {'success': False}
+                    
+                    # Send image if provided (all platforms support it)
+                    if image_url:
+                        try:
+                            result = adapter.send_image(recipient['platform_user_id'], image_url, caption=formatted_message)
+                        except Exception as e:
+                            logger.warning(f"Broadcast image send failed for {recipient['platform_user_id']} on {p}: {e}, falling back to text only")
+                            # Fall back to text message if image fails
+                            try:
+                                result = adapter.send_message(recipient['platform_user_id'], formatted_message)
+                            except Exception as e2:
+                                logger.error(f"Broadcast text fallback failed for {recipient['platform_user_id']} on {p}: {e2}")
+                                result = {'success': False, 'error': f"Image: {str(e)}, Text: {str(e2)}"}
+                    else:
+                        # Send text message only
                         try:
                             result = adapter.send_message(recipient['platform_user_id'], formatted_message)
-                        except Exception as e2:
-                            logger.error(f"Broadcast text fallback failed for {recipient['platform_user_id']}: {e2}")
-                            result = {'success': False, 'error': f"Image: {str(e)}, Text: {str(e2)}"}
-                else:
-                    # Send text message only
-                    try:
-                        result = adapter.send_message(recipient['platform_user_id'], formatted_message)
-                    except Exception as e:
-                        logger.error(f"Broadcast send exception for {recipient['platform_user_id']}: {e}")
-                        result = {'success': False, 'error': str(e)}
-                
-                add_broadcast_recipient(
-                    broadcast_id, 
-                    recipient['id'], 
-                    'sent' if result.get('success') else 'failed', 
-                    result.get('error')
-                )
-                
-                if result.get('success'):
-                    sent_count += 1
-                    save_message(recipient['id'], platform, 'outgoing', formatted_message)
-                else:
-                    failed_count += 1
-                    logger.error(f"Broadcast {broadcast_id} failed for {recipient['platform_user_id']}: {result.get('error')}")
-                
-                update_broadcast_stats(broadcast_id, sent_count, failed_count)
-                socketio.emit('broadcast_progress', {
-                    'broadcast_id': broadcast_id,
-                    'index': i + 1,
-                    'total': len(recipients),
-                    'sent': sent_count,
-                    'failed': failed_count,
-                    'name': recipient.get('display_name') or recipient.get('platform_user_id', ''),
-                    'success': result.get('success', False),
-                    'error': result.get('error')
-                })
-                
-                if i < len(recipients) - 1:
-                    time.sleep(rate_limit)
+                        except Exception as e:
+                            logger.error(f"Broadcast send exception for {recipient['platform_user_id']} on {p}: {e}")
+                            result = {'success': False, 'error': str(e)}
+                    
+                    add_broadcast_recipient(
+                        broadcast_id, 
+                        recipient['id'], 
+                        'sent' if result.get('success') else 'failed', 
+                        result.get('error')
+                    )
+                    
+                    if result.get('success'):
+                        sent_count += 1
+                        save_message(recipient['id'], p, 'outgoing', formatted_message)
+                    else:
+                        failed_count += 1
+                        logger.error(f"Broadcast {broadcast_id} failed for {recipient['platform_user_id']} on {p}: {result.get('error')}")
+                    
+                    update_broadcast_stats(broadcast_id, sent_count, failed_count)
+                    socketio.emit('broadcast_progress', {
+                        'broadcast_id': broadcast_id,
+                        'index': recipient_index,
+                        'total': total_recipients,
+                        'sent': sent_count,
+                        'failed': failed_count,
+                        'name': recipient.get('display_name') or recipient.get('platform_user_id', ''),
+                        'platform': p,
+                        'success': result.get('success', False),
+                        'error': result.get('error')
+                    })
+                    
+                    if recipient_index < total_recipients:
+                        time.sleep(rate_limit)
         except Exception as e:
             logger.error(f"Broadcast {broadcast_id} thread crashed: {e}")
         finally:
@@ -2240,7 +2267,7 @@ def broadcast_message():
                 'broadcast_id': broadcast_id,
                 'sent': sent_count,
                 'failed': failed_count,
-                'total': len(recipients)
+                'total': total_recipients
             })
     
     thread = threading.Thread(target=process_broadcast)
