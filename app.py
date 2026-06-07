@@ -2130,6 +2130,7 @@ def upload_image():
         logger.error(f"Image upload error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+
 @app.route('/api/broadcast', methods=['POST'])
 @login_required
 def broadcast_message():
@@ -2169,6 +2170,7 @@ def broadcast_message():
     
     for p in platforms_to_send:
         recipients = get_recipients_for_broadcast(p, audience_filter, tags)
+
         # Filter out excluded contacts
         recipients = [r for r in recipients if r['id'] not in excluded_set]
         if recipients:
@@ -2306,6 +2308,7 @@ def import_contacts_csv():
         return jsonify({'success': False, 'error': 'No file uploaded'}), 400
 
     file = request.files['file']
+    
     if not file.filename.endswith('.csv'):
         return jsonify({'success': False, 'error': 'File must be a .csv'}), 400
 
@@ -2325,9 +2328,11 @@ def import_contacts_csv():
         if not platform or not platform_user_id:
             errors.append(f'Row {i}: missing platform or platform_user_id')
             continue
+
         display_name = row.get('display_name') or None
         phone_number = row.get('phone_number') or None
         opt_in = row.get('opt_in', 'true').lower() not in ('false', '0', 'no')
+
         try:
             save_contact(platform, platform_user_id, display_name, phone_number, opt_in)
             added += 1
@@ -2335,6 +2340,7 @@ def import_contacts_csv():
             errors.append(f'Row {i}: {str(e)}')
 
     return jsonify({'success': True, 'added': added, 'errors': errors})
+
 
 @app.route('/api/contacts', methods=['GET'])
 @login_required
